@@ -9,8 +9,8 @@ const TAB_NAMES := {
 	Tab.MARKET: "Pazar",
 }
 
-const NAV_HEIGHT := 36.0
-const NAV_FONT := 14
+const NAV_HEIGHT := 44.0
+const NAV_FONT := 20
 
 @onready var content_host: Control = $VBox/ContentHost
 @onready var combat_strip: Control = $VBox/ContentHost/CombatStrip
@@ -79,8 +79,10 @@ func _nav_style(active: bool, hover: bool = false) -> StyleBoxFlat:
 	box.border_color = Color(0.68, 0.5, 0.28)
 	box.set_border_width_all(1)
 	box.set_corner_radius_all(4)
-	box.content_margin_top = 4
-	box.content_margin_bottom = 2
+	box.content_margin_top = 6
+	box.content_margin_bottom = 4
+	box.content_margin_left = 2
+	box.content_margin_right = 2
 	return box
 
 
@@ -119,6 +121,10 @@ func _refresh_tabs() -> void:
 	for key in GameState.market_prices.keys():
 		var price: int = int(round(GameState.market_prices[key]))
 		market_list.add_item("%s  %d altin" % [key, price])
+
+	forge_label.add_theme_font_size_override("font_size", 14)
+	forge_button.add_theme_font_size_override("font_size", 16)
+	market_list.add_theme_font_size_override("font_size", 14)
 
 
 func _on_market_buy(index: int) -> void:

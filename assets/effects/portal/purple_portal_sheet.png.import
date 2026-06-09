@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dugkr5ppyt2dw"
-valid=false
+uid="uid://boa0vmv00a7h1"
+path="res://.godot/imported/purple_portal_sheet.png-6c90d2f2c913649488ae05c19c3aed01.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
-source_file="res://assets/characters/enemy_skeleton_sheet.png"
+source_file="res://assets/effects/portal/purple_portal_sheet.png"
+dest_files=["res://.godot/imported/purple_portal_sheet.png-6c90d2f2c913649488ae05c19c3aed01.ctex"]
 
 [params]
 

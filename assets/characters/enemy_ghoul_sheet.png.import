@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ljbrnrbjkiv4"
-path="res://.godot/imported/enemy_samurai_sheet.png-7bf7fb5d8f4f50eaa7844c73aff919d5.ctex"
+uid="uid://ctuv3myebwsaq"
+path="res://.godot/imported/enemy_ghoul_sheet.png-bc3a1538adb36ddd79df951527ef1f84.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/characters/enemy_samurai_sheet.png"
-dest_files=["res://.godot/imported/enemy_samurai_sheet.png-7bf7fb5d8f4f50eaa7844c73aff919d5.ctex"]
+source_file="res://assets/characters/enemy_ghoul_sheet.png"
+dest_files=["res://.godot/imported/enemy_ghoul_sheet.png-bc3a1538adb36ddd79df951527ef1f84.ctex"]
 
 [params]
 

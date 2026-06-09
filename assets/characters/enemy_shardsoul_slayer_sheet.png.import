@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bsmer2ffx7vm6"
-path="res://.godot/imported/enemy_void_mage_sheet.png-994a15fd0975c0dc898a39be0be96676.ctex"
+uid="uid://cclsm267v0xwq"
+path="res://.godot/imported/enemy_shardsoul_slayer_sheet.png-d0d31acd6fcd1c86210133299e59bd28.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/characters/enemy_void_mage_sheet.png"
-dest_files=["res://.godot/imported/enemy_void_mage_sheet.png-994a15fd0975c0dc898a39be0be96676.ctex"]
+source_file="res://assets/characters/enemy_shardsoul_slayer_sheet.png"
+dest_files=["res://.godot/imported/enemy_shardsoul_slayer_sheet.png-d0d31acd6fcd1c86210133299e59bd28.ctex"]
 
 [params]
 

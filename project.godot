@@ -25,7 +25,6 @@ window/size/viewport_width=530
 window/size/viewport_height=160
 window/size/borderless=true
 window/size/always_on_top=true
-window/size/transparent=false
 window/size/no_focus=true
 window/per_pixel_transparency/allowed=true
 
@@ -36,5 +35,4 @@ window/per_pixel_transparency/allowed=true
 [rendering]
 
 rendering_device/driver.windows="d3d12"
-renderer/rendering_method="forward_plus"
 renderer/rendering_method.mobile="forward_plus"

@@ -2,15 +2,18 @@ extends Node
 
 signal state_changed
 signal combat_event(text: String)
+signal stage_info_changed
 
 const Hero = preload("res://scripts/game/hero.gd")
 const CombatEngineScript = preload("res://scripts/game/combat_engine.gd")
 const MagicSchoolScript = preload("res://scripts/game/magic_school.gd")
+const StageRunnerScript = preload("res://scripts/game/stage_runner.gd")
 
 const TICK_SEC := 0.32
 
 var hero: Hero
 var combat: CombatEngineScript
+var stage_runner: StageRunnerScript
 var market_prices := {
 	"fire_crystal": 12.0,
 	"ice_shard": 10.0,
@@ -29,12 +32,40 @@ func _ready() -> void:
 	combat.spell_cast.connect(_on_spell_cast)
 	combat.enemy_defeated.connect(_on_enemy_defeated)
 	combat.combo_triggered.connect(_on_combo)
+	combat.hero_died.connect(_on_hero_died)
+
+	stage_runner = StageRunnerScript.new()
+	stage_runner.load()
+	stage_runner.stage_entered.connect(_on_stage_entered)
 
 	_tick_timer = Timer.new()
 	_tick_timer.wait_time = TICK_SEC
 	_tick_timer.timeout.connect(_on_tick)
 	add_child(_tick_timer)
 	_tick_timer.start()
+
+	call_deferred("_start_stage_run")
+
+
+func _start_stage_run() -> void:
+	stage_runner.start_run(hero)
+
+
+func on_wave_cleared() -> void:
+	stage_runner.on_wave_cleared(hero)
+	state_changed.emit()
+
+
+func _on_stage_entered(_info: Dictionary) -> void:
+	stage_info_changed.emit()
+	state_changed.emit()
+
+
+func _on_hero_died() -> void:
+	melee_engaged = false
+	stage_runner.on_hero_died(hero)
+	_log("Oldun! Stage basindan yeniden.")
+	state_changed.emit()
 
 
 func set_school(school: int) -> void:

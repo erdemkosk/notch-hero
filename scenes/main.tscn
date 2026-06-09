@@ -106,14 +106,14 @@ theme_override_constants/separation = 6
 [node name="ForgeLabel" type="Label" parent="CanvasLayer/VisualRoot/Panel/NotchPanelUI/VBox/ContentHost/ForgeView"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.85, 0.82, 0.75, 1)
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 14
 text = "Asa +0"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="ForgeButton" type="Button" parent="CanvasLayer/VisualRoot/Panel/NotchPanelUI/VBox/ContentHost/ForgeView"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 11
+theme_override_font_sizes/font_size = 16
 text = "Arti Bas (+1)"
 
 [node name="MarketView" type="VBoxContainer" parent="CanvasLayer/VisualRoot/Panel/NotchPanelUI/VBox/ContentHost"]
@@ -128,9 +128,9 @@ grow_vertical = 2
 [node name="MarketList" type="ItemList" parent="CanvasLayer/VisualRoot/Panel/NotchPanelUI/VBox/ContentHost/MarketView"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 14
 
 [node name="NavBar" type="HBoxContainer" parent="CanvasLayer/VisualRoot/Panel/NotchPanelUI/VBox"]
-custom_minimum_size = Vector2(0, 36)
+custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 theme_override_constants/separation = 3

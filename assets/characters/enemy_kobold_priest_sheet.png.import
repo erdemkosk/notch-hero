@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://gx3edtlknuu7"
-path="res://.godot/imported/enemy_legion_sheet.png-0a69cf093eb926d1568c2d04ff36d6f7.ctex"
+uid="uid://sqraxlqhm4on"
+path="res://.godot/imported/enemy_kobold_priest_sheet.png-a7a16149ef6a8f0f45d1b7a2cc111542.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/characters/enemy_legion_sheet.png"
-dest_files=["res://.godot/imported/enemy_legion_sheet.png-0a69cf093eb926d1568c2d04ff36d6f7.ctex"]
+source_file="res://assets/characters/enemy_kobold_priest_sheet.png"
+dest_files=["res://.godot/imported/enemy_kobold_priest_sheet.png-a7a16149ef6a8f0f45d1b7a2cc111542.ctex"]
 
 [params]
 

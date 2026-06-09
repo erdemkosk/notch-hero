@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cay7xxry1sk24"
-path="res://.godot/imported/enemy_reaper_sheet.png-a9de28b14a311192e4aec10a5b71da13.ctex"
+uid="uid://djws6f4orh3el"
+path="res://.godot/imported/enemy_cobra_sheet.png-d3daca6807457087426ad20eeacce544.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/characters/enemy_reaper_sheet.png"
-dest_files=["res://.godot/imported/enemy_reaper_sheet.png-a9de28b14a311192e4aec10a5b71da13.ctex"]
+source_file="res://assets/characters/enemy_cobra_sheet.png"
+dest_files=["res://.godot/imported/enemy_cobra_sheet.png-d3daca6807457087426ad20eeacce544.ctex"]
 
 [params]
 

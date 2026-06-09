@@ -5,7 +5,7 @@ const FRAME := Vector2i(32, 32)
 
 const ROWS := {
 	"idle": {"row": 0, "frames": 12, "speed": 10.0, "loop": true},
-	"walk": {"row": 1, "frames": 8, "speed": 12.0, "loop": true},
+	"walk": {"row": 1, "frames": 8, "speed": 15.0, "loop": true},
 	"attack_down": {"row": 2, "frames": 10, "speed": 14.0, "loop": false},
 	"attack_slash": {"row": 3, "frames": 10, "speed": 14.0, "loop": false},
 	"attack_thrust": {"row": 4, "frames": 10, "speed": 14.0, "loop": false},

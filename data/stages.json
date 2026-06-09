@@ -1,0 +1,235 @@
+{
+  "biomes": {
+    "desert": {
+      "label": "Col",
+      "sky": [0.58, 0.28, 0.22],
+      "ground": [0.86, 0.76, 0.42],
+      "ground_dark": [0.72, 0.6, 0.32],
+      "accent": [0.2, 0.55, 0.25],
+      "accent_dark": [0.12, 0.36, 0.16],
+      "trunk": [0.45, 0.3, 0.15],
+      "decor": "desert"
+    },
+    "forest": {
+      "label": "Orman",
+      "sky": [0.35, 0.48, 0.58],
+      "ground": [0.28, 0.52, 0.28],
+      "ground_dark": [0.18, 0.38, 0.2],
+      "accent": [0.14, 0.42, 0.18],
+      "accent_dark": [0.08, 0.28, 0.12],
+      "trunk": [0.35, 0.22, 0.12],
+      "decor": "forest"
+    },
+    "water": {
+      "label": "Vaha",
+      "sky": [0.42, 0.62, 0.82],
+      "ground": [0.52, 0.78, 0.62],
+      "ground_dark": [0.34, 0.58, 0.48],
+      "accent": [0.22, 0.62, 0.72],
+      "accent_dark": [0.14, 0.42, 0.55],
+      "trunk": [0.38, 0.28, 0.16],
+      "decor": "water"
+    },
+    "lava": {
+      "label": "Lav",
+      "sky": [0.42, 0.12, 0.1],
+      "ground": [0.28, 0.16, 0.14],
+      "ground_dark": [0.18, 0.1, 0.08],
+      "accent": [0.95, 0.42, 0.12],
+      "accent_dark": [0.72, 0.18, 0.08],
+      "trunk": [0.22, 0.14, 0.12],
+      "decor": "lava"
+    },
+    "snow": {
+      "label": "Kar",
+      "sky": [0.62, 0.72, 0.88],
+      "ground": [0.88, 0.92, 0.96],
+      "ground_dark": [0.72, 0.78, 0.86],
+      "accent": [0.42, 0.58, 0.72],
+      "accent_dark": [0.28, 0.42, 0.58],
+      "trunk": [0.32, 0.24, 0.18],
+      "decor": "snow"
+    },
+    "ruins": {
+      "label": "Harabe",
+      "sky": [0.38, 0.34, 0.42],
+      "ground": [0.52, 0.48, 0.44],
+      "ground_dark": [0.38, 0.34, 0.32],
+      "accent": [0.62, 0.58, 0.52],
+      "accent_dark": [0.42, 0.38, 0.34],
+      "trunk": [0.28, 0.24, 0.22],
+      "decor": "ruins"
+    },
+    "industrial": {
+      "label": "Ocak",
+      "sky": [0.22, 0.2, 0.24],
+      "ground": [0.34, 0.32, 0.3],
+      "ground_dark": [0.22, 0.2, 0.18],
+      "accent": [0.78, 0.48, 0.18],
+      "accent_dark": [0.48, 0.28, 0.12],
+      "trunk": [0.18, 0.16, 0.14],
+      "decor": "industrial"
+    },
+    "void": {
+      "label": "Bosluk",
+      "sky": [0.12, 0.08, 0.18],
+      "ground": [0.22, 0.18, 0.28],
+      "ground_dark": [0.14, 0.1, 0.2],
+      "accent": [0.52, 0.28, 0.72],
+      "accent_dark": [0.32, 0.16, 0.48],
+      "trunk": [0.2, 0.16, 0.24],
+      "decor": "ruins"
+    }
+  },
+  "enemy_defs": {
+    "gladiator": { "hp": 30, "attack": 3.2, "gold": 5, "xp": 8, "scale": 1.0 },
+    "adventurer": { "hp": 28, "attack": 3.0, "gold": 5, "xp": 8, "scale": 1.0 },
+    "ghoul": { "hp": 26, "attack": 2.8, "gold": 4, "xp": 7, "scale": 1.0 },
+    "swampling": { "hp": 24, "attack": 2.6, "gold": 4, "xp": 7, "scale": 0.95 },
+    "cobra": { "hp": 22, "attack": 2.5, "gold": 4, "xp": 7, "scale": 0.95 },
+    "twig_blight": { "hp": 28, "attack": 3.0, "gold": 5, "xp": 8, "scale": 1.0 },
+    "leshy_ranger": { "hp": 24, "attack": 3.4, "gold": 6, "xp": 9, "scale": 1.0 },
+    "kobold_priest": { "hp": 25, "attack": 3.2, "gold": 6, "xp": 9, "scale": 1.0 },
+    "bandit_necromancer": { "hp": 27, "attack": 3.5, "gold": 6, "xp": 10, "scale": 1.0 },
+    "ratfolk_mage": { "hp": 24, "attack": 3.3, "gold": 6, "xp": 9, "scale": 1.0 },
+    "incubus": {
+      "boss": true,
+      "name": "Incubus",
+      "hp": 110,
+      "attack": 7.5,
+      "gold": 30,
+      "xp": 42,
+      "scale": 1.38
+    },
+    "shardsoul_slayer": { "hp": 42, "attack": 4.5, "gold": 9, "xp": 13, "scale": 1.08 },
+    "cacodaemon": { "hp": 30, "attack": 3.4, "gold": 6, "xp": 9, "scale": 1.0 },
+    "goblin_mech": { "hp": 40, "attack": 4.0, "gold": 8, "xp": 12, "scale": 1.06 },
+    "brain_mole": { "hp": 32, "attack": 3.8, "gold": 7, "xp": 10, "scale": 1.0 },
+    "intellect_devourer": { "hp": 34, "attack": 3.6, "gold": 7, "xp": 11, "scale": 1.0 },
+    "akaname": { "hp": 28, "attack": 3.1, "gold": 5, "xp": 8, "scale": 1.0 },
+    "space_soldier": { "hp": 30, "attack": 3.8, "gold": 7, "xp": 10, "scale": 1.0 },
+    "cyclops": {
+      "boss": true,
+      "name": "Cyclops",
+      "hp": 125,
+      "attack": 8.0,
+      "gold": 34,
+      "xp": 48,
+      "scale": 1.42
+    }
+  },
+  "stages": [
+    {
+      "world": 1,
+      "stage": 1,
+      "name": "Kum Yolu",
+      "biome": "desert",
+      "waves": [
+        { "enemies": ["gladiator"] },
+        { "enemies": ["ghoul"] },
+        { "enemies": ["gladiator", "ghoul"] },
+        { "enemies": ["incubus"] }
+      ]
+    },
+    {
+      "world": 1,
+      "stage": 2,
+      "name": "Vaha Kenari",
+      "biome": "water",
+      "waves": [
+        { "enemies": ["cobra"] },
+        { "enemies": ["swampling", "cobra"] },
+        { "enemies": ["adventurer", "cobra", "swampling"] }
+      ]
+    },
+    {
+      "world": 1,
+      "stage": 3,
+      "name": "Col Gecidi",
+      "biome": "forest",
+      "waves": [
+        { "enemies": ["twig_blight"] },
+        { "enemies": ["gladiator", "leshy_ranger"] },
+        { "enemies": ["shardsoul_slayer", "leshy_ranger"] }
+      ]
+    },
+    {
+      "world": 1,
+      "stage": 4,
+      "name": "Harabe Kapisi",
+      "biome": "ruins",
+      "waves": [
+        { "enemies": ["ratfolk_mage"] },
+        { "enemies": ["ghoul", "ratfolk_mage"] },
+        { "enemies": ["shardsoul_slayer", "ratfolk_mage", "kobold_priest"] }
+      ]
+    },
+    {
+      "world": 2,
+      "stage": 1,
+      "name": "Lav Koprusu",
+      "biome": "lava",
+      "waves": [
+        { "enemies": ["intellect_devourer"] },
+        { "enemies": ["ratfolk_mage", "akaname"] },
+        { "enemies": ["intellect_devourer", "cacodaemon"] },
+        { "enemies": ["cyclops"] }
+      ]
+    },
+    {
+      "world": 2,
+      "stage": 2,
+      "name": "Demir Ocagi",
+      "biome": "industrial",
+      "waves": [
+        { "enemies": ["brain_mole"] },
+        { "enemies": ["goblin_mech", "bandit_necromancer"] },
+        { "enemies": ["brain_mole", "goblin_mech", "bandit_necromancer"] }
+      ]
+    },
+    {
+      "world": 2,
+      "stage": 3,
+      "name": "Son Kale",
+      "biome": "snow",
+      "waves": [
+        { "enemies": ["kobold_priest", "bandit_necromancer"] },
+        { "enemies": ["shardsoul_slayer", "brain_mole"] },
+        { "enemies": ["cyclops"] }
+      ]
+    },
+    {
+      "world": 3,
+      "stage": 1,
+      "name": "Uzay Limani",
+      "biome": "industrial",
+      "waves": [
+        { "enemies": ["space_soldier"] },
+        { "enemies": ["ghoul", "space_soldier"] },
+        { "enemies": ["gladiator", "space_soldier"] }
+      ]
+    },
+    {
+      "world": 3,
+      "stage": 2,
+      "name": "Bosluk Hatti",
+      "biome": "void",
+      "waves": [
+        { "enemies": ["space_soldier", "leshy_ranger"] },
+        { "enemies": ["brain_mole", "space_soldier"] },
+        { "enemies": ["ratfolk_mage", "space_soldier", "leshy_ranger"] }
+      ]
+    },
+    {
+      "world": 3,
+      "stage": 3,
+      "name": "Son Savunma",
+      "biome": "void",
+      "waves": [
+        { "enemies": ["goblin_mech", "space_soldier"] },
+        { "enemies": ["shardsoul_slayer", "ratfolk_mage", "brain_mole"] },
+        { "enemies": ["cyclops"] }
+      ]
+    }
+  ]
+}

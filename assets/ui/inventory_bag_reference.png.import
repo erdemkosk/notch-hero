@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dvt2q1fagdwxt"
-valid=false
+uid="uid://cf270xydki86o"
+path="res://.godot/imported/inventory_bag_reference.png-2fa7b371ed2f08a8e4bf87335989329b.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
-source_file="res://assets/characters/enemy_golem_sheet.png"
+source_file="res://assets/ui/inventory_bag_reference.png"
+dest_files=["res://.godot/imported/inventory_bag_reference.png-2fa7b371ed2f08a8e4bf87335989329b.ctex"]
 
 [params]
 

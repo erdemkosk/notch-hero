@@ -3,12 +3,16 @@ extends RefCounted
 const Hero = preload("res://scripts/game/hero.gd")
 const Enemy = preload("res://scripts/game/enemy.gd")
 const MagicSchoolScript = preload("res://scripts/game/magic_school.gd")
+const EnemySpriteScript = preload("res://scripts/ui/enemy_sprite.gd")
+const StageDataScript = preload("res://scripts/game/stage_data.gd")
 
 signal spell_cast(info: Dictionary)
 signal enemy_defeated(rewards: Dictionary)
 signal enemy_slain(slot: int)
+signal enemy_damaged(slot: int, amount: float, source: String)
 signal wave_spawned(count: int, types: PackedStringArray)
 signal hero_damaged(amount: float)
+signal hero_died
 signal combo_triggered(name: String, damage: float)
 
 var hero: Hero
@@ -18,6 +22,7 @@ var enemy_types: PackedStringArray = []
 var last_spell_name := "Asa"
 var combo_flash := ""
 var _slain_flags: Array[bool] = []
+var _hero_dead := false
 
 
 func _init(p_hero: Hero) -> void:
@@ -25,23 +30,40 @@ func _init(p_hero: Hero) -> void:
 
 
 func spawn_wave(count: int) -> void:
+	spawn_wave_with_types(_random_types(count))
+
+
+func spawn_wave_with_types(types: PackedStringArray) -> void:
 	enemies.clear()
 	enemy_types.clear()
 	_slain_flags.clear()
-	count = clampi(count, 1, 3)
+	_hero_dead = false
+	if types.is_empty():
+		types = _random_types(1)
 
-	for i in count:
+	for i in types.size():
 		var foe := Enemy.new()
-		foe.reset_for_level(hero.level)
-		if count > 1:
+		var enemy_type: String = types[i]
+		if not EnemySpriteScript.TYPE_DEFS.has(enemy_type):
+			enemy_type = "gladiator"
+		foe.apply_type_def(enemy_type, hero.level)
+		if types.size() > 1 and not foe.is_boss:
 			foe.max_hp *= 0.72
 			foe.hp = foe.max_hp
 		enemies.append(foe)
-		enemy_types.append("adventurer" if randf() < 0.42 else "gladiator")
+		enemy_types.append(enemy_type)
 		_slain_flags.append(false)
 
 	_sync_primary()
-	wave_spawned.emit(count, enemy_types)
+	wave_spawned.emit(enemies.size(), enemy_types)
+
+
+func _random_types(count: int) -> PackedStringArray:
+	count = clampi(count, 1, 3)
+	var types := PackedStringArray()
+	for i in count:
+		types.append(EnemySpriteScript.ENEMY_POOL[randi() % EnemySpriteScript.ENEMY_POOL.size()])
+	return types
 
 
 func living_count() -> int:
@@ -57,21 +79,21 @@ func tick_passive() -> void:
 
 
 func tick_melee() -> void:
+	if hero.hp <= 0.0:
+		return
 	if enemies.is_empty() or living_count() <= 0:
 		return
 
 	combo_flash = ""
 	hero.regen_mana()
 
-	for foe in enemies:
-		if foe.hp <= 0.0:
-			continue
-		var dot := foe.tick_status()
+	var front := _front_enemy()
+	if front != null and front.hp > 0.0:
+		var dot := front.tick_status()
 		if dot > 0.0:
-			_damage_enemy_at(foe, dot, "Yanma", false)
+			_damage_enemy_at(front, dot, "Yanma", false)
 
-	var target := _front_enemy()
-	if target == null or target.hp <= 0.0:
+	if front == null or front.hp <= 0.0:
 		_cleanup_dead()
 		return
 
@@ -79,7 +101,7 @@ func tick_melee() -> void:
 	if not cast.is_empty():
 		var dmg: float = cast.get("damage", 0.0)
 		last_spell_name = cast.get("name", "?")
-		_damage_enemy_at(target, dmg, last_spell_name, cast.get("show_combo", false))
+		_damage_enemy_at(front, dmg, last_spell_name, cast.get("show_combo", false))
 
 	_cleanup_dead()
 	if living_count() <= 0:
@@ -97,6 +119,10 @@ func _front_enemy() -> Enemy:
 		if foe.hp > 0.0:
 			return foe
 	return null
+
+
+func front_slot() -> int:
+	return _front_slot()
 
 
 func _front_slot() -> int:
@@ -139,19 +165,37 @@ func _collect_rewards(foe: Enemy) -> Dictionary:
 
 
 func _all_enemies_strike() -> void:
-	var total := 0.0
-	for foe in enemies:
-		if foe.hp <= 0.0 or foe.is_frozen():
-			continue
-		total += 2.0 + foe.level * 1.0
-
-	if total <= 0.0:
+	var slot := _front_slot()
+	if slot < 0 or slot >= enemies.size():
+		return
+	var foe: Enemy = enemies[slot]
+	if foe.hp <= 0.0 or foe.is_frozen():
+		return
+	var enemy_type := "gladiator"
+	if slot < enemy_types.size():
+		enemy_type = enemy_types[slot]
+	var dmg := _enemy_strike_damage(foe, enemy_type)
+	if dmg <= 0.0:
 		return
 
-	hero.take_damage(total)
-	hero_damaged.emit(total)
-	if hero.hp <= 0.0:
-		hero.heal_to_full()
+	hero.take_damage(dmg)
+	hero_damaged.emit(dmg)
+	if hero.hp <= 0.0 and not _hero_dead:
+		_hero_dead = true
+		hero_died.emit()
+
+
+func _enemy_strike_damage(foe: Enemy, enemy_type: String) -> float:
+	var dmg := foe.attack_damage
+	if dmg <= 0.0:
+		dmg = 2.0 + foe.level * 1.0
+	match EnemySpriteScript.combat_role_for(enemy_type):
+		"ranged":
+			return dmg * 0.95
+		"charger":
+			return dmg * 1.15
+		_:
+			return dmg
 
 
 func _cast_next_spell() -> Dictionary:
@@ -203,8 +247,13 @@ func _cast_arcane_bolt() -> Dictionary:
 	return {"name": "Kadim Isin", "damage": dmg}
 
 
-func _damage_enemy_at(foe: Enemy, amount: float, _source: String, _combo: bool) -> void:
+func _damage_enemy_at(foe: Enemy, amount: float, source: String, _combo: bool) -> void:
+	if amount <= 0.0:
+		return
 	foe.hp = maxf(0.0, foe.hp - amount)
+	var slot := enemies.find(foe)
+	if slot >= 0:
+		enemy_damaged.emit(slot, amount, source)
 
 
 func _roll_loot() -> Dictionary:
