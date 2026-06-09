@@ -1,0 +1,10 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+/build/
+native/godot-cpp/bin/
+native/godot-cpp/gen/
+native/godot-cpp/.sconsign.dblite
+native/notch_bridge/bin/
+native/notch_bridge/.sconsign.dblite

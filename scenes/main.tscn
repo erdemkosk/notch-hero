@@ -1,0 +1,136 @@
+[gd_scene load_steps=6 format=3 uid="uid://bqj8x7k2notch"]
+
+[ext_resource type="Script" path="res://scripts/notch_window.gd" id="1_notch"]
+[ext_resource type="Script" path="res://scripts/ui/combat_strip.gd" id="2_strip"]
+[ext_resource type="Script" path="res://scripts/ui/notch_panel_ui.gd" id="3_panel"]
+[ext_resource type="Script" path="res://scripts/ui/inventory_bag_view.gd" id="4_inv"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.05, 0.04, 0.07, 0.98)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.45, 0.35, 0.3, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+content_margin_left = 0.0
+content_margin_top = 0.0
+content_margin_right = 0.0
+content_margin_bottom = 0.0
+
+[node name="NotchRoot" type="Node"]
+process_mode = 3
+script = ExtResource("1_notch")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+layer = 128
+
+[node name="VisualRoot" type="Control" parent="CanvasLayer"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="CanvasLayer/VisualRoot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="NotchPanelUI" type="Control" parent="CanvasLayer/VisualRoot/Panel"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+script = ExtResource("3_panel")
+
+[node name="VBox" type="VBoxContainer" parent="CanvasLayer/VisualRoot/Panel/NotchPanelUI"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 0
+
+[node name="ContentHost" type="Control" parent="CanvasLayer/VisualRoot/Panel/NotchPanelUI/VBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="CombatStrip" type="Control" parent="CanvasLayer/VisualRoot/Panel/NotchPanelUI/VBox/ContentHost"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("2_strip")
+
+[node name="InventoryView" type="Control" parent="CanvasLayer/VisualRoot/Panel/NotchPanelUI/VBox/ContentHost"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="InventoryBag" type="Control" parent="CanvasLayer/VisualRoot/Panel/NotchPanelUI/VBox/ContentHost/InventoryView"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("4_inv")
+
+[node name="ForgeView" type="VBoxContainer" parent="CanvasLayer/VisualRoot/Panel/NotchPanelUI/VBox/ContentHost"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 6
+
+[node name="ForgeLabel" type="Label" parent="CanvasLayer/VisualRoot/Panel/NotchPanelUI/VBox/ContentHost/ForgeView"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.82, 0.75, 1)
+theme_override_font_sizes/font_size = 11
+text = "Asa +0"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ForgeButton" type="Button" parent="CanvasLayer/VisualRoot/Panel/NotchPanelUI/VBox/ContentHost/ForgeView"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 11
+text = "Arti Bas (+1)"
+
+[node name="MarketView" type="VBoxContainer" parent="CanvasLayer/VisualRoot/Panel/NotchPanelUI/VBox/ContentHost"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MarketList" type="ItemList" parent="CanvasLayer/VisualRoot/Panel/NotchPanelUI/VBox/ContentHost/MarketView"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 10
+
+[node name="NavBar" type="HBoxContainer" parent="CanvasLayer/VisualRoot/Panel/NotchPanelUI/VBox"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+theme_override_constants/separation = 3
