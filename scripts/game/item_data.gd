@@ -2,6 +2,8 @@ extends RefCounted
 class_name ItemData
 
 const CATALOG_PATH := "res://data/items.json"
+const WEAPONS_CATALOG_PATH := "res://data/weapons.json"
+const EQUIPMENT_CATALOG_PATH := "res://data/equipment.json"
 
 const EQUIP_SLOTS := [
 	"helmet",
@@ -89,6 +91,7 @@ const SLOT_STATS := {
 
 static var _defs: Dictionary = {}
 static var _textures: Dictionary = {}
+static var _textures_by_path: Dictionary = {}
 static var _content_rects: Dictionary = {}
 
 # Slot ic cerceve ile ayni (inventory_slot_draw.gd grow(-2))
@@ -97,16 +100,23 @@ const ICON_INSET := 2.0
 
 static func load_catalog() -> void:
 	_defs.clear()
-	if not FileAccess.file_exists(CATALOG_PATH):
-		push_error("Item catalog not found: %s" % CATALOG_PATH)
+	_merge_catalog_entries(CATALOG_PATH, "items")
+	_merge_catalog_entries(WEAPONS_CATALOG_PATH, "weapons")
+	_merge_catalog_entries(EQUIPMENT_CATALOG_PATH, "equipment")
+
+
+static func _merge_catalog_entries(path: String, array_key: String) -> void:
+	if not FileAccess.file_exists(path):
+		if path == CATALOG_PATH:
+			push_error("Item catalog not found: %s" % path)
 		return
 
-	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(CATALOG_PATH))
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 	if parsed == null or typeof(parsed) != TYPE_DICTIONARY:
-		push_error("Failed to parse item JSON")
+		push_error("Failed to parse catalog: %s" % path)
 		return
 
-	for entry in parsed.get("items", []):
+	for entry in parsed.get(array_key, []):
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
 		var id: String = str(entry.get("id", ""))
@@ -316,15 +326,23 @@ static func get_texture(id: String) -> Texture2D:
 		return null
 
 	var tex: Texture2D = null
-	if ResourceLoader.exists(path):
+	if _textures_by_path.has(path):
+		tex = _textures_by_path[path] as Texture2D
+	elif ResourceLoader.exists(path):
 		tex = load(path) as Texture2D
 
 	if tex == null:
 		var fs_path := ProjectSettings.globalize_path(path)
 		if FileAccess.file_exists(fs_path):
-			var image := Image.load_from_file(fs_path)
-			if image != null:
+			var image := Image.new()
+			var err := image.load(fs_path)
+			if err == OK and image.get_width() > 0:
 				tex = ImageTexture.create_from_image(image)
+			elif err != OK:
+				push_warning("Item texture load failed (%s): %s" % [err, path])
+
+	if tex != null:
+		_textures_by_path[path] = tex
 
 	if tex != null:
 		_textures[id] = tex
@@ -460,6 +478,12 @@ static func compute_stats(def: Dictionary) -> Dictionary:
 
 	for key in base.keys():
 		stats[key] = float(base[key]) * mult
+
+	var overrides: Dictionary = def.get("stats", {})
+	if typeof(overrides) == TYPE_DICTIONARY:
+		for key in overrides.keys():
+			stats[key] = float(overrides[key])
+
 	return stats
 
 
@@ -504,14 +528,8 @@ static func random_id() -> String:
 
 
 static func roll_rarity() -> String:
-	var roll := randf()
-	if roll > 0.97:
-		return "unique"
-	if roll > 0.88:
-		return "rare"
-	if roll > 0.65:
-		return "common"
-	return "basic"
+	const GameBalanceScript = preload("res://scripts/game/game_balance.gd")
+	return GameBalanceScript.roll_rarity()
 
 
 static func roll_loot_instance() -> Dictionary:

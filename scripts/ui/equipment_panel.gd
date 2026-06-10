@@ -303,7 +303,13 @@ func _draw_stat_cards(_panel_rect: Rect2) -> void:
 		if equipped != null and typeof(equipped) == TYPE_DICTIONARY:
 			items.append(equipped)
 
-	var stats := ItemDataScript.aggregate_stats(items)
+	var hero := GameState.hero
+	var stats := {
+		"attack": hero.attack_power(),
+		"armor": hero.armor(),
+		"max_hp": hero.max_hp,
+		"spell_power": float(hero.spell_power),
+	}
 	var metrics := _grid_metrics()
 	var col_w: float = metrics["stat_col_w"]
 	var grid_h: float = metrics["grid_h"]

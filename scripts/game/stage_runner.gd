@@ -5,6 +5,7 @@ signal stage_entered(info: Dictionary)
 
 const Hero = preload("res://scripts/game/hero.gd")
 const StageDataScript = preload("res://scripts/game/stage_data.gd")
+const GameBalanceScript = preload("res://scripts/game/game_balance.gd")
 
 var stages: Array = []
 var stage_index := 0
@@ -41,6 +42,28 @@ func wave_count() -> int:
 	return stage.get("waves", []).size()
 
 
+func current_wave_enemies() -> Array:
+	var stage := current_stage()
+	if stage.is_empty():
+		return []
+	var waves: Array = stage.get("waves", [])
+	if wave_index < 0 or wave_index >= waves.size():
+		return []
+	var wave: Dictionary = waves[wave_index]
+	var enemies: Array = []
+	for enemy_type in wave.get("enemies", []):
+		if typeof(enemy_type) == TYPE_STRING:
+			enemies.append(enemy_type)
+	return enemies
+
+
+func enemy_difficulty_for(type_id: String) -> float:
+	var mul := GameBalanceScript.enemy_difficulty_mul(stage_index)
+	if StageDataScript.is_boss_type(type_id):
+		mul *= GameBalanceScript.boss_difficulty_factor(stage_index)
+	return mul
+
+
 func on_wave_cleared(hero: Hero) -> void:
 	if stages.is_empty():
 		return
@@ -62,10 +85,12 @@ func on_hero_died(hero: Hero) -> void:
 		return
 	_restore_hero(hero)
 	wave_index = 0
+	_refill_hero(hero)
 	_emit_wave(hero, "retry")
 
 
 func _begin_current_stage(hero: Hero) -> void:
+	_refill_hero(hero)
 	_checkpoint = _snapshot_hero(hero)
 	wave_index = 0
 	_emit_wave(hero, "stage")
@@ -110,13 +135,19 @@ func _snapshot_hero(hero: Hero) -> Dictionary:
 		"spell_power": hero.spell_power,
 		"mana_regen": hero.mana_regen,
 		"staff_enchant": hero.staff_enchant,
+		"level_hp_bonus": hero.level_hp_bonus,
+		"level_spell_power_bonus": hero.level_spell_power_bonus,
 	}
+
+
+func _refill_hero(hero: Hero) -> void:
+	hero.refresh_combat_stats()
+	hero.heal_to_full()
+	hero.mana = hero.max_mana
 
 
 func _restore_hero(hero: Hero) -> void:
 	if _checkpoint.is_empty():
-		hero.heal_to_full()
-		hero.mana = hero.max_mana
 		return
 
 	hero.school = _checkpoint.get("school", hero.school)
@@ -124,11 +155,9 @@ func _restore_hero(hero: Hero) -> void:
 	hero.xp = _checkpoint.get("xp", hero.xp)
 	hero.xp_to_next = _checkpoint.get("xp_to_next", hero.xp_to_next)
 	hero.gold = _checkpoint.get("gold", hero.gold)
-	hero.max_hp = _checkpoint.get("max_hp", hero.max_hp)
-	hero.max_mana = _checkpoint.get("max_mana", hero.max_mana)
 	hero.intelligence = _checkpoint.get("intelligence", hero.intelligence)
-	hero.spell_power = _checkpoint.get("spell_power", hero.spell_power)
 	hero.mana_regen = _checkpoint.get("mana_regen", hero.mana_regen)
 	hero.staff_enchant = _checkpoint.get("staff_enchant", hero.staff_enchant)
-	hero.hp = _checkpoint.get("hp", hero.max_hp)
-	hero.mana = _checkpoint.get("mana", hero.max_mana)
+	hero.level_hp_bonus = float(_checkpoint.get("level_hp_bonus", hero.level_hp_bonus))
+	hero.level_spell_power_bonus = int(_checkpoint.get("level_spell_power_bonus", hero.level_spell_power_bonus))
+	hero.refresh_combat_stats()

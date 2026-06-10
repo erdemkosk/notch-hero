@@ -2,6 +2,7 @@ extends RefCounted
 
 const MagicSchoolScript = preload("res://scripts/game/magic_school.gd")
 const ItemDataScript = preload("res://scripts/game/item_data.gd")
+const GameBalanceScript = preload("res://scripts/game/game_balance.gd")
 
 var school: MagicSchoolScript.School = MagicSchoolScript.School.PYROMANCY
 var level: int = 1
@@ -9,24 +10,30 @@ var xp: int = 0
 var xp_to_next: int = 40
 var gold: int = 0
 
-var hp: float = 100.0
-var max_hp: float = 100.0
-var mana: float = 60.0
-var max_mana: float = 60.0
+var hp: float = 10.0
+var max_hp: float = 10.0
+var mana: float = 40.0
+var max_mana: float = 40.0
 
-var intelligence: int = 5
-var spell_power: int = 5
+var intelligence: int = 0
+var spell_power: int = 0
 var mana_regen: float = 3.0
 
 var staff_enchant: int = 0
 var inventory: Array[Dictionary] = []
 var equipment: Dictionary = {}
 
+var level_hp_bonus: float = 0.0
+var level_spell_power_bonus: int = 0
+
 signal loot_added(item: Dictionary)
 
 
 func _init() -> void:
 	_reset_equipment()
+	refresh_combat_stats()
+	hp = max_hp
+	mana = max_mana
 
 
 func _reset_equipment() -> void:
@@ -53,21 +60,56 @@ func add_xp(amount: int) -> bool:
 
 
 func _on_level_up() -> void:
+	var cfg := GameBalanceScript.hero_cfg()
 	xp_to_next = 35 + level * 18
+	level_hp_bonus += float(cfg.get("level_hp_gain", 2.0))
+	level_spell_power_bonus += int(cfg.get("level_spell_power_gain", 1))
 	intelligence += 1
-	spell_power += 2
-	max_hp += 12.0
-	max_mana += 8.0
+	refresh_combat_stats()
 	hp = max_hp
 	mana = max_mana
+
+
+func refresh_combat_stats() -> void:
+	var cfg := GameBalanceScript.hero_cfg()
+	var eq := equipment_stats()
+	var prev_max_hp := max_hp
+	var prev_max_mana := max_mana
+
+	max_hp = float(cfg.get("base_max_hp", 5.0)) + float(eq.get("max_hp", 0.0)) + level_hp_bonus
+	max_mana = float(cfg.get("base_max_mana", 40.0)) + float(eq.get("max_mana", 0.0))
+	spell_power = int(cfg.get("base_spell_power", 0)) + int(eq.get("spell_power", 0.0)) + level_spell_power_bonus
+
+	if max_hp > prev_max_hp:
+		hp += max_hp - prev_max_hp
+	else:
+		hp = minf(hp, max_hp)
+
+	if max_mana > prev_max_mana:
+		mana += max_mana - prev_max_mana
+	else:
+		mana = minf(mana, max_mana)
 
 
 func regen_mana(delta_scale: float = 1.0) -> void:
 	mana = minf(max_mana, mana + mana_regen * delta_scale)
 
 
-func take_damage(amount: float) -> void:
-	hp = maxf(0.0, hp - amount)
+func armor() -> float:
+	return float(equipment_stats().get("armor", 0.0))
+
+
+func attack_power() -> float:
+	var cfg := GameBalanceScript.hero_cfg()
+	var eq := equipment_stats()
+	var staff_bonus := float(staff_enchant) * float(cfg.get("staff_enchant_attack", 1.0))
+	return float(cfg.get("base_attack", 1.0)) + float(eq.get("attack", 0.0)) + staff_bonus
+
+
+func take_damage(raw_amount: float) -> float:
+	var actual := GameBalanceScript.apply_armor(raw_amount, armor())
+	hp = maxf(0.0, hp - actual)
+	return actual
 
 
 func heal_to_full() -> void:
@@ -90,8 +132,8 @@ func add_loot(item: Dictionary) -> void:
 	loot_added.emit(item)
 
 
-func staff_damage() -> float:
-	return 4.0 + staff_enchant * 1.5 + spell_power * 0.4
+func weapon_damage() -> float:
+	return attack_power()
 
 
 func equipped_items() -> Array:
@@ -105,7 +147,3 @@ func equipped_items() -> Array:
 
 func equipment_stats() -> Dictionary:
 	return ItemDataScript.aggregate_stats(equipped_items())
-
-
-func weapon_damage() -> float:
-	return staff_damage() + equipment_stats().get("attack", 0.0)

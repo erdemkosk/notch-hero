@@ -1,0 +1,29 @@
+{
+  "hero": {
+    "base_attack": 3,
+    "base_max_hp": 10,
+    "base_max_mana": 40,
+    "base_spell_power": 0,
+    "level_hp_gain": 2,
+    "level_spell_power_gain": 1,
+    "staff_enchant_attack": 1.0,
+    "min_damage_taken": 1
+  },
+  "combat": {
+    "armor_blocks_per_point": 1.0
+  },
+  "stages": {
+    "enemy_scale_base": 0.58,
+    "enemy_scale_per_stage": 0.11,
+    "first_stage_boss_factor": 0.48,
+    "early_boss_factor": 0.72
+  },
+  "loot": {
+    "drop_chance": 0.08,
+    "boss_drop_chance": 0.22,
+    "rarity_unique": 0.012,
+    "rarity_rare": 0.08,
+    "rarity_common": 0.30,
+    "pity_kills": 18
+  }
+}

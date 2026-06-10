@@ -1,0 +1,924 @@
+{
+  "equipment": [
+    {
+      "id": "chest/padded-vest",
+      "name": "Padded Vest",
+      "slot": "chest",
+      "rarity": "basic",
+      "sprite": "res://assets/items/chest/basic-chest-removebg-preview.png",
+      "folder": "chest",
+      "stats": {
+        "armor": 2,
+        "max_hp": 6
+      }
+    },
+    {
+      "id": "chest/leather-jerkin",
+      "name": "Leather Jerkin",
+      "slot": "chest",
+      "rarity": "basic",
+      "sprite": "res://assets/items/chest/basic-chest2.png",
+      "folder": "chest",
+      "stats": {
+        "armor": 2,
+        "max_hp": 7
+      }
+    },
+    {
+      "id": "chest/iron-breastplate",
+      "name": "Iron Breastplate",
+      "slot": "chest",
+      "rarity": "common",
+      "sprite": "res://assets/items/chest/common-chest-removebg-preview.png",
+      "folder": "chest",
+      "stats": {
+        "armor": 4,
+        "max_hp": 12
+      }
+    },
+    {
+      "id": "chest/steel-cuirass",
+      "name": "Steel Cuirass",
+      "slot": "chest",
+      "rarity": "common",
+      "sprite": "res://assets/items/chest/common-chest-removebg-preview.png",
+      "folder": "chest",
+      "stats": {
+        "armor": 3,
+        "max_hp": 10
+      }
+    },
+    {
+      "id": "chest/chain-hauberk",
+      "name": "Chain Hauberk",
+      "slot": "chest",
+      "rarity": "common",
+      "sprite": "res://assets/items/chest/common-chest2.png",
+      "folder": "chest",
+      "stats": {
+        "armor": 4,
+        "max_hp": 11
+      }
+    },
+    {
+      "id": "chest/knights-plate",
+      "name": "Knight's Plate",
+      "slot": "chest",
+      "rarity": "rare",
+      "sprite": "res://assets/items/chest/rare-chest-removebg-preview.png",
+      "folder": "chest",
+      "stats": {
+        "armor": 6,
+        "max_hp": 20
+      }
+    },
+    {
+      "id": "chest/wardens-mail",
+      "name": "Warden's Mail",
+      "slot": "chest",
+      "rarity": "rare",
+      "sprite": "res://assets/items/chest/rare-chest2.png",
+      "folder": "chest",
+      "stats": {
+        "armor": 5,
+        "max_hp": 18
+      }
+    },
+    {
+      "id": "chest/dragonscale-vest",
+      "name": "Dragonscale Vest",
+      "slot": "chest",
+      "rarity": "rare",
+      "sprite": "res://assets/items/chest/rare-chest-removebg-preview.png",
+      "folder": "chest",
+      "stats": {
+        "armor": 7,
+        "max_hp": 19
+      }
+    },
+    {
+      "id": "chest/aegis-of-kings",
+      "name": "Aegis of Kings",
+      "slot": "chest",
+      "rarity": "unique",
+      "sprite": "res://assets/items/chest/unique-chest-removebg-preview.png",
+      "folder": "chest",
+      "stats": {
+        "armor": 11,
+        "max_hp": 34
+      }
+    },
+    {
+      "id": "chest/voidguard-mail",
+      "name": "Voidguard Mail",
+      "slot": "chest",
+      "rarity": "unique",
+      "sprite": "res://assets/items/chest/unique-chest2.png",
+      "folder": "chest",
+      "stats": {
+        "armor": 10,
+        "max_hp": 32
+      }
+    },
+    {
+      "id": "leggings/cloth-pants",
+      "name": "Cloth Pants",
+      "slot": "legs",
+      "rarity": "basic",
+      "sprite": "res://assets/items/leggings/basic-leggings-removebg-preview.png",
+      "folder": "leggings",
+      "stats": {
+        "armor": 1
+      }
+    },
+    {
+      "id": "leggings/chain-leggings",
+      "name": "Chain Leggings",
+      "slot": "legs",
+      "rarity": "basic",
+      "sprite": "res://assets/items/leggings/basic-leggings2.png",
+      "folder": "leggings",
+      "stats": {
+        "armor": 2
+      }
+    },
+    {
+      "id": "leggings/iron-greaves",
+      "name": "Iron Greaves",
+      "slot": "legs",
+      "rarity": "common",
+      "sprite": "res://assets/items/leggings/common-leggings-removebg-preview.png",
+      "folder": "leggings",
+      "stats": {
+        "armor": 3
+      }
+    },
+    {
+      "id": "leggings/steel-legguards",
+      "name": "Steel Legguards",
+      "slot": "legs",
+      "rarity": "common",
+      "sprite": "res://assets/items/leggings/common-leggings-removebg-preview.png",
+      "folder": "leggings",
+      "stats": {
+        "armor": 2
+      }
+    },
+    {
+      "id": "leggings/mail-chausses",
+      "name": "Mail Chausses",
+      "slot": "legs",
+      "rarity": "common",
+      "sprite": "res://assets/items/leggings/common-leggings2.png",
+      "folder": "leggings",
+      "stats": {
+        "armor": 3
+      }
+    },
+    {
+      "id": "leggings/knights-greaves",
+      "name": "Knight's Greaves",
+      "slot": "legs",
+      "rarity": "rare",
+      "sprite": "res://assets/items/leggings/rare-leggings-removebg-preview.png",
+      "folder": "leggings",
+      "stats": {
+        "armor": 5
+      }
+    },
+    {
+      "id": "leggings/wardens-chausses",
+      "name": "Warden's Chausses",
+      "slot": "legs",
+      "rarity": "rare",
+      "sprite": "res://assets/items/leggings/rare-leggings2.png",
+      "folder": "leggings",
+      "stats": {
+        "armor": 4
+      }
+    },
+    {
+      "id": "leggings/shadow-legguards",
+      "name": "Shadow Legguards",
+      "slot": "legs",
+      "rarity": "rare",
+      "sprite": "res://assets/items/leggings/rare-leggings-removebg-preview.png",
+      "folder": "leggings",
+      "stats": {
+        "armor": 5
+      }
+    },
+    {
+      "id": "leggings/titans-stride",
+      "name": "Titan's Stride",
+      "slot": "legs",
+      "rarity": "unique",
+      "sprite": "res://assets/items/leggings/unique-leggings-removebg-preview.png",
+      "folder": "leggings",
+      "stats": {
+        "armor": 8
+      }
+    },
+    {
+      "id": "leggings/nethermail-leggings",
+      "name": "Nethermail Leggings",
+      "slot": "legs",
+      "rarity": "unique",
+      "sprite": "res://assets/items/leggings/unique-leggings2.png",
+      "folder": "leggings",
+      "stats": {
+        "armor": 7
+      }
+    },
+    {
+      "id": "helmet/leather-cap",
+      "name": "Leather Cap",
+      "slot": "helmet",
+      "rarity": "basic",
+      "sprite": "res://assets/items/helmet/basic-helmet-removebg-preview.png",
+      "folder": "helmet",
+      "stats": {
+        "armor": 1,
+        "max_hp": 4
+      }
+    },
+    {
+      "id": "helmet/horned-cap",
+      "name": "Horned Cap",
+      "slot": "helmet",
+      "rarity": "basic",
+      "sprite": "res://assets/items/helmet/basic-helmet2.png",
+      "folder": "helmet",
+      "stats": {
+        "armor": 1,
+        "max_hp": 5
+      }
+    },
+    {
+      "id": "helmet/iron-helm",
+      "name": "Iron Helm",
+      "slot": "helmet",
+      "rarity": "common",
+      "sprite": "res://assets/items/helmet/common-helmet-removebg-preview.png",
+      "folder": "helmet",
+      "stats": {
+        "armor": 3,
+        "max_hp": 10
+      }
+    },
+    {
+      "id": "helmet/steel-sallet",
+      "name": "Steel Sallet",
+      "slot": "helmet",
+      "rarity": "common",
+      "sprite": "res://assets/items/helmet/common-helmet-removebg-preview.png",
+      "folder": "helmet",
+      "stats": {
+        "armor": 2,
+        "max_hp": 8
+      }
+    },
+    {
+      "id": "helmet/horned-guard",
+      "name": "Horned Guard",
+      "slot": "helmet",
+      "rarity": "common",
+      "sprite": "res://assets/items/helmet/common-helmet2.png",
+      "folder": "helmet",
+      "stats": {
+        "armor": 3,
+        "max_hp": 9
+      }
+    },
+    {
+      "id": "helmet/knights-helm",
+      "name": "Knight's Helm",
+      "slot": "helmet",
+      "rarity": "rare",
+      "sprite": "res://assets/items/helmet/rare-halmet-removebg-preview.png",
+      "folder": "helmet",
+      "stats": {
+        "armor": 5,
+        "max_hp": 16
+      }
+    },
+    {
+      "id": "helmet/berserker-horns",
+      "name": "Berserker Horns",
+      "slot": "helmet",
+      "rarity": "rare",
+      "sprite": "res://assets/items/helmet/rare-helmet2.png",
+      "folder": "helmet",
+      "stats": {
+        "armor": 4,
+        "max_hp": 14
+      }
+    },
+    {
+      "id": "helmet/wardens-helm",
+      "name": "Warden's Helm",
+      "slot": "helmet",
+      "rarity": "rare",
+      "sprite": "res://assets/items/helmet/rare-halmet-removebg-preview.png",
+      "folder": "helmet",
+      "stats": {
+        "armor": 5,
+        "max_hp": 15
+      }
+    },
+    {
+      "id": "helmet/crown-of-thorns",
+      "name": "Crown of Thorns",
+      "slot": "helmet",
+      "rarity": "unique",
+      "sprite": "res://assets/items/helmet/unique-helmet-removebg-preview.png",
+      "folder": "helmet",
+      "stats": {
+        "armor": 7,
+        "max_hp": 26
+      }
+    },
+    {
+      "id": "helmet/doom-horns",
+      "name": "Doom Horns",
+      "slot": "helmet",
+      "rarity": "unique",
+      "sprite": "res://assets/items/helmet/unique-helmet2.png",
+      "folder": "helmet",
+      "stats": {
+        "armor": 8,
+        "max_hp": 24
+      }
+    },
+    {
+      "id": "shoes/worn-sandals",
+      "name": "Worn Sandals",
+      "slot": "feet",
+      "rarity": "basic",
+      "sprite": "res://assets/items/shoes/basic-shoe-removebg-preview.png",
+      "folder": "shoes",
+      "stats": {
+        "armor": 1
+      }
+    },
+    {
+      "id": "shoes/chain-boots",
+      "name": "Chain Boots",
+      "slot": "feet",
+      "rarity": "basic",
+      "sprite": "res://assets/items/shoes/basic-shoe2.png",
+      "folder": "shoes",
+      "stats": {
+        "armor": 1
+      }
+    },
+    {
+      "id": "shoes/leather-boots",
+      "name": "Leather Boots",
+      "slot": "feet",
+      "rarity": "common",
+      "sprite": "res://assets/items/shoes/common-shoe-removebg-preview.png",
+      "folder": "shoes",
+      "stats": {
+        "armor": 2
+      }
+    },
+    {
+      "id": "shoes/iron-sabatons",
+      "name": "Iron Sabatons",
+      "slot": "feet",
+      "rarity": "common",
+      "sprite": "res://assets/items/shoes/common-shoe-removebg-preview.png",
+      "folder": "shoes",
+      "stats": {
+        "armor": 1
+      }
+    },
+    {
+      "id": "shoes/mail-boots",
+      "name": "Mail Boots",
+      "slot": "feet",
+      "rarity": "common",
+      "sprite": "res://assets/items/shoes/common-shoe2.png",
+      "folder": "shoes",
+      "stats": {
+        "armor": 2
+      }
+    },
+    {
+      "id": "shoes/knights-treads",
+      "name": "Knight's Treads",
+      "slot": "feet",
+      "rarity": "rare",
+      "sprite": "res://assets/items/shoes/rare-shoe-removebg-preview.png",
+      "folder": "shoes",
+      "stats": {
+        "armor": 3
+      }
+    },
+    {
+      "id": "shoes/plated-greaves",
+      "name": "Plated Greaves",
+      "slot": "feet",
+      "rarity": "rare",
+      "sprite": "res://assets/items/shoes/rare-shoe2.png",
+      "folder": "shoes",
+      "stats": {
+        "armor": 3
+      }
+    },
+    {
+      "id": "shoes/shadow-steps",
+      "name": "Shadow Steps",
+      "slot": "feet",
+      "rarity": "rare",
+      "sprite": "res://assets/items/shoes/rare-shoe-removebg-preview.png",
+      "folder": "shoes",
+      "stats": {
+        "armor": 2
+      }
+    },
+    {
+      "id": "shoes/windwalkers",
+      "name": "Windwalkers",
+      "slot": "feet",
+      "rarity": "unique",
+      "sprite": "res://assets/items/shoes/unique-shoe-removebg-preview.png",
+      "folder": "shoes",
+      "stats": {
+        "armor": 4
+      }
+    },
+    {
+      "id": "shoes/titans-stomp",
+      "name": "Titan's Stomp",
+      "slot": "feet",
+      "rarity": "unique",
+      "sprite": "res://assets/items/shoes/unique-shoe2.png",
+      "folder": "shoes",
+      "stats": {
+        "armor": 4
+      }
+    },
+    {
+      "id": "gloves/cloth-wraps",
+      "name": "Cloth Wraps",
+      "slot": "gloves",
+      "rarity": "basic",
+      "sprite": "res://assets/items/gloves/basic-glove.png",
+      "folder": "gloves",
+      "stats": {
+        "attack": 1
+      }
+    },
+    {
+      "id": "gloves/leather-gauntlets",
+      "name": "Leather Gauntlets",
+      "slot": "gloves",
+      "rarity": "basic",
+      "sprite": "res://assets/items/gloves/basic-glove.png",
+      "folder": "gloves",
+      "stats": {
+        "attack": 2
+      }
+    },
+    {
+      "id": "gloves/iron-grips",
+      "name": "Iron Grips",
+      "slot": "gloves",
+      "rarity": "common",
+      "sprite": "res://assets/items/gloves/common-glove.png",
+      "folder": "gloves",
+      "stats": {
+        "attack": 3
+      }
+    },
+    {
+      "id": "gloves/steel-gauntlets",
+      "name": "Steel Gauntlets",
+      "slot": "gloves",
+      "rarity": "common",
+      "sprite": "res://assets/items/gloves/common-glove.png",
+      "folder": "gloves",
+      "stats": {
+        "attack": 2
+      }
+    },
+    {
+      "id": "gloves/bandit-claws",
+      "name": "Bandit Claws",
+      "slot": "gloves",
+      "rarity": "common",
+      "sprite": "res://assets/items/gloves/common-glove.png",
+      "folder": "gloves",
+      "stats": {
+        "attack": 2
+      }
+    },
+    {
+      "id": "gloves/knights-grips",
+      "name": "Knight's Grips",
+      "slot": "gloves",
+      "rarity": "rare",
+      "sprite": "res://assets/items/gloves/rare-glove.png",
+      "folder": "gloves",
+      "stats": {
+        "attack": 5
+      }
+    },
+    {
+      "id": "gloves/spellweave-gloves",
+      "name": "Spellweave Gloves",
+      "slot": "gloves",
+      "rarity": "rare",
+      "sprite": "res://assets/items/gloves/rare-glove.png",
+      "folder": "gloves",
+      "stats": {
+        "attack": 4
+      }
+    },
+    {
+      "id": "gloves/assassins-touch",
+      "name": "Assassin's Touch",
+      "slot": "gloves",
+      "rarity": "rare",
+      "sprite": "res://assets/items/gloves/rare-glove.png",
+      "folder": "gloves",
+      "stats": {
+        "attack": 5
+      }
+    },
+    {
+      "id": "gloves/hand-of-fury",
+      "name": "Hand of Fury",
+      "slot": "gloves",
+      "rarity": "unique",
+      "sprite": "res://assets/items/gloves/unique-glove.png",
+      "folder": "gloves",
+      "stats": {
+        "attack": 8
+      }
+    },
+    {
+      "id": "gloves/titans-grasp",
+      "name": "Titan's Grasp",
+      "slot": "gloves",
+      "rarity": "unique",
+      "sprite": "res://assets/items/gloves/unique-glove.png",
+      "folder": "gloves",
+      "stats": {
+        "attack": 7
+      }
+    },
+    {
+      "id": "amulet/wooden-charm",
+      "name": "Wooden Charm",
+      "slot": "amulet",
+      "rarity": "basic",
+      "sprite": "res://assets/items/amulet/basic-amulet-removebg-preview.png",
+      "folder": "amulet",
+      "stats": {
+        "max_hp": 4,
+        "max_mana": 2
+      }
+    },
+    {
+      "id": "amulet/bone-talisman",
+      "name": "Bone Talisman",
+      "slot": "amulet",
+      "rarity": "basic",
+      "sprite": "res://assets/items/amulet/basic-amulet-removebg-preview.png",
+      "folder": "amulet",
+      "stats": {
+        "max_hp": 5,
+        "max_mana": 3
+      }
+    },
+    {
+      "id": "amulet/silver-amulet",
+      "name": "Silver Amulet",
+      "slot": "amulet",
+      "rarity": "common",
+      "sprite": "res://assets/items/amulet/common-amulet-removebg-preview.png",
+      "folder": "amulet",
+      "stats": {
+        "max_hp": 10,
+        "max_mana": 5
+      }
+    },
+    {
+      "id": "amulet/jade-pendant",
+      "name": "Jade Pendant",
+      "slot": "amulet",
+      "rarity": "common",
+      "sprite": "res://assets/items/amulet/common-amulet-removebg-preview.png",
+      "folder": "amulet",
+      "stats": {
+        "max_hp": 8,
+        "max_mana": 4
+      }
+    },
+    {
+      "id": "amulet/copper-charm",
+      "name": "Copper Charm",
+      "slot": "amulet",
+      "rarity": "common",
+      "sprite": "res://assets/items/amulet/common-amulet-removebg-preview.png",
+      "folder": "amulet",
+      "stats": {
+        "max_hp": 9,
+        "max_mana": 5
+      }
+    },
+    {
+      "id": "amulet/ruby-amulet",
+      "name": "Ruby Amulet",
+      "slot": "amulet",
+      "rarity": "rare",
+      "sprite": "res://assets/items/amulet/rare-amulet-removebg-preview.png",
+      "folder": "amulet",
+      "stats": {
+        "max_hp": 16,
+        "max_mana": 8
+      }
+    },
+    {
+      "id": "amulet/moonstone-pendant",
+      "name": "Moonstone Pendant",
+      "slot": "amulet",
+      "rarity": "rare",
+      "sprite": "res://assets/items/amulet/rare-amulet-removebg-preview.png",
+      "folder": "amulet",
+      "stats": {
+        "max_hp": 14,
+        "max_mana": 7
+      }
+    },
+    {
+      "id": "amulet/sun-talisman",
+      "name": "Sun Talisman",
+      "slot": "amulet",
+      "rarity": "rare",
+      "sprite": "res://assets/items/amulet/rare-amulet-removebg-preview.png",
+      "folder": "amulet",
+      "stats": {
+        "max_hp": 15,
+        "max_mana": 8
+      }
+    },
+    {
+      "id": "amulet/heart-of-eternity",
+      "name": "Heart of Eternity",
+      "slot": "amulet",
+      "rarity": "unique",
+      "sprite": "res://assets/items/amulet/unique-amulet-removebg-preview.png",
+      "folder": "amulet",
+      "stats": {
+        "max_hp": 28,
+        "max_mana": 14
+      }
+    },
+    {
+      "id": "amulet/soulbinder",
+      "name": "Soulbinder",
+      "slot": "amulet",
+      "rarity": "unique",
+      "sprite": "res://assets/items/amulet/unique-amulet-removebg-preview.png",
+      "folder": "amulet",
+      "stats": {
+        "max_hp": 26,
+        "max_mana": 13
+      }
+    },
+    {
+      "id": "ring/copper-band",
+      "name": "Copper Band",
+      "slot": "ring",
+      "rarity": "basic",
+      "sprite": "res://assets/items/ring/basic-ring-removebg-preview.png",
+      "folder": "ring",
+      "stats": {
+        "attack": 1,
+        "spell_power": 1
+      }
+    },
+    {
+      "id": "ring/tin-ring",
+      "name": "Tin Ring",
+      "slot": "ring",
+      "rarity": "basic",
+      "sprite": "res://assets/items/ring/basic-ring-removebg-preview.png",
+      "folder": "ring",
+      "stats": {
+        "attack": 1,
+        "spell_power": 1
+      }
+    },
+    {
+      "id": "ring/silver-ring",
+      "name": "Silver Ring",
+      "slot": "ring",
+      "rarity": "common",
+      "sprite": "res://assets/items/ring/common-ring-removebg-preview.png",
+      "folder": "ring",
+      "stats": {
+        "attack": 2,
+        "spell_power": 2
+      }
+    },
+    {
+      "id": "ring/iron-band",
+      "name": "Iron Band",
+      "slot": "ring",
+      "rarity": "common",
+      "sprite": "res://assets/items/ring/common-ring-removebg-preview.png",
+      "folder": "ring",
+      "stats": {
+        "attack": 1,
+        "spell_power": 2
+      }
+    },
+    {
+      "id": "ring/bronze-signet",
+      "name": "Bronze Signet",
+      "slot": "ring",
+      "rarity": "common",
+      "sprite": "res://assets/items/ring/common-ring-removebg-preview.png",
+      "folder": "ring",
+      "stats": {
+        "attack": 2,
+        "spell_power": 1
+      }
+    },
+    {
+      "id": "ring/ruby-ring",
+      "name": "Ruby Ring",
+      "slot": "ring",
+      "rarity": "rare",
+      "sprite": "res://assets/items/ring/rare-ring-removebg-preview.png",
+      "folder": "ring",
+      "stats": {
+        "attack": 3,
+        "spell_power": 3
+      }
+    },
+    {
+      "id": "ring/sapphire-band",
+      "name": "Sapphire Band",
+      "slot": "ring",
+      "rarity": "rare",
+      "sprite": "res://assets/items/ring/rare-ring-removebg-preview.png",
+      "folder": "ring",
+      "stats": {
+        "attack": 2,
+        "spell_power": 3
+      }
+    },
+    {
+      "id": "ring/emerald-signet",
+      "name": "Emerald Signet",
+      "slot": "ring",
+      "rarity": "rare",
+      "sprite": "res://assets/items/ring/rare-ring-removebg-preview.png",
+      "folder": "ring",
+      "stats": {
+        "attack": 3,
+        "spell_power": 2
+      }
+    },
+    {
+      "id": "ring/ring-of-kings",
+      "name": "Ring of Kings",
+      "slot": "ring",
+      "rarity": "unique",
+      "sprite": "res://assets/items/ring/unique-ring-removebg-preview.png",
+      "folder": "ring",
+      "stats": {
+        "attack": 4,
+        "spell_power": 4
+      }
+    },
+    {
+      "id": "ring/void-loop",
+      "name": "Void Loop",
+      "slot": "ring",
+      "rarity": "unique",
+      "sprite": "res://assets/items/ring/unique-ring-removebg-preview.png",
+      "folder": "ring",
+      "stats": {
+        "attack": 3,
+        "spell_power": 4
+      }
+    },
+    {
+      "id": "earrings/bone-stud",
+      "name": "Bone Stud",
+      "slot": "earring",
+      "rarity": "basic",
+      "sprite": "res://assets/items/earrings/basic-earring.png",
+      "folder": "earrings",
+      "stats": {
+        "spell_power": 1
+      }
+    },
+    {
+      "id": "earrings/copper-stud",
+      "name": "Copper Stud",
+      "slot": "earring",
+      "rarity": "basic",
+      "sprite": "res://assets/items/earrings/basic-earring.png",
+      "folder": "earrings",
+      "stats": {
+        "spell_power": 2
+      }
+    },
+    {
+      "id": "earrings/silver-hoop",
+      "name": "Silver Hoop",
+      "slot": "earring",
+      "rarity": "common",
+      "sprite": "res://assets/items/earrings/common-earring.png",
+      "folder": "earrings",
+      "stats": {
+        "spell_power": 3
+      }
+    },
+    {
+      "id": "earrings/iron-earring",
+      "name": "Iron Earring",
+      "slot": "earring",
+      "rarity": "common",
+      "sprite": "res://assets/items/earrings/common-earring.png",
+      "folder": "earrings",
+      "stats": {
+        "spell_power": 2
+      }
+    },
+    {
+      "id": "earrings/glass-bead",
+      "name": "Glass Bead",
+      "slot": "earring",
+      "rarity": "common",
+      "sprite": "res://assets/items/earrings/common-earring.png",
+      "folder": "earrings",
+      "stats": {
+        "spell_power": 2
+      }
+    },
+    {
+      "id": "earrings/sapphire-stud",
+      "name": "Sapphire Stud",
+      "slot": "earring",
+      "rarity": "rare",
+      "sprite": "res://assets/items/earrings/rare-earring.png",
+      "folder": "earrings",
+      "stats": {
+        "spell_power": 5
+      }
+    },
+    {
+      "id": "earrings/moonlit-hoop",
+      "name": "Moonlit Hoop",
+      "slot": "earring",
+      "rarity": "rare",
+      "sprite": "res://assets/items/earrings/rare-earring.png",
+      "folder": "earrings",
+      "stats": {
+        "spell_power": 4
+      }
+    },
+    {
+      "id": "earrings/arcane-stud",
+      "name": "Arcane Stud",
+      "slot": "earring",
+      "rarity": "rare",
+      "sprite": "res://assets/items/earrings/rare-earring.png",
+      "folder": "earrings",
+      "stats": {
+        "spell_power": 5
+      }
+    },
+    {
+      "id": "earrings/starfire-earring",
+      "name": "Starfire Earring",
+      "slot": "earring",
+      "rarity": "unique",
+      "sprite": "res://assets/items/earrings/unique-earring.png",
+      "folder": "earrings",
+      "stats": {
+        "spell_power": 8
+      }
+    },
+    {
+      "id": "earrings/void-whisper",
+      "name": "Void Whisper",
+      "slot": "earring",
+      "rarity": "unique",
+      "sprite": "res://assets/items/earrings/unique-earring.png",
+      "folder": "earrings",
+      "stats": {
+        "spell_power": 7
+      }
+    }
+  ]
+}

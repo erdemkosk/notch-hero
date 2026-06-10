@@ -33,7 +33,7 @@ static func load_document(path: String = DEFAULT_PATH) -> Array:
 		var entry: Variant = raw[i]
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
-		var stage: Dictionary = _normalize_stage(entry, i)
+		var stage: Dictionary = _normalize_stage(entry)
 		if not stage.is_empty():
 			stages.append(stage)
 	return stages
@@ -142,7 +142,7 @@ static func _color_from(value: Variant) -> Color:
 	return Color(0.5, 0.5, 0.5)
 
 
-static func _normalize_stage(entry: Dictionary, progress_index: int = 0) -> Dictionary:
+static func _normalize_stage(entry: Dictionary) -> Dictionary:
 	var waves_raw: Array = entry.get("waves", [])
 	var waves: Array = []
 	for wave_entry in waves_raw:
@@ -159,8 +159,6 @@ static func _normalize_stage(entry: Dictionary, progress_index: int = 0) -> Dict
 	if waves.is_empty():
 		return {}
 
-	waves = _expand_waves_for_progress(waves, progress_index)
-
 	var biome := str(entry.get("biome", "desert"))
 
 	return {
@@ -170,83 +168,3 @@ static func _normalize_stage(entry: Dictionary, progress_index: int = 0) -> Dict
 		"biome": biome,
 		"waves": waves,
 	}
-
-
-static func _expand_waves_for_progress(waves: Array, progress_index: int) -> Array:
-	if progress_index <= 0 or waves.is_empty():
-		return waves
-
-	var expanded: Array = []
-	for wave in waves:
-		var enemies: Array = wave.get("enemies", [])
-		expanded.append({"enemies": _expand_wave_enemies(enemies, progress_index)})
-
-	var boss_idx := _boss_wave_index(expanded)
-	var extra_waves := mini(progress_index / 2, 3)
-	var insert_at := boss_idx if boss_idx >= 0 else expanded.size()
-	var template_idx := clampi(insert_at - 1, 0, expanded.size() - 1)
-	var filler_pool := _stage_filler_pool(waves)
-
-	for i in extra_waves:
-		var template: Array = expanded[template_idx].get("enemies", []).duplicate()
-		if _enemies_contain_boss(template):
-			template = expanded[clampi(template_idx, 0, expanded.size() - 1)].get("enemies", []).duplicate()
-			template = template.filter(func(t): return not is_boss_type(str(t)))
-		if template.is_empty() and not filler_pool.is_empty():
-			template = [filler_pool[0]]
-		elif not filler_pool.is_empty():
-			template.append(filler_pool[(progress_index + i) % filler_pool.size()])
-		expanded.insert(insert_at, {"enemies": template})
-
-	return expanded
-
-
-static func _expand_wave_enemies(enemies: Array, progress_index: int) -> Array:
-	var result: Array = enemies.duplicate()
-	if _enemies_contain_boss(result):
-		return result
-
-	var bonus := mini(progress_index / 3, 2)
-	var pool := _non_boss_enemies(result)
-	if pool.is_empty():
-		pool = _stage_filler_pool([{"enemies": result}])
-	if pool.is_empty():
-		pool = ["gladiator"]
-
-	for i in bonus:
-		result.append(pool[(progress_index + i) % pool.size()])
-	return result
-
-
-static func _boss_wave_index(waves: Array) -> int:
-	for i in waves.size():
-		if _enemies_contain_boss(waves[i].get("enemies", [])):
-			return i
-	return -1
-
-
-static func _enemies_contain_boss(enemies: Array) -> bool:
-	for enemy_type in enemies:
-		if is_boss_type(str(enemy_type)):
-			return true
-	return false
-
-
-static func _non_boss_enemies(enemies: Array) -> Array:
-	var pool: Array = []
-	for enemy_type in enemies:
-		var id := str(enemy_type)
-		if not is_boss_type(id) and not pool.has(id):
-			pool.append(id)
-	return pool
-
-
-static func _stage_filler_pool(waves: Array) -> Array:
-	var pool: Array = []
-	for wave in waves:
-		for enemy_type in wave.get("enemies", []):
-			var id := str(enemy_type)
-			if is_boss_type(id) or pool.has(id):
-				continue
-			pool.append(id)
-	return pool

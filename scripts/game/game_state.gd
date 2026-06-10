@@ -9,6 +9,7 @@ const CombatEngineScript = preload("res://scripts/game/combat_engine.gd")
 const MagicSchoolScript = preload("res://scripts/game/magic_school.gd")
 const StageRunnerScript = preload("res://scripts/game/stage_runner.gd")
 const ItemDataScript = preload("res://scripts/game/item_data.gd")
+const GameBalanceScript = preload("res://scripts/game/game_balance.gd")
 
 const TICK_SEC := 0.32
 
@@ -24,15 +25,16 @@ var recent_log: Array[String] = []
 var total_kills: int = 0
 var melee_engaged := false
 var inventory_unseen: int = 0
+var kills_without_loot: int = 0
 
 var _tick_timer: Timer
 
 
 func _ready() -> void:
+	GameBalanceScript.load_config()
 	ItemDataScript.load_catalog()
 	ItemDataScript.preload_all_textures()
 	hero = Hero.new()
-	_seed_starter_items()
 	hero.loot_added.connect(_on_loot_added)
 	combat = CombatEngineScript.new(hero)
 	combat.spell_cast.connect(_on_spell_cast)
@@ -69,8 +71,14 @@ func _on_stage_entered(_info: Dictionary) -> void:
 
 func _on_hero_died() -> void:
 	melee_engaged = false
+	# Defer so combat_strip hero_died handler runs first (stop melee / lock UI).
+	call_deferred("_restart_stage_after_death")
+	state_changed.emit()
+
+
+func _restart_stage_after_death() -> void:
 	stage_runner.on_hero_died(hero)
-	_log("You died! Restarting from stage start.")
+	_log("You died! Restarting stage from wave 1.")
 	state_changed.emit()
 
 
@@ -130,6 +138,16 @@ func mark_inventory_seen() -> void:
 
 func _on_loot_added(_item: Dictionary) -> void:
 	inventory_unseen += 1
+	kills_without_loot = 0
+	state_changed.emit()
+
+
+func should_pity_loot() -> bool:
+	return kills_without_loot >= GameBalanceScript.pity_kills()
+
+
+func record_kill_without_loot() -> void:
+	kills_without_loot += 1
 
 
 func _gain_inventory_item(item: Dictionary) -> void:
@@ -168,6 +186,7 @@ func equip_from_inventory(inventory_index: int, equip_slot: String) -> bool:
 		_gain_inventory_item(current)
 
 	hero.equipment[equip_slot] = item
+	hero.refresh_combat_stats()
 	_log("Equipped: %s" % ItemDataScript.display_name(item))
 	state_changed.emit()
 	return true
@@ -183,6 +202,7 @@ func unequip_slot(equip_slot: String) -> bool:
 
 	_gain_inventory_item(current)
 	hero.equipment[equip_slot] = null
+	hero.refresh_combat_stats()
 	_log("Unequipped: %s" % ItemDataScript.display_name(current))
 	state_changed.emit()
 	return true
@@ -214,15 +234,9 @@ func swap_equipment(from_slot: String, to_slot: String) -> bool:
 		hero.equipment[to_slot] = from_item
 		hero.equipment[from_slot] = null
 
+	hero.refresh_combat_stats()
 	state_changed.emit()
 	return true
-
-
-func _seed_starter_items() -> void:
-	hero.add_loot(ItemDataScript.make_instance("swords/common-sword1-removebg-preview"))
-	hero.add_loot(ItemDataScript.make_instance("chest/basic-chest-removebg-preview"))
-	hero.add_loot(ItemDataScript.make_instance("ring/common-ring-removebg-preview"))
-	hero.add_loot(ItemDataScript.make_instance("earrings/common-earring"))
 
 
 func buy_crystal(key: String) -> bool:
@@ -256,6 +270,9 @@ func _on_enemy_defeated(rewards: Dictionary) -> void:
 	var msg := "+%d XP, +%d gold" % [rewards.get("xp", 0), rewards.get("gold", 0)]
 	if rewards.get("leveled", false):
 		msg += " | LEVEL UP!"
+	if rewards.get("item_dropped", false):
+		var item: Dictionary = rewards.get("item", {}) as Dictionary
+		msg += " | Loot: %s" % ItemDataScript.display_name(item)
 	_log(msg)
 
 

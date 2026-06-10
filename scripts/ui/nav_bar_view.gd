@@ -24,6 +24,7 @@ const ICON_SCALE := 17.0
 
 var _active := Tab.COMBAT
 var _hover := -1
+var _alert_pulse := 0.0
 
 
 func _ready() -> void:
@@ -31,6 +32,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	GameState.state_changed.connect(_on_state_changed)
 	resized.connect(queue_redraw)
+	set_process(true)
 
 
 func set_active_tab(tab: int) -> void:
@@ -39,6 +41,20 @@ func set_active_tab(tab: int) -> void:
 
 
 func _on_state_changed() -> void:
+	queue_redraw()
+
+
+func _inventory_has_alert() -> bool:
+	return GameState.inventory_unseen > 0 and _active != Tab.INVENTORY
+
+
+func _process(delta: float) -> void:
+	if not _inventory_has_alert():
+		if _alert_pulse != 0.0:
+			_alert_pulse = 0.0
+			queue_redraw()
+		return
+	_alert_pulse += delta
 	queue_redraw()
 
 
@@ -114,6 +130,18 @@ func _draw() -> void:
 
 		var icon_center := Vector2(lifted_rect.position.x + lifted_rect.size.x * 0.5, lifted_rect.position.y + lifted_rect.size.y * 0.33)
 		var icon_col := TEXT_ACTIVE if active else TEXT_IDLE
+		if tab == Tab.INVENTORY and _inventory_has_alert():
+			var pulse := 0.5 + 0.5 * sin(_alert_pulse * 5.2)
+			var glow_rect := lifted_rect.grow(UIScaleScript.px(2.0 + pulse * 2.0))
+			var glow_a := 0.18 + pulse * 0.32
+			_draw_rounded_fill(glow_rect, UIScaleScript.px(6.0), Color(0.95, 0.72, 0.28, glow_a))
+			_draw_rounded_stroke(
+				lifted_rect.grow(UIScaleScript.px(1.0 + pulse * 1.5)),
+				UIScaleScript.px(5.0),
+				Color(1.0, 0.82, 0.38, 0.35 + pulse * 0.55),
+				UIScaleScript.px(1.0) + pulse * 0.6
+			)
+			icon_col = icon_col.lerp(GOLD, 0.25 + pulse * 0.35)
 		NavIconsScript.draw(self, icon_center, tab, icon_col, UIScaleScript.px(ICON_SCALE))
 
 		var label: String = TAB_LABELS.get(tab, "?")
@@ -126,10 +154,14 @@ func _draw() -> void:
 		if tab == Tab.INVENTORY:
 			var badge := _inventory_badge()
 			if not badge.is_empty():
-				var badge_sz := UIScaleScript.px(11.0)
+				var pulse := 0.5 + 0.5 * sin(_alert_pulse * 5.2) if _inventory_has_alert() else 0.0
+				var badge_sz := UIScaleScript.px(11.0 + pulse * 2.5)
 				var bx := lifted_rect.position.x + lifted_rect.size.x - badge_sz - UIScaleScript.px(2.0)
 				var by := lifted_rect.position.y + UIScaleScript.px(2.0)
-				draw_circle(Vector2(bx + badge_sz * 0.5, by + badge_sz * 0.5), badge_sz * 0.55, Color(0.82, 0.22, 0.18))
+				var badge_center := Vector2(bx + badge_sz * 0.5, by + badge_sz * 0.5)
+				if _inventory_has_alert():
+					draw_circle(badge_center, badge_sz * 0.72, Color(1.0, 0.55, 0.22, 0.12 + pulse * 0.22))
+				draw_circle(badge_center, badge_sz * 0.55, Color(0.82, 0.22, 0.18).lerp(Color(1.0, 0.45, 0.2), pulse * 0.45))
 				var bsz := UIScaleScript.font(BADGE_FONT)
 				var bw: float = font.get_string_size(badge, HORIZONTAL_ALIGNMENT_LEFT, -1, bsz).x
 				draw_string(

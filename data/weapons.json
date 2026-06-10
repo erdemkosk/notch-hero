@@ -1,0 +1,1654 @@
+{
+  "weapons": [
+    {
+      "id": "axes/hand-axe",
+      "name": "Hand Axe",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/axes/basic-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 2
+      }
+    },
+    {
+      "id": "axes/woodcutter",
+      "name": "Woodcutter",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/axes/basic-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 3
+      }
+    },
+    {
+      "id": "axes/field-hatchet",
+      "name": "Field Hatchet",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/axes/basic-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 3
+      }
+    },
+    {
+      "id": "axes/lumber-axe",
+      "name": "Lumber Axe",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/axes/basic-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 4
+      }
+    },
+    {
+      "id": "axes/rusty-cleaver",
+      "name": "Rusty Cleaver",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/axes/basic-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 4
+      }
+    },
+    {
+      "id": "axes/camp-hatchet",
+      "name": "Camp Hatchet",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/axes/basic-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 5
+      }
+    },
+    {
+      "id": "axes/iron-hatchet",
+      "name": "Iron Hatchet",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/axes/common-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 6
+      }
+    },
+    {
+      "id": "axes/battle-axe",
+      "name": "Battle Axe",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/axes/common-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 7
+      }
+    },
+    {
+      "id": "axes/cleaving-axe",
+      "name": "Cleaving Axe",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/axes/common-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 8
+      }
+    },
+    {
+      "id": "axes/hunters-axe",
+      "name": "Hunter's Axe",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/axes/common-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 8
+      }
+    },
+    {
+      "id": "axes/raiders-hatchet",
+      "name": "Raider's Hatchet",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/axes/common-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 9
+      }
+    },
+    {
+      "id": "axes/tomahawk",
+      "name": "Tomahawk",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/axes/common-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 9
+      }
+    },
+    {
+      "id": "axes/foresters-axe",
+      "name": "Forester's Axe",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/axes/common-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 10
+      }
+    },
+    {
+      "id": "axes/woodsmans-tool",
+      "name": "Woodsman's Tool",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/axes/common-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 7
+      }
+    },
+    {
+      "id": "axes/brigand-axe",
+      "name": "Brigand Axe",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/axes/common-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 8
+      }
+    },
+    {
+      "id": "axes/frost-hatchet",
+      "name": "Frost Hatchet",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/axes/rare-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 14
+      }
+    },
+    {
+      "id": "axes/skullsplitter",
+      "name": "Skullsplitter",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/axes/rare-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 15
+      }
+    },
+    {
+      "id": "axes/war-axe",
+      "name": "War Axe",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/axes/rare-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 16
+      }
+    },
+    {
+      "id": "axes/bone-cleaver",
+      "name": "Bone Cleaver",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/axes/rare-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 17
+      }
+    },
+    {
+      "id": "axes/storm-hatchet",
+      "name": "Storm Hatchet",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/axes/rare-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 18
+      }
+    },
+    {
+      "id": "axes/berserker-axe",
+      "name": "Berserker Axe",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/axes/rare-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 19
+      }
+    },
+    {
+      "id": "axes/ogre-cleaver",
+      "name": "Ogre Cleaver",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/axes/rare-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 20
+      }
+    },
+    {
+      "id": "axes/wardens-axe",
+      "name": "Warden's Axe",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/axes/rare-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 14
+      }
+    },
+    {
+      "id": "axes/night-hatchet",
+      "name": "Night Hatchet",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/axes/rare-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 16
+      }
+    },
+    {
+      "id": "axes/ragnarok",
+      "name": "Ragnarok",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/axes/unique-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 32
+      }
+    },
+    {
+      "id": "axes/worldbreaker",
+      "name": "Worldbreaker",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/axes/unique-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 36
+      }
+    },
+    {
+      "id": "axes/apocalypse",
+      "name": "Apocalypse",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/axes/unique-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 38
+      }
+    },
+    {
+      "id": "axes/doom-cleaver",
+      "name": "Doom Cleaver",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/axes/unique-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 42
+      }
+    },
+    {
+      "id": "axes/titans-fury",
+      "name": "Titan's Fury",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/axes/unique-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 46
+      }
+    },
+    {
+      "id": "axes/void-hatchet",
+      "name": "Void Hatchet",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/axes/unique-axe-removebg-preview.png",
+      "folder": "axes",
+      "stats": {
+        "attack": 50
+      }
+    },
+    {
+      "id": "swords/rusty-sword",
+      "name": "Rusty Sword",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/swords/basic-sword1-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 2
+      }
+    },
+    {
+      "id": "swords/training-blade",
+      "name": "Training Blade",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/swords/basic-sword2-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 3
+      }
+    },
+    {
+      "id": "swords/worn-saber",
+      "name": "Worn Saber",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/swords/basic-sword3-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 3
+      }
+    },
+    {
+      "id": "swords/militia-sword",
+      "name": "Militia Sword",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/swords/basic-sword1-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 4
+      }
+    },
+    {
+      "id": "swords/bent-falchion",
+      "name": "Bent Falchion",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/swords/basic-sword2-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 4
+      }
+    },
+    {
+      "id": "swords/scout-blade",
+      "name": "Scout Blade",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/swords/basic-sword3-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 5
+      }
+    },
+    {
+      "id": "swords/iron-longsword",
+      "name": "Iron Longsword",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/swords/common-sword1-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 6
+      }
+    },
+    {
+      "id": "swords/steel-saber",
+      "name": "Steel Saber",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/swords/common-sword2-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 7
+      }
+    },
+    {
+      "id": "swords/twin-fang",
+      "name": "Twin Fang",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/swords/common-sword3-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 8
+      }
+    },
+    {
+      "id": "swords/knights-edge",
+      "name": "Knight's Edge",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/swords/common-sword1-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 8
+      }
+    },
+    {
+      "id": "swords/silver-blade",
+      "name": "Silver Blade",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/swords/common-sword2-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 9
+      }
+    },
+    {
+      "id": "swords/raiders-sword",
+      "name": "Raider's Sword",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/swords/common-sword3-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 9
+      }
+    },
+    {
+      "id": "swords/guard-longsword",
+      "name": "Guard Longsword",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/swords/common-sword1-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 10
+      }
+    },
+    {
+      "id": "swords/crystal-shard",
+      "name": "Crystal Shard",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/swords/common-sword2-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 7
+      }
+    },
+    {
+      "id": "swords/noble-saber",
+      "name": "Noble Saber",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/swords/common-sword3-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 8
+      }
+    },
+    {
+      "id": "swords/crystal-edge",
+      "name": "Crystal Edge",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/swords/rare-sword-1-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 14
+      }
+    },
+    {
+      "id": "swords/storm-rapier",
+      "name": "Storm Rapier",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/swords/rare-sword2-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 15
+      }
+    },
+    {
+      "id": "swords/whirling-blades",
+      "name": "Whirling Blades",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/swords/rare-sword3-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 16
+      }
+    },
+    {
+      "id": "swords/moonblade",
+      "name": "Moonblade",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/swords/rare-sword-1-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 17
+      }
+    },
+    {
+      "id": "swords/sun-piercer",
+      "name": "Sun Piercer",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/swords/rare-sword2-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 18
+      }
+    },
+    {
+      "id": "swords/shadow-dancer",
+      "name": "Shadow Dancer",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/swords/rare-sword3-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 19
+      }
+    },
+    {
+      "id": "swords/frost-sword",
+      "name": "Frost Sword",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/swords/rare-sword-1-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 20
+      }
+    },
+    {
+      "id": "swords/ember-edge",
+      "name": "Ember Edge",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/swords/rare-sword2-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 14
+      }
+    },
+    {
+      "id": "swords/wardens-blade",
+      "name": "Warden's Blade",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/swords/rare-sword3-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 16
+      }
+    },
+    {
+      "id": "swords/nightmare-blade",
+      "name": "Nightmare Blade",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/swords/unique-sword1-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 32
+      }
+    },
+    {
+      "id": "swords/soulreaver",
+      "name": "Soulreaver",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/swords/unique-sword2-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 36
+      }
+    },
+    {
+      "id": "swords/excalibur-echo",
+      "name": "Excalibur Echo",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/swords/unique-sword3-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 38
+      }
+    },
+    {
+      "id": "swords/void-katana",
+      "name": "Void Katana",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/swords/unique-sword1-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 42
+      }
+    },
+    {
+      "id": "swords/dragon-fang",
+      "name": "Dragon Fang",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/swords/unique-sword2-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 46
+      }
+    },
+    {
+      "id": "swords/starfall",
+      "name": "Starfall",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/swords/unique-sword3-removebg-preview.png",
+      "folder": "swords",
+      "stats": {
+        "attack": 50
+      }
+    },
+    {
+      "id": "sticks/driftwood-staff",
+      "name": "Driftwood Staff",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/sticks/basic-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 2
+      }
+    },
+    {
+      "id": "sticks/crooked-cane",
+      "name": "Crooked Cane",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/sticks/basic-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 3
+      }
+    },
+    {
+      "id": "sticks/birch-rod",
+      "name": "Birch Rod",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/sticks/basic-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 3
+      }
+    },
+    {
+      "id": "sticks/worn-wand",
+      "name": "Worn Wand",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/sticks/basic-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 4
+      }
+    },
+    {
+      "id": "sticks/pilgrims-staff",
+      "name": "Pilgrim's Staff",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/sticks/basic-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 4
+      }
+    },
+    {
+      "id": "sticks/twig-scepter",
+      "name": "Twig Scepter",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/sticks/basic-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 5
+      }
+    },
+    {
+      "id": "sticks/oak-cudgel",
+      "name": "Oak Cudgel",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/sticks/common-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 6
+      }
+    },
+    {
+      "id": "sticks/iron-shod-staff",
+      "name": "Iron-shod Staff",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/sticks/common-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 7
+      }
+    },
+    {
+      "id": "sticks/walking-stick",
+      "name": "Walking Stick",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/sticks/common-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 8
+      }
+    },
+    {
+      "id": "sticks/elder-stick",
+      "name": "Elder Stick",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/sticks/common-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 8
+      }
+    },
+    {
+      "id": "sticks/runed-branch",
+      "name": "Runed Branch",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/sticks/common-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 9
+      }
+    },
+    {
+      "id": "sticks/ash-wand",
+      "name": "Ash Wand",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/sticks/common-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 9
+      }
+    },
+    {
+      "id": "sticks/willow-rod",
+      "name": "Willow Rod",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/sticks/common-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 10
+      }
+    },
+    {
+      "id": "sticks/mystic-cane",
+      "name": "Mystic Cane",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/sticks/common-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 7
+      }
+    },
+    {
+      "id": "sticks/sages-twig",
+      "name": "Sage's Twig",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/sticks/common-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 8
+      }
+    },
+    {
+      "id": "sticks/thunder-rod",
+      "name": "Thunder Rod",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/sticks/rare-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 14
+      }
+    },
+    {
+      "id": "sticks/sages-staff",
+      "name": "Sage's Staff",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/sticks/rare-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 15
+      }
+    },
+    {
+      "id": "sticks/bone-wand",
+      "name": "Bone Wand",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/sticks/rare-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 16
+      }
+    },
+    {
+      "id": "sticks/arcane-baton",
+      "name": "Arcane Baton",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/sticks/rare-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 17
+      }
+    },
+    {
+      "id": "sticks/stormcaller",
+      "name": "Stormcaller",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/sticks/rare-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 18
+      }
+    },
+    {
+      "id": "sticks/moon-scepter",
+      "name": "Moon Scepter",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/sticks/rare-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 19
+      }
+    },
+    {
+      "id": "sticks/spirit-staff",
+      "name": "Spirit Staff",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/sticks/rare-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 20
+      }
+    },
+    {
+      "id": "sticks/hollow-wand",
+      "name": "Hollow Wand",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/sticks/rare-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 14
+      }
+    },
+    {
+      "id": "sticks/grovekeeper",
+      "name": "Grovekeeper",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/sticks/rare-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 16
+      }
+    },
+    {
+      "id": "sticks/archmage-rod",
+      "name": "Archmage Rod",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/sticks/unique-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 32
+      }
+    },
+    {
+      "id": "sticks/void-scepter",
+      "name": "Void Scepter",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/sticks/unique-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 36
+      }
+    },
+    {
+      "id": "sticks/eternity-staff",
+      "name": "Eternity Staff",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/sticks/unique-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 38
+      }
+    },
+    {
+      "id": "sticks/cosmos-wand",
+      "name": "Cosmos Wand",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/sticks/unique-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 42
+      }
+    },
+    {
+      "id": "sticks/eldritch-rod",
+      "name": "Eldritch Rod",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/sticks/unique-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 46
+      }
+    },
+    {
+      "id": "sticks/world-tree-branch",
+      "name": "World Tree Branch",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/sticks/unique-stick-removebg-preview.png",
+      "folder": "sticks",
+      "stats": {
+        "attack": 50
+      }
+    },
+    {
+      "id": "maces/wooden-club",
+      "name": "Wooden Club",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/maces/basic-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 2
+      }
+    },
+    {
+      "id": "maces/spiked-knuckle",
+      "name": "Spiked Knuckle",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/maces/basic-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 3
+      }
+    },
+    {
+      "id": "maces/stone-knuckle",
+      "name": "Stone Knuckle",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/maces/basic-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 3
+      }
+    },
+    {
+      "id": "maces/bramble-mace",
+      "name": "Bramble Mace",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/maces/basic-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 4
+      }
+    },
+    {
+      "id": "maces/thump-club",
+      "name": "Thump Club",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/maces/basic-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 4
+      }
+    },
+    {
+      "id": "maces/rusty-flail",
+      "name": "Rusty Flail",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/maces/basic-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 5
+      }
+    },
+    {
+      "id": "maces/iron-mace",
+      "name": "Iron Mace",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/maces/common-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 6
+      }
+    },
+    {
+      "id": "maces/flanged-mace",
+      "name": "Flanged Mace",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/maces/common-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 7
+      }
+    },
+    {
+      "id": "maces/morning-star",
+      "name": "Morning Star",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/maces/common-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 8
+      }
+    },
+    {
+      "id": "maces/spiked-club",
+      "name": "Spiked Club",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/maces/common-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 8
+      }
+    },
+    {
+      "id": "maces/knights-cudgel",
+      "name": "Knight's Cudgel",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/maces/common-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 9
+      }
+    },
+    {
+      "id": "maces/bone-club",
+      "name": "Bone Club",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/maces/common-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 9
+      }
+    },
+    {
+      "id": "maces/lead-pipe",
+      "name": "Lead Pipe",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/maces/common-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 10
+      }
+    },
+    {
+      "id": "maces/war-club",
+      "name": "War Club",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/maces/common-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 7
+      }
+    },
+    {
+      "id": "maces/iron-star",
+      "name": "Iron Star",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/maces/common-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 8
+      }
+    },
+    {
+      "id": "maces/skull-crusher",
+      "name": "Skull Crusher",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/maces/rare-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 14
+      }
+    },
+    {
+      "id": "maces/dwarven-maul",
+      "name": "Dwarven Maul",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/maces/rare-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 15
+      }
+    },
+    {
+      "id": "maces/blessed-censer",
+      "name": "Blessed Censer",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/maces/rare-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 16
+      }
+    },
+    {
+      "id": "maces/thunder-mace",
+      "name": "Thunder Mace",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/maces/rare-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 17
+      }
+    },
+    {
+      "id": "maces/ogre-club",
+      "name": "Ogre Club",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/maces/rare-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 18
+      }
+    },
+    {
+      "id": "maces/wardens-gavel",
+      "name": "Warden's Gavel",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/maces/rare-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 19
+      }
+    },
+    {
+      "id": "maces/sun-hammer",
+      "name": "Sun Hammer",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/maces/rare-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 20
+      }
+    },
+    {
+      "id": "maces/bone-flail",
+      "name": "Bone Flail",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/maces/rare-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 14
+      }
+    },
+    {
+      "id": "maces/hex-mace",
+      "name": "Hex Mace",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/maces/rare-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 16
+      }
+    },
+    {
+      "id": "maces/doom-gavel",
+      "name": "Doom Gavel",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/maces/unique-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 32
+      }
+    },
+    {
+      "id": "maces/titans-gavel",
+      "name": "Titan's Gavel",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/maces/unique-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 36
+      }
+    },
+    {
+      "id": "maces/judgment",
+      "name": "Judgment",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/maces/unique-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 38
+      }
+    },
+    {
+      "id": "maces/cataclysm-mace",
+      "name": "Cataclysm Mace",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/maces/unique-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 42
+      }
+    },
+    {
+      "id": "maces/void-crusher",
+      "name": "Void Crusher",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/maces/unique-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 46
+      }
+    },
+    {
+      "id": "maces/rune-hammer",
+      "name": "Rune Hammer",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/maces/unique-mace-removebg-preview.png",
+      "folder": "maces",
+      "stats": {
+        "attack": 50
+      }
+    },
+    {
+      "id": "warhammers/rusty-hammer",
+      "name": "Rusty Hammer",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/warhammers/basic-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 2
+      }
+    },
+    {
+      "id": "warhammers/mining-pick",
+      "name": "Mining Pick",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/warhammers/basic-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 3
+      }
+    },
+    {
+      "id": "warhammers/forge-tongs",
+      "name": "Forge Tongs",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/warhammers/basic-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 3
+      }
+    },
+    {
+      "id": "warhammers/wooden-mallet",
+      "name": "Wooden Mallet",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/warhammers/basic-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 4
+      }
+    },
+    {
+      "id": "warhammers/stone-hammer",
+      "name": "Stone Hammer",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/warhammers/basic-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 4
+      }
+    },
+    {
+      "id": "warhammers/bent-sledge",
+      "name": "Bent Sledge",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/warhammers/basic-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 5
+      }
+    },
+    {
+      "id": "warhammers/forge-hammer",
+      "name": "Forge Hammer",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/warhammers/common-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 6
+      }
+    },
+    {
+      "id": "warhammers/sledgehammer",
+      "name": "Sledgehammer",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/warhammers/common-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 7
+      }
+    },
+    {
+      "id": "warhammers/war-hammer",
+      "name": "War Hammer",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/warhammers/common-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 8
+      }
+    },
+    {
+      "id": "warhammers/iron-maul",
+      "name": "Iron Maul",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/warhammers/common-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 8
+      }
+    },
+    {
+      "id": "warhammers/blacksmith-hammer",
+      "name": "Blacksmith Hammer",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/warhammers/common-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 9
+      }
+    },
+    {
+      "id": "warhammers/masons-hammer",
+      "name": "Mason's Hammer",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/warhammers/common-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 9
+      }
+    },
+    {
+      "id": "warhammers/rail-driver",
+      "name": "Rail Driver",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/warhammers/common-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 10
+      }
+    },
+    {
+      "id": "warhammers/heavy-maul",
+      "name": "Heavy Maul",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/warhammers/common-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 7
+      }
+    },
+    {
+      "id": "warhammers/iron-sledge",
+      "name": "Iron Sledge",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/warhammers/common-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 8
+      }
+    },
+    {
+      "id": "warhammers/thunder-hammer",
+      "name": "Thunder Hammer",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/warhammers/rare-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 14
+      }
+    },
+    {
+      "id": "warhammers/earthshaker",
+      "name": "Earthshaker",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/warhammers/rare-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 15
+      }
+    },
+    {
+      "id": "warhammers/runic-iron-maul",
+      "name": "Runic Iron Maul",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/warhammers/rare-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 16
+      }
+    },
+    {
+      "id": "warhammers/meteor-hammer",
+      "name": "Meteor Hammer",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/warhammers/rare-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 17
+      }
+    },
+    {
+      "id": "warhammers/titans-hammer",
+      "name": "Titan's Hammer",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/warhammers/rare-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 18
+      }
+    },
+    {
+      "id": "warhammers/storm-maul",
+      "name": "Storm Maul",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/warhammers/rare-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 19
+      }
+    },
+    {
+      "id": "warhammers/siege-hammer",
+      "name": "Siege Hammer",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/warhammers/rare-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 20
+      }
+    },
+    {
+      "id": "warhammers/granite-breaker",
+      "name": "Granite Breaker",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/warhammers/rare-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 14
+      }
+    },
+    {
+      "id": "warhammers/wardens-maul",
+      "name": "Warden's Maul",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/warhammers/rare-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 16
+      }
+    },
+    {
+      "id": "warhammers/molten-crusher",
+      "name": "Molten Crusher",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/warhammers/unique-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 32
+      }
+    },
+    {
+      "id": "warhammers/cataclysm",
+      "name": "Cataclysm",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/warhammers/unique-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 36
+      }
+    },
+    {
+      "id": "warhammers/world-cracker",
+      "name": "World Cracker",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/warhammers/unique-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 38
+      }
+    },
+    {
+      "id": "warhammers/doom-hammer",
+      "name": "Doom Hammer",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/warhammers/unique-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 42
+      }
+    },
+    {
+      "id": "warhammers/void-maul",
+      "name": "Void Maul",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/warhammers/unique-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 46
+      }
+    },
+    {
+      "id": "warhammers/starbreaker",
+      "name": "Starbreaker",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/warhammers/unique-warhammer-removebg-preview.png",
+      "folder": "warhammers",
+      "stats": {
+        "attack": 50
+      }
+    }
+  ]
+}

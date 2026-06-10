@@ -1,5 +1,7 @@
 extends AnimatedSprite2D
 
+signal action_finished(anim_name: String)
+
 const SpriteSheetFramesScript = preload("res://scripts/ui/sprite_sheet_frames.gd")
 const FRAME := Vector2i(32, 32)
 
@@ -43,6 +45,8 @@ func play_action(action: String) -> void:
 
 
 func _on_animation_finished() -> void:
-	if sprite_frames.get_animation_loop(animation):
+	var finished := animation
+	if sprite_frames.get_animation_loop(finished):
 		return
+	action_finished.emit(finished)
 	play(_base_anim)

@@ -20,7 +20,7 @@ func reset_for_level(player_level: int) -> void:
 	apply_type_def("gladiator", player_level)
 
 
-func apply_type_def(type_id: String, player_level: int) -> void:
+func apply_type_def(type_id: String, player_level: int, difficulty_mul: float = 1.0) -> void:
 	var def: Dictionary = StageDataScript.get_enemy_def(type_id)
 	level = maxi(1, player_level + randi_range(-1, 1))
 	is_boss = bool(def.get("boss", false))
@@ -28,10 +28,11 @@ func apply_type_def(type_id: String, player_level: int) -> void:
 	var hp_base := float(def.get("hp", 28.0))
 	var atk_base := float(def.get("attack", 3.0))
 	var level_mul := 1.0 + float(level - 1) * (0.12 if is_boss else 0.08)
+	var diff := maxf(0.25, difficulty_mul)
 
-	max_hp = hp_base * level_mul
+	max_hp = hp_base * level_mul * diff
 	hp = max_hp
-	attack_damage = atk_base * level_mul
+	attack_damage = atk_base * level_mul * diff
 	gold_reward = int(round(float(def.get("gold", 5)) * (1.4 if is_boss else 1.0)))
 	xp_reward = int(round(float(def.get("xp", 8)) * (1.5 if is_boss else 1.0)))
 

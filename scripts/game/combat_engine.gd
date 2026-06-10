@@ -5,6 +5,7 @@ const Enemy = preload("res://scripts/game/enemy.gd")
 const MagicSchoolScript = preload("res://scripts/game/magic_school.gd")
 const EnemySpriteScript = preload("res://scripts/ui/enemy_sprite.gd")
 const StageDataScript = preload("res://scripts/game/stage_data.gd")
+const GameBalanceScript = preload("res://scripts/game/game_balance.gd")
 
 signal spell_cast(info: Dictionary)
 signal enemy_defeated(rewards: Dictionary)
@@ -23,6 +24,9 @@ var last_spell_name := "Staff"
 var combo_flash := ""
 var _slain_flags: Array[bool] = []
 var _hero_dead := false
+var _exchange_busy := false
+var _pending_strike: Dictionary = {}
+var _pending_enemy_damage := 0.0
 
 
 func _init(p_hero: Hero) -> void:
@@ -38,15 +42,22 @@ func spawn_wave_with_types(types: PackedStringArray) -> void:
 	enemy_types.clear()
 	_slain_flags.clear()
 	_hero_dead = false
+	_finish_exchange()
 	if types.is_empty():
-		types = _random_types(1)
+		types = _types_from_stage_runner()
+	if types.is_empty():
+		push_warning("spawn_wave_with_types: no enemies for current wave")
+		return
 
 	for i in types.size():
 		var foe := Enemy.new()
 		var enemy_type: String = types[i]
 		if not EnemySpriteScript.TYPE_DEFS.has(enemy_type):
 			enemy_type = "gladiator"
-		foe.apply_type_def(enemy_type, hero.level)
+		var difficulty := 1.0
+		if GameState.stage_runner != null:
+			difficulty = GameState.stage_runner.enemy_difficulty_for(enemy_type)
+		foe.apply_type_def(enemy_type, hero.level, difficulty)
 		if types.size() > 1 and not foe.is_boss:
 			foe.max_hp *= 0.72
 			foe.hp = foe.max_hp
@@ -56,6 +67,15 @@ func spawn_wave_with_types(types: PackedStringArray) -> void:
 
 	_sync_primary()
 	wave_spawned.emit(enemies.size(), enemy_types)
+
+
+func _types_from_stage_runner() -> PackedStringArray:
+	var types := PackedStringArray()
+	if GameState.stage_runner == null:
+		return types
+	for enemy_type in GameState.stage_runner.current_wave_enemies():
+		types.append(str(enemy_type))
+	return types
 
 
 func _random_types(count: int) -> PackedStringArray:
@@ -78,11 +98,21 @@ func tick_passive() -> void:
 	hero.regen_mana(0.45)
 
 
+func is_exchange_busy() -> bool:
+	return _exchange_busy
+
+
 func tick_melee() -> void:
+	begin_melee_exchange()
+
+
+func begin_melee_exchange() -> bool:
+	if _exchange_busy:
+		return false
 	if hero.hp <= 0.0:
-		return
+		return false
 	if enemies.is_empty() or living_count() <= 0:
-		return
+		return false
 
 	combo_flash = ""
 	hero.regen_mana()
@@ -93,21 +123,108 @@ func tick_melee() -> void:
 		if dot > 0.0:
 			_damage_enemy_at(front, dot, "Burn", false)
 
+	front = _front_enemy()
 	if front == null or front.hp <= 0.0:
 		_cleanup_dead()
-		return
+		return false
 
 	var cast := _cast_next_spell()
-	if not cast.is_empty():
-		var dmg: float = cast.get("damage", 0.0)
-		last_spell_name = cast.get("name", "?")
-		_damage_enemy_at(front, dmg, last_spell_name, cast.get("show_combo", false))
+	if cast.is_empty():
+		return false
 
-	_cleanup_dead()
-	if living_count() <= 0:
+	last_spell_name = str(cast.get("name", "Staff"))
+	_pending_strike = cast.duplicate()
+	_pending_enemy_damage = 0.0
+	_exchange_busy = true
+
+	spell_cast.emit({
+		"name": last_spell_name,
+		"damage": cast.get("damage", 0.0),
+		"element": cast.get("element", "physical"),
+		"combo": cast.get("show_combo", false),
+	})
+	return true
+
+
+func commit_hero_strike() -> void:
+	if not _exchange_busy or _pending_strike.is_empty():
 		return
 
-	_all_enemies_strike()
+	var front := _front_enemy()
+	var dmg: float = float(_pending_strike.get("damage", 0.0))
+	var source: String = str(_pending_strike.get("name", last_spell_name))
+	var show_combo: bool = bool(_pending_strike.get("show_combo", false))
+	_pending_strike.clear()
+
+	if front != null and front.hp > 0.0 and dmg > 0.0:
+		_damage_enemy_at(front, dmg, source, show_combo)
+
+	_cleanup_dead()
+
+
+func prepare_enemy_counter() -> bool:
+	if not _exchange_busy:
+		return false
+	if living_count() <= 0 or hero.hp <= 0.0:
+		_finish_exchange()
+		return false
+
+	var slot := _front_slot()
+	if slot < 0 or slot >= enemies.size():
+		_finish_exchange()
+		return false
+
+	var foe: Enemy = enemies[slot]
+	if foe.hp <= 0.0 or foe.is_frozen():
+		_finish_exchange()
+		return false
+
+	var enemy_type := "gladiator"
+	if slot < enemy_types.size():
+		enemy_type = enemy_types[slot]
+	var dmg := _enemy_strike_damage(foe, enemy_type)
+	if dmg <= 0.0:
+		_finish_exchange()
+		return false
+
+	_pending_enemy_damage = dmg
+	return true
+
+
+func commit_enemy_strike() -> void:
+	if not _exchange_busy:
+		return
+
+	var dmg := _pending_enemy_damage
+	_pending_enemy_damage = 0.0
+
+	if dmg > 0.0 and hero.hp > 0.0:
+		var taken := hero.take_damage(dmg)
+		hero_damaged.emit(taken)
+		if hero.hp <= 0.0 and not _hero_dead:
+			_hero_dead = true
+			hero_died.emit()
+
+	_finish_exchange()
+
+
+func cancel_exchange() -> void:
+	_finish_exchange()
+
+
+func clear_wave() -> void:
+	enemies.clear()
+	enemy_types.clear()
+	_slain_flags.clear()
+	_hero_dead = false
+	_finish_exchange()
+	_sync_primary()
+
+
+func _finish_exchange() -> void:
+	_exchange_busy = false
+	_pending_strike.clear()
+	_pending_enemy_damage = 0.0
 
 
 func tick() -> void:
@@ -156,33 +273,26 @@ func _cleanup_dead() -> void:
 
 
 func _collect_rewards(foe: Enemy) -> Dictionary:
+	if foe.hp > 0.0:
+		return {"gold": 0, "xp": 0, "leveled": false, "item_dropped": false, "item": {}}
+
 	var gold := foe.gold_reward
 	var xp := foe.xp_reward
 	hero.gold += gold
 	var leveled := hero.add_xp(xp)
-	hero.add_loot(_roll_loot())
-	return {"gold": gold, "xp": xp, "leveled": leveled}
+	var item_dropped := false
+	var dropped_item: Dictionary = {}
 
+	var pity_drop := GameState.should_pity_loot()
+	var rolled_drop := GameBalanceScript.roll_kill_loot(foe.is_boss)
+	if rolled_drop or pity_drop:
+		dropped_item = _roll_loot()
+		hero.add_loot(dropped_item)
+		item_dropped = true
+	else:
+		GameState.record_kill_without_loot()
 
-func _all_enemies_strike() -> void:
-	var slot := _front_slot()
-	if slot < 0 or slot >= enemies.size():
-		return
-	var foe: Enemy = enemies[slot]
-	if foe.hp <= 0.0 or foe.is_frozen():
-		return
-	var enemy_type := "gladiator"
-	if slot < enemy_types.size():
-		enemy_type = enemy_types[slot]
-	var dmg := _enemy_strike_damage(foe, enemy_type)
-	if dmg <= 0.0:
-		return
-
-	hero.take_damage(dmg)
-	hero_damaged.emit(dmg)
-	if hero.hp <= 0.0 and not _hero_dead:
-		_hero_dead = true
-		hero_died.emit()
+	return {"gold": gold, "xp": xp, "leveled": leveled, "item_dropped": item_dropped, "item": dropped_item}
 
 
 func _enemy_strike_damage(foe: Enemy, enemy_type: String) -> float:
@@ -210,8 +320,7 @@ func _cast_next_spell() -> Dictionary:
 
 func _cast_staff() -> Dictionary:
 	var dmg := hero.weapon_damage()
-	spell_cast.emit({"name": "Staff", "damage": dmg, "element": "physical"})
-	return {"name": "Staff", "damage": dmg}
+	return {"name": "Staff", "damage": dmg, "element": "physical"}
 
 
 func _cast_fireball() -> Dictionary:
@@ -226,8 +335,7 @@ func _cast_fireball() -> Dictionary:
 		combo_triggered.emit(combo_flash, dmg)
 	if target != null:
 		target.apply_status(Enemy.Status.BURNING, 5)
-	spell_cast.emit({"name": "Fireball", "damage": dmg, "element": "fire", "combo": combo})
-	return {"name": "Fireball", "damage": dmg, "show_combo": combo}
+	return {"name": "Fireball", "damage": dmg, "element": "fire", "show_combo": combo}
 
 
 func _cast_frostbolt() -> Dictionary:
@@ -236,15 +344,13 @@ func _cast_frostbolt() -> Dictionary:
 	var dmg := (7.0 + hero.spell_power * 1.1) * hero.school_bonus_for("ice")
 	if target != null:
 		target.apply_status(Enemy.Status.FROZEN, 4)
-	spell_cast.emit({"name": "Frostbolt", "damage": dmg, "element": "ice"})
-	return {"name": "Frostbolt", "damage": dmg}
+	return {"name": "Frostbolt", "damage": dmg, "element": "ice"}
 
 
 func _cast_arcane_bolt() -> Dictionary:
 	hero.mana -= 20.0
 	var dmg := (9.0 + hero.spell_power * 1.3) * hero.school_bonus_for("arcane")
-	spell_cast.emit({"name": "Arcane Bolt", "damage": dmg, "element": "arcane"})
-	return {"name": "Arcane Bolt", "damage": dmg}
+	return {"name": "Arcane Bolt", "damage": dmg, "element": "arcane"}
 
 
 func _damage_enemy_at(foe: Enemy, amount: float, source: String, _combo: bool) -> void:

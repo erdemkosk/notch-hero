@@ -9,7 +9,6 @@ const PortalSpriteScript = preload("res://scripts/ui/portal_sprite.gd")
 const StageDataScript = preload("res://scripts/game/stage_data.gd")
 const ItemDataScript = preload("res://scripts/game/item_data.gd")
 const MagicSchoolScript = preload("res://scripts/game/magic_school.gd")
-const NavIconsScript = preload("res://scripts/ui/nav_icons.gd")
 const UiFont = preload("res://scripts/ui/ui_font.gd")
 const StageMapDrawScript = preload("res://scripts/ui/stage_map_draw.gd")
 const CombatOverlayDrawScript = preload("res://scripts/ui/combat_overlay_draw.gd")
@@ -43,6 +42,9 @@ const BOSS_STING_SEC := 0.38
 const HP_BOSS := Color(0.98, 0.72, 0.22)
 
 const STAGE_HUD_HEIGHT := 38.0 * UIScaleScript.FACTOR
+const COMBAT_BADGE_FONT := 11
+const COMBAT_BADGE_HEIGHT := 17.0
+const HERO_ATTACK_ANIMS := ["attack_slash", "attack_down", "attack_thrust"]
 
 const EQUIP_RARITY_RANK := {
 	"basic": 0,
@@ -75,6 +77,10 @@ var _scroll_frozen := false
 var _intro_phase := ""
 var _intro_timer := 0.0
 var _pending_enemies: Array = []
+var _intro_spawn_enemies: Array = []
+var _intro_generation := 0
+var _intro_finish_generation := 0
+var _wave_advance_token := 0
 var _banner_alpha := 0.0
 var _banner_enter := 0.0
 var _banner_title := ""
@@ -91,6 +97,7 @@ var _sprites: Array[AnimatedSprite2D] = []
 var _hero_sprite: AnimatedSprite2D
 var _portal_sprite: AnimatedSprite2D
 var _bars_layer: Control
+var _overlay_layer: Control
 var _portal_grow := 0.0
 var _portal_scale_mul := 1.0
 var _intro_hold_duration := INTRO_HOLD
@@ -102,6 +109,7 @@ var _boss_enter := 0.0
 var _boss_shake := 0.0
 var _boss_sting_player: AudioStreamPlayer
 var _queue_breath_time := 0.0
+var _awaiting_enemy_strike := false
 var _last_equip_stats: Dictionary = {}
 var _equip_stats_ready := false
 var _equip_glow_pulse := 0.0
@@ -114,6 +122,7 @@ func _ready() -> void:
 	_hero_sprite = AnimatedSprite2D.new()
 	_hero_sprite.set_script(HeroSpriteScript)
 	_hero_sprite.z_index = 5
+	_hero_sprite.action_finished.connect(_on_hero_action_finished)
 	add_child(_hero_sprite)
 
 	_portal_sprite = AnimatedSprite2D.new()
@@ -129,6 +138,15 @@ func _ready() -> void:
 	_bars_layer.z_index = 10
 	add_child(_bars_layer)
 	_bars_layer.draw.connect(_draw_combat_bars)
+
+	_overlay_layer = Control.new()
+	_overlay_layer.name = "CombatOverlay"
+	_overlay_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_overlay_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_overlay_layer.z_index = 100
+	_overlay_layer.z_as_relative = false
+	add_child(_overlay_layer)
+	_overlay_layer.draw.connect(_draw_combat_overlay)
 
 	_boss_sting_player = AudioStreamPlayer.new()
 	_boss_sting_player.name = "BossSting"
@@ -225,11 +243,18 @@ func _target_x_for_slot(slot: int, enemy_type: String) -> float:
 
 
 func _on_stage_entered(info: Dictionary) -> void:
+	_cancel_pending_wave_advance()
 	_stop_melee()
 	_clear_visual_enemies()
 	_damage_numbers.clear()
 	_combat_locked = true
 	_scroll_frozen = true
+	_intro_phase = ""
+	_intro_timer = 0.0
+	_banner_alpha = 0.0
+	_intro_generation += 1
+	_intro_spawn_enemies = _resolve_wave_enemies(info)
+	_pending_enemies = _intro_spawn_enemies.duplicate()
 	_set_hero_intro_pose(true)
 
 	var transition: String = str(info.get("transition", "wave"))
@@ -240,6 +265,7 @@ func _on_stage_entered(info: Dictionary) -> void:
 	var biome_id: String = str(info.get("biome", "desert"))
 
 	if transition == "stage" or transition == "retry":
+		GameState.combat.clear_wave()
 		_biome = CombatBiomeScript.resolve(biome_id)
 
 	_banner_title = label
@@ -254,7 +280,6 @@ func _on_stage_entered(info: Dictionary) -> void:
 
 	_hud_world = int(info.get("world", _hud_world))
 	_refresh_hud_label(label, wave_index, wave_count, stage_name)
-	_pending_enemies = info.get("enemies", [])
 
 	if transition == "stage":
 		_start_portal_intro(INTRO_HOLD, INTRO_FADE)
@@ -267,6 +292,27 @@ func _on_stage_entered(info: Dictionary) -> void:
 			_banner_alpha = 0.0
 			_intro_phase = "wave_pause"
 			_intro_timer = WAVE_PAUSE
+			_mark_intro_finish_generation()
+
+
+func _cancel_pending_wave_advance() -> void:
+	_wave_advance_token += 1
+
+
+func _resolve_wave_enemies(info: Dictionary) -> Array:
+	var enemies: Array = []
+	for enemy_type in info.get("enemies", []):
+		if typeof(enemy_type) == TYPE_STRING:
+			enemies.append(enemy_type)
+	if enemies.is_empty() and GameState.stage_runner != null:
+		for enemy_type in GameState.stage_runner.current_wave_enemies():
+			if typeof(enemy_type) == TYPE_STRING:
+				enemies.append(enemy_type)
+	return enemies
+
+
+func _mark_intro_finish_generation() -> void:
+	_intro_finish_generation = _intro_generation
 
 
 func _wave_has_boss(enemies: Array) -> bool:
@@ -294,8 +340,9 @@ func _start_boss_intro(boss_name: String) -> void:
 	_intro_timer = BOSS_INTRO_HOLD
 	_combat_locked = true
 	_scroll_frozen = true
+	_mark_intro_finish_generation()
 	_play_boss_sting()
-	queue_redraw()
+	_queue_overlay_redraw()
 
 
 func _play_boss_sting() -> void:
@@ -333,6 +380,7 @@ func _start_portal_intro(hold_sec: float, fade_sec: float) -> void:
 	_intro_timer = hold_sec
 	_intro_hold_duration = hold_sec
 	_intro_fade_duration = fade_sec
+	_mark_intro_finish_generation()
 	_portal_grow = 0.0
 	_portal_scale_mul = PORTAL_GROW_MIN
 	_hero_emerge = 0.0
@@ -342,6 +390,7 @@ func _start_portal_intro(hold_sec: float, fade_sec: float) -> void:
 	_apply_portal_visual()
 	_portal_sprite.play_open()
 	_set_hero_intro_pose(true)
+	_queue_overlay_redraw()
 	queue_redraw()
 
 
@@ -360,6 +409,10 @@ func _begin_portal_burst() -> void:
 
 
 func _finish_intro() -> void:
+	if _intro_finish_generation != _intro_generation:
+		_intro_phase = ""
+		return
+
 	_intro_phase = ""
 	_banner_alpha = 0.0
 	_scroll_frozen = false
@@ -371,8 +424,21 @@ func _finish_intro() -> void:
 		_hero_sprite.modulate = Color(1, 1, 1, 1)
 	_layout_hero()
 	_set_hero_intro_pose(false)
-	_spawn_wave_types(_pending_enemies)
+
+	var wave_enemies: Array = _intro_spawn_enemies.duplicate()
+	if wave_enemies.is_empty() and not _pending_enemies.is_empty():
+		wave_enemies = _pending_enemies.duplicate()
+	if wave_enemies.is_empty() and GameState.stage_runner != null:
+		wave_enemies = GameState.stage_runner.current_wave_enemies()
+	if wave_enemies.is_empty():
+		push_warning("CombatStrip: no enemies to spawn after intro")
+		_pending_enemies.clear()
+		_intro_spawn_enemies.clear()
+		return
+
+	_spawn_wave_types(wave_enemies)
 	_pending_enemies.clear()
+	_intro_spawn_enemies.clear()
 
 
 func _set_hero_intro_pose(intro: bool) -> void:
@@ -389,11 +455,15 @@ func _set_hero_intro_pose(intro: bool) -> void:
 
 
 func _spawn_wave_types(enemies: Array) -> void:
+	if enemies.is_empty():
+		return
 	_clear_visual_enemies()
 	var types := PackedStringArray()
 	for enemy_type in enemies:
 		if typeof(enemy_type) == TYPE_STRING:
 			types.append(enemy_type)
+	if types.is_empty():
+		return
 	GameState.combat.spawn_wave_with_types(types)
 
 
@@ -443,6 +513,7 @@ func _on_wave_spawned(count: int, types: PackedStringArray) -> void:
 		sprite.set_script(EnemySpriteScript)
 		sprite.setup(types[i])
 		sprite.z_index = 1 + i
+		sprite.action_finished.connect(_on_enemy_action_finished.bind(sprite))
 		add_child(sprite)
 		_actors.append(actor)
 		_sprites.append(sprite)
@@ -469,9 +540,6 @@ func _living_actor_count() -> int:
 
 
 func _process(delta: float) -> void:
-	if size.x < 10.0:
-		return
-
 	_update_damage_numbers(delta)
 	_update_overlay_anim(delta)
 	_queue_breath_time += delta
@@ -479,75 +547,15 @@ func _process(delta: float) -> void:
 	if _equip_glow_rank() >= 1:
 		_queue_bars_redraw()
 
-	if _intro_phase == "boss_intro":
-		_intro_timer -= delta
-		var elapsed := BOSS_INTRO_HOLD - _intro_timer
-		if elapsed < 0.28:
-			_boss_intro_alpha = elapsed / 0.28
-		elif _intro_timer < 0.5:
-			_boss_intro_alpha = clampf(_intro_timer / 0.5, 0.0, 1.0)
-		else:
-			_boss_intro_alpha = 1.0
-		_boss_shake = maxf(0.0, _boss_shake - delta * 1.35)
-		if _intro_timer <= 0.0:
-			_boss_intro_alpha = 0.0
-			_finish_intro()
-		queue_redraw()
+	if _intro_phase != "":
+		_process_intro(delta)
 		return
 
-	if _intro_phase == "portal_hold":
-		_intro_timer -= delta
-		if _intro_hold_duration > 0.0:
-			_portal_grow = 1.0 - clampf(_intro_timer / _intro_hold_duration, 0.0, 1.0)
-		_portal_scale_mul = lerpf(PORTAL_GROW_MIN, 1.0, _portal_grow)
-		_apply_portal_visual()
-		if is_instance_valid(_hero_sprite):
-			_hero_sprite.visible = false
-		if _intro_timer <= 0.0:
-			_begin_portal_burst()
-		queue_redraw()
-		return
-
-	if _intro_phase == "portal_burst":
-		if _intro_fade_duration > 0.0:
-			_banner_alpha = maxf(0.0, _banner_alpha - delta / _intro_fade_duration)
-		_apply_portal_visual()
-		_hero_emerge = minf(1.0, _hero_emerge + delta / maxf(_intro_fade_duration, 0.01))
-		var t := _hero_emerge
-		var hero_x := lerpf(_hero_spawn_x(), _hero_x, t)
-		var hero_sc := SPRITE_SCALE * lerpf(0.72, 1.0, t)
-		_hero_sprite.modulate.a = clampf(t * 1.35, 0.0, 1.0)
-		_sync_portal_intro_layout(hero_x, hero_sc)
-		if t >= 0.98 and _banner_alpha <= 0.02:
-			_finish_intro()
-		queue_redraw()
-		return
-
-	if _intro_phase == "hold":
-		_intro_timer -= delta
-		if _intro_timer <= 0.0:
-			_intro_phase = "fade"
-			_intro_timer = _intro_fade_duration
-		queue_redraw()
-		return
-
-	if _intro_phase == "fade":
-		_intro_timer -= delta
-		_banner_alpha = clampf(_intro_timer / _intro_fade_duration, 0.0, 1.0)
-		if _intro_timer <= 0.0:
-			_finish_intro()
-		queue_redraw()
-		return
-
-	if _intro_phase == "wave_pause":
-		_intro_timer -= delta
-		if _intro_timer <= 0.0:
-			_finish_intro()
-		queue_redraw()
+	if size.x < 10.0:
 		return
 
 	if _combat_locked:
-		if not _scroll_frozen and _intro_phase.is_empty():
+		if not _scroll_frozen:
 			_scroll_x += delta * SCROLL_SPEED
 		queue_redraw()
 		return
@@ -589,6 +597,82 @@ func _process(delta: float) -> void:
 	_sync_actor_positions()
 	queue_redraw()
 	_queue_bars_redraw()
+
+
+func _process_intro(delta: float) -> void:
+	if _intro_phase == "boss_intro":
+		_intro_timer -= delta
+		var elapsed := BOSS_INTRO_HOLD - _intro_timer
+		if elapsed < 0.28:
+			_boss_intro_alpha = elapsed / 0.28
+		elif _intro_timer < 0.5:
+			_boss_intro_alpha = clampf(_intro_timer / 0.5, 0.0, 1.0)
+		else:
+			_boss_intro_alpha = 1.0
+		_boss_shake = maxf(0.0, _boss_shake - delta * 1.35)
+		if _intro_timer <= 0.0:
+			_boss_intro_alpha = 0.0
+			_finish_intro()
+		_queue_overlay_redraw()
+		queue_redraw()
+		return
+
+	if _intro_phase == "portal_hold":
+		_intro_timer -= delta
+		if _intro_hold_duration > 0.0:
+			_portal_grow = 1.0 - clampf(_intro_timer / _intro_hold_duration, 0.0, 1.0)
+		_portal_scale_mul = lerpf(PORTAL_GROW_MIN, 1.0, _portal_grow)
+		_apply_portal_visual()
+		if is_instance_valid(_hero_sprite):
+			_hero_sprite.visible = false
+		if _intro_timer <= 0.0:
+			_begin_portal_burst()
+		_queue_overlay_redraw()
+		queue_redraw()
+		return
+
+	if _intro_phase == "portal_burst":
+		if _intro_fade_duration > 0.0:
+			_banner_alpha = maxf(0.0, _banner_alpha - delta / _intro_fade_duration)
+		_apply_portal_visual()
+		_hero_emerge = minf(1.0, _hero_emerge + delta / maxf(_intro_fade_duration, 0.01))
+		var t := _hero_emerge
+		var hero_x := lerpf(_hero_spawn_x(), _hero_x, t)
+		var hero_sc := SPRITE_SCALE * lerpf(0.72, 1.0, t)
+		if is_instance_valid(_hero_sprite):
+			_hero_sprite.modulate.a = clampf(t * 1.35, 0.0, 1.0)
+		_sync_portal_intro_layout(hero_x, hero_sc)
+		if t >= 0.98 and _banner_alpha <= 0.02:
+			_finish_intro()
+		_queue_overlay_redraw()
+		queue_redraw()
+		return
+
+	if _intro_phase == "hold":
+		_intro_timer -= delta
+		if _intro_timer <= 0.0:
+			_intro_phase = "fade"
+			_intro_timer = _intro_fade_duration
+		_queue_overlay_redraw()
+		queue_redraw()
+		return
+
+	if _intro_phase == "fade":
+		_intro_timer -= delta
+		_banner_alpha = clampf(_intro_timer / _intro_fade_duration, 0.0, 1.0)
+		if _intro_timer <= 0.0:
+			_finish_intro()
+		_queue_overlay_redraw()
+		queue_redraw()
+		return
+
+	if _intro_phase == "wave_pause":
+		_intro_timer -= delta
+		if _intro_timer <= 0.0:
+			_finish_intro()
+		_queue_overlay_redraw()
+		queue_redraw()
+		return
 
 
 func _front_living_actor() -> CombatEnemyActorScript:
@@ -671,6 +755,8 @@ func _stop_melee() -> void:
 	if not _in_melee:
 		return
 	_in_melee = false
+	_awaiting_enemy_strike = false
+	GameState.combat.cancel_exchange()
 	GameState.set_melee_engaged(false)
 
 
@@ -696,9 +782,12 @@ func _ensure_walk() -> void:
 
 
 func _on_spell_cast(info: Dictionary) -> void:
-	if not _in_melee or info.get("combo", false):
+	if not _in_melee:
 		return
 	_flash = 0.14
+	if info.get("combo", false):
+		call_deferred("_resolve_hero_attack_hit")
+		return
 	var element: String = info.get("element", "physical")
 	var anim := "attack_slash"
 	match element:
@@ -707,15 +796,61 @@ func _on_spell_cast(info: Dictionary) -> void:
 		"ice":
 			anim = "attack_thrust"
 	_hero_sprite.play_action(anim)
-	_flash_front_enemy("hurt")
+
+
+func _on_hero_action_finished(anim_name: String) -> void:
+	if not _in_melee:
+		return
+	if HERO_ATTACK_ANIMS.has(anim_name):
+		_resolve_hero_attack_hit()
+
+
+func _resolve_hero_attack_hit() -> void:
+	if not _in_melee or not GameState.combat.is_exchange_busy():
+		return
+	GameState.combat.commit_hero_strike()
+	GameState.state_changed.emit()
+	if not _in_melee or GameState.hero.hp <= 0.0:
+		return
+	if GameState.combat.prepare_enemy_counter():
+		_play_front_enemy_attack()
+
+
+func _play_front_enemy_attack() -> void:
+	var slot := _combat_front_slot()
+	if slot < 0 or slot >= _sprites.size():
+		GameState.combat.commit_enemy_strike()
+		GameState.state_changed.emit()
+		return
+	var sprite: AnimatedSprite2D = _sprites[slot]
+	if not is_instance_valid(sprite) or not sprite.visible:
+		GameState.combat.commit_enemy_strike()
+		GameState.state_changed.emit()
+		return
+	if sprite.sprite_frames == null or not sprite.sprite_frames.has_animation("attack"):
+		GameState.combat.commit_enemy_strike()
+		GameState.state_changed.emit()
+		return
+	_awaiting_enemy_strike = true
+	sprite.play_action("attack")
+
+
+func _on_enemy_action_finished(anim_name: String, sprite: AnimatedSprite2D) -> void:
+	if not _awaiting_enemy_strike or anim_name != "attack":
+		return
+	var slot := _combat_front_slot()
+	if slot < 0 or slot >= _sprites.size() or _sprites[slot] != sprite:
+		return
+	_awaiting_enemy_strike = false
+	GameState.combat.commit_enemy_strike()
+	GameState.state_changed.emit()
 
 
 func _on_hero_damaged(amount: float) -> void:
 	if not _in_melee:
 		return
 	_flash = 0.2
-	_spawn_damage_number(_popup_pos_for_hero(), amount, "hurt")
-	_flash_front_enemy("attack")
+	_spawn_damage_number(_popup_pos_for_hero(), amount, "hurt", true)
 	if GameState.hero.hp > 0.0:
 		_hero_sprite.play_action("hurt")
 	else:
@@ -723,6 +858,7 @@ func _on_hero_damaged(amount: float) -> void:
 
 
 func _on_hero_died() -> void:
+	_cancel_pending_wave_advance()
 	_stop_melee()
 	_combat_locked = true
 	_scroll_frozen = true
@@ -746,10 +882,13 @@ func _combat_front_slot() -> int:
 	return GameState.combat.front_slot()
 
 
-func _spawn_damage_number(at: Vector2, amount: float, kind: String) -> void:
+func _spawn_damage_number(at: Vector2, amount: float, kind: String, prefix_minus: bool = false) -> void:
 	if amount <= 0.0:
 		return
-	_spawn_floating_text(at + Vector2(randf_range(-6.0, 6.0), 0.0), str(int(round(amount))), kind, 0.85)
+	var text := str(int(round(amount)))
+	if prefix_minus:
+		text = "-" + text
+	_spawn_floating_text(at + Vector2(randf_range(-6.0, 6.0), 0.0), text, kind, 0.85)
 
 
 func _spawn_floating_text(at: Vector2, text: String, kind: String, life: float = 1.05) -> void:
@@ -854,7 +993,14 @@ func _on_enemy_slain(slot: int) -> void:
 		_sprites[slot].play_action("death")
 
 
-func _on_enemy_defeated(_rewards: Dictionary) -> void:
+func _on_enemy_defeated(rewards: Dictionary) -> void:
+	if rewards.get("item_dropped", false):
+		_spawn_floating_text(
+			_popup_pos_for_hero() + Vector2(0.0, -UIScaleScript.px(18.0)),
+			"Loot!",
+			"buff_atk",
+			1.05
+		)
 	if _actors.size() > 0:
 		_actors.remove_at(0)
 	var freed_sprite: AnimatedSprite2D = null
@@ -872,7 +1018,10 @@ func _on_enemy_defeated(_rewards: Dictionary) -> void:
 	_stop_melee()
 	_combat_locked = true
 	_scroll_frozen = false
+	var token := _wave_advance_token
 	get_tree().create_timer(WAVE_PAUSE).timeout.connect(func() -> void:
+		if token != _wave_advance_token:
+			return
 		if is_inside_tree():
 			GameState.on_wave_cleared()
 	)
@@ -945,10 +1094,15 @@ func _queue_bars_redraw() -> void:
 		_bars_layer.queue_redraw()
 
 
+func _queue_overlay_redraw() -> void:
+	if is_instance_valid(_overlay_layer):
+		_overlay_layer.queue_redraw()
+
+
 func _draw_combat_bars() -> void:
 	if size.x < 10.0 or size.y < 10.0 or not is_instance_valid(_bars_layer):
 		return
-	var ground_y := size.y * 0.42 + 8.0
+	var ground_y := _ground_y if _ground_y > 1.0 else size.y * 0.42 + 8.0
 	_draw_hero_equip_glow(_bars_layer, ground_y)
 	_draw_actor_hp_bars(_bars_layer, ground_y)
 	_draw_hero_hp(_bars_layer, ground_y)
@@ -970,8 +1124,6 @@ func _draw() -> void:
 	_draw_biome_decor(horizon)
 	_draw_top_status_strip()
 	_draw_stage_hud()
-	_draw_stage_banner()
-	_draw_boss_intro()
 
 	if _flash > 0.0:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0.95, 0.35, 0.3, _flash * 0.28), true)
@@ -1130,22 +1282,34 @@ func _draw_actor_hp_bars(canvas: CanvasItem, ground_y: float) -> void:
 		if not is_instance_valid(sprite) or not sprite.visible:
 			continue
 
+		var is_boss := actor.enemy.is_boss or StageDataScript.is_boss_type(actor.enemy_type)
 		var ratio := clampf(actor.enemy.hp / maxf(actor.enemy.max_hp, 1.0), 0.0, 1.0)
-		var disp_w := EnemySpriteScript.display_size_for(actor.enemy_type, SPRITE_SCALE).x
-		var bar_w := (disp_w + 14.0) if actor.enemy.is_boss else maxf(SPRITE_W + 8.0, disp_w + 6.0)
+		var lane_y := float(i % 2) * 2.0
+		var disp := EnemySpriteScript.display_size_for(actor.enemy_type, SPRITE_SCALE)
+		var disp_w := disp.x
+		var bar_w := (disp_w + UIScaleScript.px(14.0)) if is_boss else maxf(SPRITE_W + 8.0, disp_w + 6.0)
 		var pos := EnemySpriteScript.sprite_position_for(
 			actor.enemy_type,
 			actor.x,
 			ground_y,
 			SPRITE_SCALE,
-			float(i % 2) * 2.0
+			lane_y
 		)
-		var bar_h := 5.0 if actor.enemy.is_boss else 4.0
+		var visual_top := EnemySpriteScript.visual_top_y_for(
+			actor.enemy_type,
+			ground_y,
+			SPRITE_SCALE,
+			lane_y
+		)
+		var bar_h := UIScaleScript.px(6.0) if is_boss else UIScaleScript.px(4.0)
 		var x := pos.x + (disp_w - bar_w) * 0.5
-		var y := pos.y - 7.0
-		var fill := HP_BOSS if actor.enemy.is_boss else HP_ENEMY
+		var y := visual_top - UIScaleScript.px(8.0)
+		if is_boss:
+			y = maxf(y, UIScaleScript.px(36.0))
+		var fill := HP_BOSS if is_boss else HP_ENEMY
 		_draw_hp_bar(canvas, x, y, bar_w, ratio, fill, bar_h)
-		if actor.enemy.is_boss:
+		_draw_enemy_atk_badge(canvas, x, y, bar_w, actor.enemy.attack_damage)
+		if is_boss:
 			var font := ThemeDB.fallback_font
 			canvas.draw_string(
 				font,
@@ -1185,67 +1349,71 @@ func _draw_hero_equip_glow(canvas: CanvasItem, ground_y: float) -> void:
 	canvas.draw_circle(Vector2(cx, cy), rad * 0.68, Color(col.r, col.g, col.b, alpha * 0.45))
 
 
+func _draw_enemy_atk_badge(canvas: CanvasItem, bar_x: float, bar_y: float, bar_w: float, attack_damage: float) -> void:
+	var atk := maxi(1, int(round(attack_damage)))
+	var font: Font = UiFont.get_font()
+	var fs := UIScaleScript.font(COMBAT_BADGE_FONT)
+	var label := "ATK %d" % atk
+	var pad_x := UIScaleScript.px(8.0)
+	var tw := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + pad_x * 2.0
+	var badge_h := UIScaleScript.px(COMBAT_BADGE_HEIGHT)
+	var rect := Rect2(bar_x + bar_w - tw, bar_y - badge_h - UIScaleScript.px(3.0), tw, badge_h)
+	var r := minf(badge_h * 0.32, UIScaleScript.px(5.0))
+	InventorySlotDrawScript._draw_rounded_fill(canvas, rect, r, Color(0.12, 0.06, 0.06, 0.92))
+	InventorySlotDrawScript._draw_rounded_stroke(canvas, rect, r, Color(0.85, 0.32, 0.28, 0.85), UIScaleScript.px(1.0))
+	canvas.draw_string(
+		font,
+		Vector2(rect.position.x + pad_x, rect.position.y + badge_h * 0.74),
+		label,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1,
+		fs,
+		Color(1.0, 0.55, 0.45)
+	)
+
+
 func _draw_hero_equip_buffs(canvas: CanvasItem, ground_y: float) -> void:
 	if not is_instance_valid(_hero_sprite) or not _hero_sprite.visible:
 		return
-	var stats := GameState.hero.equipment_stats()
-	var atk := int(round(float(stats.get("attack", 0.0))))
-	var armor := int(round(float(stats.get("armor", 0.0))))
-	if atk <= 0 and armor <= 0:
+	var hero := GameState.hero
+	var atk := int(round(hero.attack_power()))
+	var armor_val := int(round(hero.armor()))
+	if atk <= 0 and armor_val <= 0:
 		return
 
 	var bar_y := ground_y - SPRITE_W - 10.0
-	var badge_h := UIScaleScript.px(11.0)
-	var gap := UIScaleScript.px(3.0)
+	var badge_h := UIScaleScript.px(COMBAT_BADGE_HEIGHT)
+	var gap := UIScaleScript.px(4.0)
 	var font: Font = UiFont.get_font()
-	var fs := UIScaleScript.font(7)
+	var fs := UIScaleScript.font(COMBAT_BADGE_FONT)
+	var pad_x := UIScaleScript.px(7.0)
 	var entries: Array[Dictionary] = []
-	if atk > 0:
-		entries.append({"text": str(atk), "col": Color(1.0, 0.78, 0.38), "kind": "atk"})
-	if armor > 0:
-		entries.append({"text": str(armor), "col": Color(0.52, 0.84, 1.0), "kind": "armor"})
+	entries.append({"text": "ATK %d" % atk, "col": Color(1.0, 0.78, 0.38), "kind": "atk"})
+	if armor_val > 0:
+		entries.append({"text": "DEF %d" % armor_val, "col": Color(0.52, 0.84, 1.0), "kind": "armor"})
 
 	var widths: Array[float] = []
 	var total_w := 0.0
 	for entry in entries:
-		var tw: float = font.get_string_size(str(entry["text"]), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + UIScaleScript.px(14.0)
+		var tw: float = font.get_string_size(str(entry["text"]), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + pad_x * 2.0
 		widths.append(tw)
 		total_w += tw
 	total_w += gap * maxf(0.0, float(entries.size() - 1))
 
 	var x := _hero_x + (SPRITE_W + 8.0) * 0.5 - total_w * 0.5
-	var y := bar_y - badge_h - UIScaleScript.px(3.0)
+	var y := bar_y - badge_h - UIScaleScript.px(4.0)
 	for i in entries.size():
 		var entry: Dictionary = entries[i]
 		var w := widths[i]
 		var rect := Rect2(x, y, w, badge_h)
 		var entry_col: Color = entry["col"] as Color
-		canvas.draw_rect(rect, Color(0.08, 0.06, 0.1, 0.88), true)
-		canvas.draw_rect(rect, entry_col.darkened(0.25), false, 1.0)
-		var icon_c := Vector2(rect.position.x + UIScaleScript.px(6.0), rect.position.y + badge_h * 0.52)
-		var icon_s := badge_h * 0.22
-		if str(entry["kind"]) == "armor":
-			_draw_mini_shield(canvas, icon_c, icon_s, entry_col)
-		else:
-			NavIconsScript.draw(canvas, icon_c, 0, entry_col, icon_s)
-		var tx: float = rect.position.x + UIScaleScript.px(12.0)
-		var ty: float = rect.position.y + badge_h - UIScaleScript.px(2.0)
+		var r := minf(badge_h * 0.32, UIScaleScript.px(5.0))
+		InventorySlotDrawScript._draw_rounded_fill(canvas, rect, r, Color(0.08, 0.06, 0.1, 0.92))
+		InventorySlotDrawScript._draw_rounded_stroke(canvas, rect, r, entry_col.darkened(0.25), UIScaleScript.px(1.0))
+		var tx: float = rect.position.x + pad_x
+		var ty: float = rect.position.y + badge_h * 0.74
 		canvas.draw_string(font, Vector2(tx, ty), str(entry["text"]), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, entry_col.lightened(0.12))
 		x += w + gap
-
-
-func _draw_mini_shield(canvas: CanvasItem, center: Vector2, scale: float, col: Color) -> void:
-	var s := scale
-	var w := maxf(1.0, s * 0.12)
-	var top := center + Vector2(0.0, -s * 0.34)
-	var left := center + Vector2(-s * 0.28, s * 0.1)
-	var right := center + Vector2(s * 0.28, s * 0.1)
-	var bottom := center + Vector2(0.0, s * 0.36)
-	canvas.draw_line(top, left, col, w)
-	canvas.draw_line(top, right, col, w)
-	canvas.draw_line(left, bottom, col, w)
-	canvas.draw_line(right, bottom, col, w)
-	canvas.draw_line(left, right, col, w * 0.85)
 
 
 func _draw_stage_hud() -> void:
@@ -1288,12 +1456,22 @@ func _draw_top_status_strip() -> void:
 	)
 
 
-func _draw_stage_banner() -> void:
+func _draw_combat_overlay() -> void:
+	if not is_instance_valid(_overlay_layer):
+		return
+	var overlay_size := _overlay_layer.size
+	if overlay_size.x < 10.0 or overlay_size.y < 10.0:
+		return
+	_draw_stage_banner(_overlay_layer, overlay_size)
+	_draw_boss_intro(_overlay_layer, overlay_size)
+
+
+func _draw_stage_banner(canvas: CanvasItem, viewport: Vector2) -> void:
 	if _banner_alpha <= 0.01:
 		return
 	CombatOverlayDrawScript.draw_banner_card(
-		self,
-		size,
+		canvas,
+		viewport,
 		_banner_alpha,
 		_banner_enter,
 		_banner_title,
@@ -1303,13 +1481,13 @@ func _draw_stage_banner() -> void:
 	)
 
 
-func _draw_boss_intro() -> void:
+func _draw_boss_intro(canvas: CanvasItem, viewport: Vector2) -> void:
 	if _boss_intro_alpha <= 0.01:
 		return
 	var shake_x := sin(_boss_shake * 48.0) * _boss_shake * 5.0
 	CombatOverlayDrawScript.draw_boss_card(
-		self,
-		size,
+		canvas,
+		viewport,
 		_boss_intro_alpha,
 		_boss_enter,
 		_boss_display_name,

@@ -1,5 +1,7 @@
 extends AnimatedSprite2D
 
+signal action_finished(anim_name: String)
+
 const SpriteSheetFramesScript = preload("res://scripts/ui/sprite_sheet_frames.gd")
 const StageDataScript = preload("res://scripts/game/stage_data.gd")
 const FRAME := Vector2i(32, 32)
@@ -20,7 +22,6 @@ const ENEMY_POOL: PackedStringArray = [
 	"brain_mole",
 	"leshy_ranger",
 	"twig_blight",
-	"shardsoul_slayer",
 	"intellect_devourer",
 	"ghoul",
 	"space_soldier",
@@ -161,19 +162,6 @@ const TYPE_DEFS := {
 			"death": {"row": 4, "frames": 5, "speed": 12.0, "loop": false},
 		},
 	},
-	"shardsoul_slayer": {
-		"sheet": "res://assets/characters/enemy_shardsoul_slayer_sheet.png",
-		"frame_size": Vector2i(128, 64),
-		"visual_height": 32,
-		"contact_anchor_x": 100,
-		"combat_role": "melee",
-		"rows": {
-			"walk": {"row": 1, "frames": 4, "speed": 12.0, "loop": true},
-			"attack": {"row": 2, "frames": 4, "speed": 14.0, "loop": false},
-			"hurt": {"row": 3, "frames": 4, "speed": 14.0, "loop": false},
-			"death": {"row": 4, "frames": 4, "speed": 12.0, "loop": false},
-		},
-	},
 	"intellect_devourer": {
 		"sheet": "res://assets/characters/enemy_intellect_devourer_sheet.png",
 		"combat_role": "melee",
@@ -306,6 +294,18 @@ static func ranged_standoff_for(p_type: String) -> float:
 	return float(def.get("ranged_standoff", DEFAULT_RANGED_STANDOFF))
 
 
+static func visual_top_y_for(
+	p_type: String,
+	ground_y: float,
+	base_scale: float = 2.0,
+	lane_offset_y: float = 0.0
+) -> float:
+	var def: Dictionary = TYPE_DEFS.get(p_type, TYPE_DEFS["gladiator"])
+	var scale := display_scale_for(p_type, base_scale)
+	var ref_h := _reference_height(def)
+	return ground_y - float(ref_h) * scale.y + lane_offset_y
+
+
 static func sprite_position_for(
 	p_type: String,
 	contact_x: float,
@@ -352,10 +352,13 @@ func play_action(action: String) -> void:
 
 
 func _on_animation_finished() -> void:
-	if animation == "death":
+	var finished := animation
+	if finished == "death":
 		return
-	if sprite_frames.get_animation_loop(animation):
+	if sprite_frames.get_animation_loop(finished):
 		return
+	if finished == "attack":
+		action_finished.emit(finished)
 	if _queue_waiting:
 		play("walk")
 		frame = 0
