@@ -1,64 +1,238 @@
 extends Control
 
+const UIScaleScript = preload("res://scripts/ui/ui_scale.gd")
+const InventoryDragScript = preload("res://scripts/ui/inventory_drag.gd")
+const ItemDataScript = preload("res://scripts/game/item_data.gd")
+const ItemTooltipScript = preload("res://scripts/ui/item_tooltip.gd")
+const InventorySlotDrawScript = preload("res://scripts/ui/inventory_slot_draw.gd")
+const ItemRarityFrameScript = preload("res://scripts/ui/item_rarity_frame.gd")
+const InventoryHoverScript = preload("res://scripts/ui/inventory_hover.gd")
+const InventoryPanelChromeScript = preload("res://scripts/ui/inventory_panel_chrome.gd")
+const InventoryIconDrawScript = preload("res://scripts/ui/inventory_icon_draw.gd")
+
 enum Category { WEAPON, FOOD, ARMOR, ACCESSORY, POTION, MATERIAL }
 
 const ROWS := 3
 const MIN_COLS := 5
 const MAX_COLS := 14
 
-const LEATHER := Color(0.56, 0.36, 0.21)
-const LEATHER_DARK := Color(0.34, 0.21, 0.12)
-const LEATHER_MID := Color(0.48, 0.31, 0.18)
+const LABEL_COLOR := Color(0.82, 0.72, 0.58)
+const TAB_ACTIVE := Color(0.58, 0.4, 0.22)
+const TAB_IDLE := Color(0.38, 0.26, 0.16)
+const TAB_TEXT := Color(0.94, 0.88, 0.78)
+const TAB_TEXT_ACTIVE := Color(1.0, 0.96, 0.86)
 const LEATHER_LIGHT := Color(0.68, 0.46, 0.28)
-const SLOT_BG := Color(0.24, 0.14, 0.08)
-const SLOT_INSET := Color(0.18, 0.1, 0.06)
-const SLOT_HI := Color(0.32, 0.2, 0.12)
-const STITCH := Color(0.78, 0.58, 0.34)
-const TAB_PAPER := Color(0.9, 0.82, 0.66)
-const TAB_ACTIVE := Color(0.97, 0.9, 0.74)
-const TAB_EDGE := Color(0.62, 0.48, 0.32)
-const METAL := Color(0.62, 0.62, 0.66)
-const METAL_D := Color(0.42, 0.42, 0.46)
+const FILTER_ON := Color(0.52, 0.38, 0.22)
+const FILTER_OFF := Color(0.28, 0.18, 0.12)
+const MENU_BG := Color(0.1, 0.07, 0.05, 0.97)
+const MENU_BORDER := Color(0.58, 0.44, 0.26, 0.95)
 
-const RARITY_COLORS := {
-	"common": Color(0.78, 0.78, 0.82),
-	"rare": Color(0.35, 0.72, 1.0),
-	"epic": Color(0.78, 0.42, 1.0),
-	"trade": Color(0.95, 0.82, 0.35),
+const TAB_NAMES := {
+	Category.WEAPON: "Weapon",
+	Category.ARMOR: "Armor",
+	Category.ACCESSORY: "Acc",
+	Category.POTION: "Potion",
+	Category.MATERIAL: "Mats",
+	Category.FOOD: "Food",
 }
 
+const CONTEXT_ACTIONS := ["Equip", "Sell", "Info"]
+
 var _tab := Category.WEAPON
+var _prev_tab := Category.WEAPON
+var _tab_blend := 1.0
 var _hover_slot := -1
 var _last_click_slot := -1
 var _last_click_ms := 0
+var _shared_slot_side := -1.0
+var _pulse_phase := 0.0
+var _filter_rare := false
+var _filter_sellable := false
+var _search_field: LineEdit
+var _context_slot := -1
+var _context_pos := Vector2.ZERO
+
+
+func set_shared_slot_side(side: float) -> void:
+	_shared_slot_side = side
+	_layout_search_field()
+	queue_redraw()
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	resized.connect(queue_redraw)
-	GameState.state_changed.connect(queue_redraw)
+	_search_field = LineEdit.new()
+	_search_field.placeholder_text = "Search..."
+	_search_field.add_theme_font_size_override("font_size", UIScaleScript.font(9))
+	_search_field.text_changed.connect(_on_search_changed)
+	add_child(_search_field)
+	resized.connect(_on_resized)
+	GameState.state_changed.connect(_on_state_changed)
+
+
+func _on_resized() -> void:
+	_layout_search_field()
+	queue_redraw()
+
+
+func _on_state_changed() -> void:
+	queue_redraw()
+
+
+func _on_search_changed(_text: String) -> void:
+	queue_redraw()
+
+
+func _layout_search_field() -> void:
+	if _search_field == null or size.x < 40.0:
+		return
+	var layout := _compute_layout()
+	var bar: Rect2 = layout["filter_bar"]
+	_search_field.position = Vector2(bar.position.x, bar.position.y + UIScaleScript.px(1.0))
+	_search_field.size = Vector2(bar.size.x * 0.52, bar.size.y - UIScaleScript.px(2.0))
+
+
+func _process(delta: float) -> void:
+	if _tab_blend < 1.0:
+		_tab_blend = minf(1.0, _tab_blend + delta * 5.0)
+		if _tab_blend >= 1.0:
+			_prev_tab = _tab
+		queue_redraw()
+
+	if _needs_pulse_redraw():
+		_pulse_phase += delta * 5.0
+		queue_redraw()
+
+
+func _needs_pulse_redraw() -> bool:
+	if InventoryDragScript.active:
+		return true
+	for item in GameState.hero.inventory:
+		if ItemDataScript.item_rarity(item) == "unique":
+			return true
+	return false
 
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		_hover_slot = _slot_at(get_local_mouse_position())
 		queue_redraw()
-	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var slot := _slot_at(event.position)
-		if slot < 0:
-			var tab := _tab_at(event.position)
-			if tab >= 0:
-				_tab = tab as Category
-				queue_redraw()
-			return
+	elif event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			_on_left_press(event.position)
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
+			_on_right_press(event.position)
 
-		var now := Time.get_ticks_msec()
-		if slot == _last_click_slot and now - _last_click_ms < 350:
-			_sell_slot(slot)
-			_last_click_slot = -1
-		else:
-			_last_click_slot = slot
-			_last_click_ms = now
+
+func _on_right_press(local_pos: Vector2) -> void:
+	if _context_hit(local_pos) >= 0:
+		_run_context_action(_context_hit(local_pos))
+		_context_slot = -1
+		queue_redraw()
+		return
+
+	var filter_idx := _filter_toggle_at(local_pos)
+	if filter_idx >= 0:
+		_toggle_filter(filter_idx)
+		queue_redraw()
+		return
+
+	var tab := _tab_at(local_pos)
+	if tab >= 0:
+		_set_tab(tab as Category)
+		return
+
+	var slot := _slot_at(local_pos)
+	if slot >= 0:
+		_context_slot = slot
+		_context_pos = local_pos
+		queue_redraw()
+	else:
+		_context_slot = -1
+		queue_redraw()
+
+
+func _on_left_press(local_pos: Vector2) -> void:
+	if _context_slot >= 0:
+		if _context_menu_rect().has_point(local_pos):
+			return
+		_context_slot = -1
+
+	var filter_idx := _filter_toggle_at(local_pos)
+	if filter_idx >= 0:
+		_toggle_filter(filter_idx)
+		queue_redraw()
+		return
+
+	var tab := _tab_at(local_pos)
+	if tab >= 0:
+		_set_tab(tab as Category)
+		return
+
+	var slot := _slot_at(local_pos)
+	if slot < 0:
+		return
+
+	if Input.is_key_pressed(KEY_SHIFT):
+		_quick_equip_slot(slot)
+		return
+
+	var now := Time.get_ticks_msec()
+	if slot == _last_click_slot and now - _last_click_ms < 350:
+		_sell_slot(slot)
+		_last_click_slot = -1
+		InventoryDragScript.clear()
+		queue_redraw()
+		return
+
+	_last_click_slot = slot
+	_last_click_ms = now
+
+	var items := _filtered_items()
+	if slot >= items.size():
+		return
+
+	var global_index := _global_index_for_filtered(slot)
+	if global_index < 0:
+		return
+
+	var layout := _compute_layout()
+	InventoryDragScript.start_inventory(
+		global_index,
+		items[slot],
+		layout["slot_size"].x
+	)
+	queue_redraw()
+
+
+func _set_tab(new_tab: Category) -> void:
+	if new_tab == _tab:
+		return
+	_prev_tab = _tab
+	_tab = new_tab
+	_tab_blend = 0.0
+	queue_redraw()
+
+
+func _toggle_filter(index: int) -> void:
+	if index == 0:
+		_filter_rare = not _filter_rare
+	else:
+		_filter_sellable = not _filter_sellable
+
+
+func _quick_equip_slot(filtered_index: int) -> void:
+	var items := _filtered_items()
+	if filtered_index < 0 or filtered_index >= items.size():
+		return
+	var item: Dictionary = items[filtered_index]
+	var equip_slot := ItemDataScript.prefer_equip_slot(item, GameState.hero.equipment)
+	if equip_slot.is_empty():
+		return
+	var global_index := _global_index_for_filtered(filtered_index)
+	if global_index < 0:
+		return
+	GameState.equip_from_inventory(global_index, equip_slot)
 
 
 func _sell_slot(filtered_index: int) -> void:
@@ -67,110 +241,257 @@ func _sell_slot(filtered_index: int) -> void:
 		GameState.sell_item(global_index)
 
 
+func _run_context_action(action_index: int) -> void:
+	if _context_slot < 0:
+		return
+	match action_index:
+		0:
+			_quick_equip_slot(_context_slot)
+		1:
+			_sell_slot(_context_slot)
+		2:
+			pass
+
+
+func get_slot_side() -> float:
+	if _shared_slot_side > 0.0:
+		return _shared_slot_side
+	if size.x < 40.0 or size.y < 40.0:
+		return UIScaleScript.px(36.0)
+	return _compute_layout()["slot_size"].x
+
+
 func _draw() -> void:
 	if size.x < 40.0 or size.y < 40.0:
 		return
 
+	_layout_search_field()
 	var layout := _compute_layout()
-	_draw_bag(layout)
+	InventoryPanelChromeScript.draw(self, layout["bag"], InventoryPanelChromeScript.Style.BAG)
+	_draw_header(layout)
+	_draw_tab_bar(layout)
+	_draw_filter_bar(layout)
+	_draw_grid_panel(layout)
 	_draw_slots(layout)
-	_draw_items(layout)
-	_draw_tabs(layout)
+	_draw_tab_items(layout, _prev_tab, 1.0 - _tab_blend, -UIScaleScript.px(6.0))
+	if _tab_blend > 0.0:
+		_draw_tab_items(layout, _tab, _tab_blend, UIScaleScript.px(6.0) * (1.0 - _tab_blend))
+	_draw_footer(layout)
+	_draw_context_menu()
+	_draw_hover_tooltip(layout)
 
 
 func _compute_layout() -> Dictionary:
-	var tab_w: float = 20.0
-	var edge: float = 1.0
+	var edge := UIScaleScript.px(2.0)
+	var bag_rect := Rect2(edge, edge, size.x - edge * 2.0, size.y - edge * 2.0)
+	var header_h := UIScaleScript.px(18.0)
+	var tab_h := UIScaleScript.px(22.0)
+	var filter_h := UIScaleScript.px(18.0)
+	var footer_h := UIScaleScript.px(14.0)
+	var pad := UIScaleScript.px(4.0)
 
-	# Canta tum kullanilabilir alani kaplasin.
-	var bag_rect := Rect2(edge, edge, size.x - tab_w - edge * 2.0, size.y - edge * 2.0)
-	var inner := bag_rect.grow(-4.0)
-	var base_gap: float = 2.0
+	var grid_top := bag_rect.position.y + header_h + tab_h + filter_h + pad
+	var grid_bottom := bag_rect.end.y - footer_h - pad
+	var inner := Rect2(
+		bag_rect.position.x + pad,
+		grid_top,
+		bag_rect.size.x - pad * 2.0,
+		grid_bottom - grid_top
+	)
 
-	var slot_by_height: float = floor((inner.size.y - base_gap * float(ROWS - 1)) / float(ROWS))
-	slot_by_height = maxf(slot_by_height, 12.0)
+	var base_gap := UIScaleScript.px(2.0)
+	var slot_side: float
+	if _shared_slot_side > 0.0:
+		slot_side = _shared_slot_side
+	else:
+		var slot_by_height: float = floor((inner.size.y - base_gap * float(ROWS - 1)) / float(ROWS))
+		slot_by_height = maxf(slot_by_height, UIScaleScript.px(12.0))
+		var cols_probe: int = int(floor((inner.size.x + base_gap) / (slot_by_height + base_gap)))
+		cols_probe = clampi(cols_probe, MIN_COLS, MAX_COLS)
+		var slot_by_width: float = floor((inner.size.x - base_gap * float(cols_probe - 1)) / float(cols_probe))
+		slot_side = maxf(floor(minf(slot_by_height, slot_by_width)), UIScaleScript.px(12.0))
 
-	var cols: int = int(floor((inner.size.x + base_gap) / (slot_by_height + base_gap)))
+	var cols: int = int(floor((inner.size.x + base_gap) / (slot_side + base_gap)))
 	cols = clampi(cols, MIN_COLS, MAX_COLS)
 
-	var slot_by_width: float = floor((inner.size.x - base_gap * float(cols - 1)) / float(cols))
-	var slot_side: float = floor(minf(slot_by_height, slot_by_width))
-	slot_side = maxf(slot_side, 12.0)
-
 	var grid_w: float = slot_side * float(cols) + base_gap * float(cols - 1)
-	var grid_h: float = slot_side * float(ROWS) + base_gap * float(ROWS - 1)
-
-	# Genislik boslugu varsa araligi ac — grid sola yasli, saga kadar uzanir.
 	var gap_x: float = base_gap
 	if cols > 1 and grid_w < inner.size.x - 1.0:
 		gap_x = (inner.size.x - slot_side * float(cols)) / float(cols - 1)
-		grid_w = inner.size.x
 
 	var gap_y: float = base_gap
+	var grid_h: float = slot_side * float(ROWS) + gap_y * float(ROWS - 1)
 	if grid_h < inner.size.y - 1.0:
 		gap_y = (inner.size.y - slot_side * float(ROWS)) / float(ROWS - 1)
-		grid_h = inner.size.y
 
 	var grid_origin := Vector2(
 		inner.position.x,
 		inner.position.y + (inner.size.y - (slot_side * float(ROWS) + gap_y * float(ROWS - 1))) * 0.5
 	)
 
+	var tab_bar := Rect2(
+		bag_rect.position.x + pad,
+		bag_rect.position.y + header_h,
+		bag_rect.size.x - pad * 2.0,
+		tab_h
+	)
+	var filter_bar := Rect2(
+		tab_bar.position.x,
+		tab_bar.end.y,
+		tab_bar.size.x,
+		filter_h
+	)
+
 	return {
 		"bag": bag_rect,
 		"inner": inner,
+		"tab_bar": tab_bar,
+		"filter_bar": filter_bar,
+		"header_h": header_h,
+		"footer_h": footer_h,
 		"cols": cols,
 		"slot_count": cols * ROWS,
 		"slot_size": Vector2(slot_side, slot_side),
 		"gap_x": gap_x,
 		"gap_y": gap_y,
 		"grid_origin": grid_origin,
-		"tab_w": tab_w,
-		"tab_x": size.x - tab_w - 1.0,
 	}
 
 
-func _draw_bag(layout: Dictionary) -> void:
+func _draw_header(layout: Dictionary) -> void:
 	var bag: Rect2 = layout["bag"]
-	var r: float = 7.0
+	var font := ThemeDB.fallback_font
+	var title_y: float = bag.position.y + float(layout["header_h"]) - UIScaleScript.px(2.0)
+	draw_string(
+		font,
+		Vector2(bag.position.x + UIScaleScript.px(8.0), title_y),
+		"Inventory",
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1,
+		UIScaleScript.font(12),
+		Color(0.96, 0.9, 0.72)
+	)
 
-	# Deri govde — yuvarlatilmis, katmanli
-	_draw_rounded_fill(bag, r, LEATHER_DARK)
-	var inset := bag.grow(-2.0)
-	_draw_rounded_fill(inset, r - 1.0, LEATHER_MID)
-	_draw_rounded_stroke(bag, r, LEATHER_LIGHT, 1.5)
-
-	# Ust deri parlamasi
-	var flap := Rect2(bag.position.x + 8, bag.position.y + 3, bag.size.x - 16, 10)
-	_draw_rounded_fill(flap, 4.0, LEATHER.lightened(0.08))
-
-	# Dikis — yuvarlak koseleri takip eden noktalar
-	_draw_stitch_line(bag, r)
-
-	# Tokalar + kayislar
-	_draw_strap_buckle(bag.position + Vector2(8, 5))
-	_draw_strap_buckle(bag.position + Vector2(bag.size.x - 24, 5))
-	_draw_bottom_strap(bag.position + Vector2(22, bag.size.y - 3))
-	_draw_bottom_strap(bag.position + Vector2(bag.size.x - 30, bag.size.y - 3))
-
-
-func _draw_stitch_line(bag: Rect2, radius: float) -> void:
-	var step := 5.0
-	var x := bag.position.x + radius + 2.0
-	while x < bag.end.x - radius - 2.0:
-		draw_circle(Vector2(x, bag.position.y + 3), 1.0, STITCH)
-		draw_circle(Vector2(x, bag.end.y - 3), 1.0, STITCH)
-		x += step
+	var items := _filtered_items()
+	var count_text := "%d esya" % items.size()
+	var count_w := font.get_string_size(count_text, HORIZONTAL_ALIGNMENT_LEFT, -1, UIScaleScript.font(10)).x
+	draw_string(
+		font,
+		Vector2(bag.end.x - UIScaleScript.px(8.0) - count_w, title_y),
+		count_text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1,
+		UIScaleScript.font(10),
+		LABEL_COLOR
+	)
 
 
-func _draw_strap_buckle(pos: Vector2) -> void:
-	draw_rect(Rect2(pos.x, pos.y, 4, 10), LEATHER_DARK.darkened(0.05))
-	_draw_rounded_fill(Rect2(pos.x + 3, pos.y + 1, 12, 8), 2.0, METAL)
-	draw_rect(Rect2(pos.x + 5, pos.y + 3, 8, 4), METAL_D)
+func _draw_tab_bar(layout: Dictionary) -> void:
+	var bar: Rect2 = layout["tab_bar"]
+	var cats := Category.values()
+	var gap := UIScaleScript.px(2.0)
+	var pill_w := (bar.size.x - gap * float(cats.size() - 1)) / float(cats.size())
+	var x := bar.position.x
+
+	for cat in cats:
+		var rect := Rect2(x, bar.position.y + 1.0, pill_w, bar.size.y - 2.0)
+		var active: bool = cat == _tab
+		var hovered: bool = rect.has_point(get_local_mouse_position())
+		var fill := TAB_ACTIVE if active else TAB_IDLE
+		if hovered and not active:
+			fill = fill.lightened(0.08)
+
+		InventorySlotDrawScript._draw_rounded_fill(self, rect, UIScaleScript.px(4.0), fill)
+		if active:
+			InventorySlotDrawScript._draw_rounded_stroke(self, rect, UIScaleScript.px(4.0), LEATHER_LIGHT, 1.5)
+
+		var label: String = TAB_NAMES.get(cat, "?")
+		var font := ThemeDB.fallback_font
+		var sz := UIScaleScript.font(9)
+		var tw := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x
+		var tc := TAB_TEXT_ACTIVE if active else TAB_TEXT
+		draw_string(
+			font,
+			Vector2(rect.position.x + (rect.size.x - tw) * 0.5, rect.position.y + rect.size.y - UIScaleScript.px(4.0)),
+			label,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1,
+			sz,
+			tc
+		)
+
+		var cat_count := _items_for_category(cat as Category).size()
+		if cat_count > 0:
+			var badge := "%d" % cat_count
+			var badge_sz := UIScaleScript.font(7)
+			draw_string(
+				font,
+				Vector2(rect.end.x - UIScaleScript.px(6.0), rect.position.y + UIScaleScript.px(9.0)),
+				badge,
+				HORIZONTAL_ALIGNMENT_LEFT,
+				-1,
+				badge_sz,
+				TAB_TEXT_ACTIVE if active else TAB_TEXT.darkened(0.2)
+			)
+		x += pill_w + gap
 
 
-func _draw_bottom_strap(pos: Vector2) -> void:
-	_draw_rounded_fill(Rect2(pos.x, pos.y, 8, 7), 3.0, LEATHER_DARK)
+func _filter_toggle_rects(filter_bar: Rect2) -> Array:
+	var labels := ["Rare", "Sellable"]
+	var gap := UIScaleScript.px(3.0)
+	var search_w := filter_bar.size.x * 0.52
+	var toggles_x := filter_bar.position.x + search_w + UIScaleScript.px(6.0)
+	var toggles_w := filter_bar.size.x - search_w - UIScaleScript.px(6.0)
+	var pill_w := (toggles_w - gap) / 2.0
+	var y := filter_bar.position.y + UIScaleScript.px(2.0)
+	var h := filter_bar.size.y - UIScaleScript.px(4.0)
+	return [
+		Rect2(toggles_x, y, pill_w, h),
+		Rect2(toggles_x + pill_w + gap, y, pill_w, h),
+	]
+
+
+func _draw_filter_bar(layout: Dictionary) -> void:
+	var bar: Rect2 = layout["filter_bar"]
+	var rects := _filter_toggle_rects(bar)
+	var labels := ["Rare", "Sellable"]
+	var states := [_filter_rare, _filter_sellable]
+	var font := ThemeDB.fallback_font
+	var sz := UIScaleScript.font(8)
+
+	for i in rects.size():
+		var rect: Rect2 = rects[i]
+		var on: bool = states[i]
+		var fill := FILTER_ON if on else FILTER_OFF
+		InventorySlotDrawScript._draw_rounded_fill(self, rect, UIScaleScript.px(3.0), fill)
+		if on:
+			InventorySlotDrawScript._draw_rounded_stroke(self, rect, UIScaleScript.px(3.0), LEATHER_LIGHT, 1.0)
+		var tw := font.get_string_size(labels[i], HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x
+		draw_string(
+			font,
+			Vector2(rect.position.x + (rect.size.x - tw) * 0.5, rect.end.y - UIScaleScript.px(3.0)),
+			labels[i],
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1,
+			sz,
+			TAB_TEXT_ACTIVE if on else TAB_TEXT.darkened(0.15)
+		)
+
+
+func _filter_toggle_at(local_pos: Vector2) -> int:
+	var layout := _compute_layout()
+	var rects := _filter_toggle_rects(layout["filter_bar"])
+	for i in rects.size():
+		if rects[i].has_point(local_pos):
+			return i
+	return -1
+
+
+func _draw_grid_panel(layout: Dictionary) -> void:
+	var inner: Rect2 = layout["inner"]
+	var r := UIScaleScript.px(5.0)
+	InventorySlotDrawScript._draw_rounded_fill(self, inner, r, Color(0.14, 0.09, 0.06, 0.92))
+	InventorySlotDrawScript._draw_rounded_stroke(self, inner, r, Color(0.28, 0.18, 0.1), 1.0)
 
 
 func _draw_slots(layout: Dictionary) -> void:
@@ -183,138 +504,154 @@ func _draw_slots(layout: Dictionary) -> void:
 
 	for i in slot_count:
 		var rect := _slot_rect(origin, slot_size, gap_x, gap_y, cols, i)
-		var hovered: bool = i == _hover_slot
-		_draw_slot_square(rect, hovered, slot_size.x)
+		var hovered: bool = i == _hover_slot and _tab_blend >= 0.99
+		if hovered:
+			InventoryHoverScript.draw_slot(self, rect)
+		InventorySlotDrawScript.draw_square(self, rect, hovered)
 
 
-func _draw_slot_square(rect: Rect2, hovered: bool, slot_side: float) -> void:
-	var r: float = clampf(slot_side * 0.12, 3.0, 5.0)
-	var bg := SLOT_BG.lightened(0.06 if hovered else 0.0)
-	_draw_rounded_fill(rect, r, bg)
-	# Ice cukur efekti
-	var inner := rect.grow(-2.0)
-	_draw_rounded_fill(inner, r - 1.0, SLOT_INSET if not hovered else SLOT_HI)
-	_draw_rounded_stroke(rect, r, SLOT_HI if hovered else SLOT_INSET.darkened(0.2), 1.0)
+func _draw_tab_items(layout: Dictionary, category: Category, alpha: float, offset_x: float) -> void:
+	if alpha <= 0.01:
+		return
 
-
-func _draw_items(layout: Dictionary) -> void:
-	var items := _filtered_items()
+	var items := _items_for_category(category)
 	var slot_size: Vector2 = layout["slot_size"]
 	var gap_x: float = layout["gap_x"]
 	var gap_y: float = layout["gap_y"]
-	var origin: Vector2 = layout["grid_origin"]
+	var origin: Vector2 = layout["grid_origin"] + Vector2(offset_x, 0.0)
 	var cols: int = layout["cols"]
 	var slot_count: int = layout["slot_count"]
 
 	for i in slot_count:
 		if i >= items.size():
 			break
+		if not _passes_extra_filters(items[i]):
+			continue
+		var global_index := _global_index_in_inventory(items[i])
+		if InventoryDragScript.active \
+				and InventoryDragScript.source == InventoryDragScript.Source.INVENTORY \
+				and global_index == InventoryDragScript.inventory_index:
+			continue
 		var item: Dictionary = items[i]
 		var rect := _slot_rect(origin, slot_size, gap_x, gap_y, cols, i)
-		_draw_item_icon(rect, item, slot_size.x)
-		var rarity: String = item.get("rarity", "common")
-		var rc: Color = RARITY_COLORS.get(rarity, RARITY_COLORS["common"])
-		draw_circle(rect.position + Vector2(rect.size.x - 4, 5), 1.5, rc)
+		_draw_item_icon(rect, item, alpha)
+		_draw_rarity_frame(rect, item, alpha)
 
 
-func _draw_item_icon(rect: Rect2, item: Dictionary, slot_side: float) -> void:
-	var name: String = item.get("name", "?")
-	var c := _item_color(name)
-	var center := rect.get_center()
-	var s := slot_side / 32.0
-	if name.contains("Asa") or name.contains("asa"):
-		draw_rect(Rect2(center.x - 1 * s, center.y - 6 * s, 2 * s, 9 * s), Color(0.88, 0.88, 0.92))
-		draw_rect(Rect2(center.x - 3 * s, center.y - 7 * s, 6 * s, 2 * s), METAL)
-	elif name.contains("Pelerin"):
-		draw_circle(center + Vector2(0, -1 * s), 4.0 * s, c)
-	elif name.contains("crystal") or name.contains("shard") or name.contains("dust"):
-		draw_circle(center, 3.0 * s, c)
-		draw_circle(center + Vector2(-1 * s, -1 * s), 1.0 * s, c.lightened(0.35))
-	else:
-		draw_circle(center, 3.5 * s, c)
+func _draw_rarity_frame(rect: Rect2, item: Dictionary, alpha: float = 1.0) -> void:
+	if alpha < 0.99:
+		return
+	ItemRarityFrameScript.draw_on_slot(
+		self,
+		rect,
+		ItemDataScript.item_rarity(item),
+		_pulse_phase
+	)
 
 
-func _draw_tabs(layout: Dictionary) -> void:
-	var tab_w: float = layout["tab_w"]
-	var tab_x: float = layout["tab_x"]
-	var tab_h: float = (size.y - 10.0) / float(Category.size())
-	var y: float = 5.0
-
-	for cat in Category.values():
-		var active: bool = cat == _tab
-		var h: float = tab_h - 2.0
-		_draw_parchment_tab(Rect2(tab_x - 3.0, y, tab_w + 3.0, h), active)
-		_draw_tab_icon(cat, Vector2(tab_x + tab_w * 0.45, y + h * 0.5))
-		y += tab_h
+func _draw_item_icon(rect: Rect2, item: Dictionary, alpha: float = 1.0) -> void:
+	if alpha < 0.99:
+		var inner := InventorySlotDrawScript.inner_content_rect(rect)
+		draw_rect(inner, Color(0.2, 0.16, 0.12, alpha * 0.5))
+	if InventoryIconDrawScript.draw_in_slot(self, rect, item):
+		return
+	var inner := ItemDataScript.icon_inner_rect(rect)
+	draw_rect(inner, Color(0.28, 0.22, 0.16, 0.85 * alpha))
+	draw_rect(inner, Color(0.42, 0.34, 0.26, alpha), false, 1.0)
 
 
-func _draw_parchment_tab(rect: Rect2, active: bool) -> void:
-	var fill := TAB_ACTIVE if active else TAB_PAPER
-	var pts := PackedVector2Array([
-		Vector2(rect.position.x + 4, rect.position.y),
-		Vector2(rect.end.x, rect.position.y + 1),
-		Vector2(rect.end.x - 1, rect.end.y - 1),
-		Vector2(rect.position.x + 6, rect.end.y),
-		Vector2(rect.position.x + 2, rect.end.y - 2),
-		Vector2(rect.position.x, rect.position.y + 3),
-	])
-	draw_colored_polygon(pts, fill)
-	draw_polyline(pts, TAB_EDGE, 1.0, true)
+func _draw_footer(layout: Dictionary) -> void:
+	var bag: Rect2 = layout["bag"]
+	var font := ThemeDB.fallback_font
+	var hint := "Double-click: Sell | Shift: Quick equip | Right-click: Menu"
+	draw_string(
+		font,
+		Vector2(bag.position.x + UIScaleScript.px(8.0), bag.end.y - UIScaleScript.px(4.0)),
+		hint,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1,
+		UIScaleScript.font(8),
+		LABEL_COLOR.darkened(0.15)
+	)
 
 
-func _draw_tab_icon(cat: Category, center: Vector2) -> void:
-	match cat:
-		Category.WEAPON:
-			draw_line(center + Vector2(-1, 5), center + Vector2(-1, -5), LEATHER_DARK, 2.0)
-			draw_line(center + Vector2(-4, -5), center + Vector2(3, -5), METAL_D, 2.0)
-		Category.FOOD:
-			draw_circle(center + Vector2(0, 1), 3.5, Color(0.88, 0.28, 0.18))
-			draw_rect(Rect2(center.x - 2, center.y - 5, 4, 2), Color(0.22, 0.52, 0.2))
-		Category.ARMOR:
-			draw_circle(center + Vector2(0, -2), 3.0, METAL)
-			draw_rect(Rect2(center.x - 4, center.y, 8, 5), METAL_D)
-		Category.ACCESSORY:
-			draw_arc(center + Vector2(0, 2), 3.5, PI, TAU, 8, LEATHER_DARK, 1.5)
-			draw_circle(center + Vector2(0, -2), 2.0, Color(0.92, 0.78, 0.22))
-		Category.POTION:
-			_draw_rounded_fill(Rect2(center.x - 2, center.y - 1, 4, 5), 1.0, Color(0.38, 0.68, 0.95))
-			draw_rect(Rect2(center.x - 3, center.y - 4, 6, 2), Color(0.82, 0.22, 0.2))
-		Category.MATERIAL:
-			_draw_rounded_fill(Rect2(center.x - 4, center.y - 2, 8, 5), 1.0, Color(0.78, 0.62, 0.38))
+func _context_menu_rect() -> Rect2:
+	var w := UIScaleScript.px(72.0)
+	var h := UIScaleScript.px(14.0) * float(CONTEXT_ACTIONS.size()) + UIScaleScript.px(6.0)
+	var x := clampf(_context_pos.x, 4.0, size.x - w - 4.0)
+	var y := clampf(_context_pos.y, 4.0, size.y - h - 4.0)
+	return Rect2(x, y, w, h)
 
 
-func _draw_rounded_fill(rect: Rect2, radius: float, color: Color) -> void:
-	radius = minf(radius, minf(rect.size.x, rect.size.y) * 0.5)
-	var r := radius
-	var x := rect.position.x
-	var y := rect.position.y
-	var w := rect.size.x
-	var h := rect.size.y
+func _draw_context_menu() -> void:
+	if _context_slot < 0:
+		return
 
-	draw_rect(Rect2(x + r, y, w - 2 * r, h), color)
-	draw_rect(Rect2(x, y + r, w, h - 2 * r), color)
-	draw_circle(Vector2(x + r, y + r), r, color)
-	draw_circle(Vector2(x + w - r, y + r), r, color)
-	draw_circle(Vector2(x + r, y + h - r), r, color)
-	draw_circle(Vector2(x + w - r, y + h - r), r, color)
+	var box := _context_menu_rect()
+	var r := UIScaleScript.px(4.0)
+	InventorySlotDrawScript._draw_rounded_fill(self, box, r, MENU_BG)
+	InventorySlotDrawScript._draw_rounded_stroke(self, box, r, MENU_BORDER, 1.0)
+
+	var font := ThemeDB.fallback_font
+	var sz := UIScaleScript.font(10)
+	var y := box.position.y + UIScaleScript.px(12.0)
+	var local_mouse := get_local_mouse_position()
+
+	for i in CONTEXT_ACTIONS.size():
+		var row := Rect2(box.position.x, y - float(sz), box.size.x, float(sz) + UIScaleScript.px(4.0))
+		if row.has_point(local_mouse):
+			draw_rect(row.grow(-1.0), Color(0.22, 0.16, 0.1, 0.9))
+		draw_string(
+			font,
+			Vector2(box.position.x + UIScaleScript.px(8.0), y),
+			CONTEXT_ACTIONS[i],
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1,
+			sz,
+			TAB_TEXT
+		)
+		y += float(sz) + UIScaleScript.px(2.0)
 
 
-func _draw_rounded_stroke(rect: Rect2, radius: float, color: Color, width: float) -> void:
-	radius = minf(radius, minf(rect.size.x, rect.size.y) * 0.5)
-	var r := radius
-	var x := rect.position.x
-	var y := rect.position.y
-	var w := rect.size.x
-	var h := rect.size.y
+func _context_hit(local_pos: Vector2) -> int:
+	if _context_slot < 0:
+		return -1
+	var box := _context_menu_rect()
+	if not box.has_point(local_pos):
+		return -1
+	var sz := UIScaleScript.font(10)
+	var y := box.position.y + UIScaleScript.px(12.0)
+	for i in CONTEXT_ACTIONS.size():
+		var row := Rect2(box.position.x, y - float(sz), box.size.x, float(sz) + UIScaleScript.px(4.0))
+		if row.has_point(local_pos):
+			return i
+		y += float(sz) + UIScaleScript.px(2.0)
+	return -1
 
-	draw_line(Vector2(x + r, y), Vector2(x + w - r, y), color, width)
-	draw_line(Vector2(x + r, y + h), Vector2(x + w - r, y + h), color, width)
-	draw_line(Vector2(x, y + r), Vector2(x, y + h - r), color, width)
-	draw_line(Vector2(x + w, y + r), Vector2(x + w, y + h - r), color, width)
-	draw_arc(Vector2(x + r, y + r), r, PI, PI * 1.5, 12, color, width)
-	draw_arc(Vector2(x + w - r, y + r), r, PI * 1.5, TAU, 12, color, width)
-	draw_arc(Vector2(x + r, y + h - r), r, PI * 0.5, PI, 12, color, width)
-	draw_arc(Vector2(x + w - r, y + h - r), r, 0, PI * 0.5, 12, color, width)
+
+func _draw_hover_tooltip(layout: Dictionary) -> void:
+	if _hover_slot < 0 or _context_slot >= 0:
+		return
+
+	var items := _filtered_items()
+	if _hover_slot >= items.size():
+		return
+
+	var slot_size: Vector2 = layout["slot_size"]
+	var gap_x: float = layout["gap_x"]
+	var gap_y: float = layout["gap_y"]
+	var origin: Vector2 = layout["grid_origin"]
+	var cols: int = layout["cols"]
+	var rect := _slot_rect(origin, slot_size, gap_x, gap_y, cols, _hover_slot)
+
+	ItemTooltipScript.draw_for_slot(
+		self,
+		rect,
+		items[_hover_slot],
+		Rect2(Vector2.ZERO, size),
+		"Double-click: Sell | Shift: Equip",
+		GameState.hero.equipment
+	)
 
 
 func _slot_rect(
@@ -350,45 +687,88 @@ func _slot_at(local_pos: Vector2) -> int:
 
 func _tab_at(local_pos: Vector2) -> int:
 	var layout := _compute_layout()
-	var tab_w: float = layout["tab_w"]
-	var tab_x: float = layout["tab_x"]
-	var tab_h: float = (size.y - 10.0) / float(Category.size())
-	var y: float = 5.0
-	for cat in Category.values():
-		var rect := Rect2(tab_x - 4.0, y, tab_w + 6.0, tab_h)
+	var bar: Rect2 = layout["tab_bar"]
+	if not bar.has_point(local_pos):
+		return -1
+
+	var cats := Category.values()
+	var gap := UIScaleScript.px(2.0)
+	var pill_w := (bar.size.x - gap * float(cats.size() - 1)) / float(cats.size())
+	var x := bar.position.x
+	for cat in cats:
+		var rect := Rect2(x, bar.position.y, pill_w, bar.size.y)
 		if rect.has_point(local_pos):
 			return cat
-		y += tab_h
+		x += pill_w + gap
 	return -1
 
 
-func _filtered_items() -> Array:
+func _search_query() -> String:
+	if _search_field == null:
+		return ""
+	return _search_field.text.strip_edges().to_lower()
+
+
+func _passes_extra_filters(item: Dictionary) -> bool:
+	if _filter_rare:
+		var rarity := ItemDataScript.item_rarity(item)
+		if rarity != "rare" and rarity != "unique":
+			return false
+	if _filter_sellable:
+		if str(item.get("id", "")).is_empty():
+			return false
+	return true
+
+
+func _passes_search(item: Dictionary) -> bool:
+	var q := _search_query()
+	if q.is_empty():
+		return true
+	return ItemDataScript.display_name(item).to_lower().contains(q)
+
+
+func _items_for_category(category: Category) -> Array:
 	var result: Array = []
 	for item in GameState.hero.inventory:
-		if _item_category(item) == _tab:
-			result.append(item)
+		if _item_category(item) != category:
+			continue
+		if not _passes_search(item):
+			continue
+		if not _passes_extra_filters(item):
+			continue
+		result.append(item)
 	return result
+
+
+func _filtered_items() -> Array:
+	return _items_for_category(_tab)
+
+
+func _global_index_in_inventory(item: Dictionary) -> int:
+	for i in GameState.hero.inventory.size():
+		if GameState.hero.inventory[i] == item:
+			return i
+	return -1
 
 
 func _global_index_for_filtered(filtered_index: int) -> int:
 	var items := _filtered_items()
 	if filtered_index < 0 or filtered_index >= items.size():
 		return -1
-	var target: Dictionary = items[filtered_index]
-	for i in GameState.hero.inventory.size():
-		if GameState.hero.inventory[i] == target:
-			return i
-	return -1
+	return _global_index_in_inventory(items[filtered_index])
 
 
 func _item_category(item: Dictionary) -> Category:
+	var slot: String = ItemDataScript.item_slot(item)
+	match slot:
+		"weapon":
+			return Category.WEAPON
+		"chest", "legs", "feet", "gloves", "helmet":
+			return Category.ARMOR
+		"earring", "ring", "amulet":
+			return Category.ACCESSORY
+
 	var name: String = str(item.get("name", "")).to_lower()
-	if "asa" in name or "kilic" in name or "sword" in name:
-		return Category.WEAPON
-	if "pelerin" in name or "cloa" in name or "zirh" in name:
-		return Category.ARMOR
-	if "tilsim" in name or "amulet" in name:
-		return Category.ACCESSORY
 	if "crystal" in name or "shard" in name or "dust" in name or "iksir" in name:
 		return Category.POTION
 	if "toz" in name or "altin" in name or "material" in name:
@@ -396,16 +776,3 @@ func _item_category(item: Dictionary) -> Category:
 	if "elma" in name or "yiyecek" in name or "food" in name:
 		return Category.FOOD
 	return Category.MATERIAL
-
-
-func _item_color(name: String) -> Color:
-	var lower := name.to_lower()
-	if "ates" in lower or "fire" in lower:
-		return Color(0.92, 0.35, 0.2)
-	if "buz" in lower or "ice" in lower:
-		return Color(0.45, 0.78, 1.0)
-	if "epik" in lower:
-		return Color(0.72, 0.38, 0.95)
-	if "nadir" in lower or "rare" in lower:
-		return Color(0.35, 0.72, 1.0)
-	return Color(0.68, 0.62, 0.52)

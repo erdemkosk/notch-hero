@@ -1,12 +1,19 @@
 extends Node
 
-enum PanelState { HIDDEN, OPEN }
+const UIScaleScript = preload("res://scripts/ui/ui_scale.gd")
+const InventorySlotMetricsScript = preload("res://scripts/ui/inventory_slot_metrics.gd")
 
-const PANEL_HEIGHT := 160.0
-const PANEL_SCALE := 2.0
-const WING_EXTENSION := 40.0
-const HIDE_DELAY := 0.12
+enum PanelState { HIDDEN, OPENING, OPEN, CLOSING }
+
+const PANEL_HEIGHT := UIScaleScript.PANEL_HEIGHT
+const PANEL_SCALE := UIScaleScript.PANEL_WIDTH_SCALE
+const WING_EXTENSION := 70.0
+const HIDE_DELAY := 0.14
 const MOUSE_POLL_SEC := 0.033
+const OPEN_DURATION := 0.34
+const CLOSE_DURATION := 0.26
+const SLIDE_PX := 24.0
+const SCALE_MIN := 0.94
 
 @onready var visual_root: Control = $CanvasLayer/VisualRoot
 @onready var panel: PanelContainer = $CanvasLayer/VisualRoot/Panel
@@ -20,6 +27,9 @@ var _window_id: int
 var _hide_timer: Timer
 var _mouse_timer: Timer
 var _startup_done := false
+var _anim_progress := 0.0
+var _anim_target := 0.0
+var _top_glow: Control
 
 
 func _ready() -> void:
@@ -27,10 +37,32 @@ func _ready() -> void:
 	_game_window = get_window()
 	_window_id = _game_window.get_window_id()
 	_geometry = NotchGeometry.probe()
-	_panel_width = (_geometry.width + (WING_EXTENSION * 2.0)) * PANEL_SCALE
+	_panel_width = InventorySlotMetricsScript.design_panel_width() * PANEL_SCALE
 	_setup_timers()
 	_setup_window_flags()
+	_setup_top_glow()
 	call_deferred("_startup_sequence")
+
+
+func _process(delta: float) -> void:
+	if not _startup_done:
+		return
+	if is_equal_approx(_anim_progress, _anim_target):
+		return
+
+	var duration := OPEN_DURATION if _anim_target > _anim_progress else CLOSE_DURATION
+	var step := delta / maxf(duration, 0.001)
+	if _anim_target > _anim_progress:
+		_anim_progress = minf(_anim_progress + step, _anim_target)
+	else:
+		_anim_progress = maxf(_anim_progress - step, _anim_target)
+
+	_apply_panel_visual(_anim_progress)
+
+	if is_equal_approx(_anim_progress, 1.0) and _state == PanelState.OPENING:
+		_state = PanelState.OPEN
+	elif is_equal_approx(_anim_progress, 0.0) and _state == PanelState.CLOSING:
+		_finish_hide()
 
 
 func _setup_timers() -> void:
@@ -51,7 +83,7 @@ func _startup_sequence() -> void:
 	await get_tree().process_frame
 
 	if not NotchBridgeService.is_native_available():
-		push_error("NotchBridge gerekli. ./native/build_all.sh calistirin.")
+		push_error("NotchBridge required. Run ./native/build_all.sh")
 		return
 
 	NotchBridgeService.apply_to_window(_window_id)
@@ -68,6 +100,10 @@ func _anchor_panel_hidden() -> void:
 	NotchBridgeService.hide_panel(_window_id)
 	visual_root.visible = false
 	_game_window.mouse_passthrough = true
+	_state = PanelState.HIDDEN
+	_anim_progress = 0.0
+	_anim_target = 0.0
+	_reset_panel_visual()
 
 
 func _setup_window_flags() -> void:
@@ -88,9 +124,8 @@ func _on_mouse_poll() -> void:
 
 	if _is_in_hover_zone(local_mouse):
 		_hide_timer.stop()
-		if _state != PanelState.OPEN:
-			_set_state(PanelState.OPEN)
-	elif _state == PanelState.OPEN and _hide_timer.is_stopped():
+		_request_open()
+	elif _is_panel_active() and _hide_timer.is_stopped():
 		_hide_timer.start()
 
 
@@ -106,6 +141,10 @@ func _panel_hover_max_y() -> float:
 	return _panel_top_y() + PANEL_HEIGHT + 8.0
 
 
+func _is_panel_active() -> bool:
+	return _state != PanelState.HIDDEN
+
+
 func _is_in_hover_zone(local_mouse: Vector2) -> bool:
 	var half_band: float = _panel_width * 0.5
 	if absf(local_mouse.x - _geometry.center_x) > half_band:
@@ -114,30 +153,45 @@ func _is_in_hover_zone(local_mouse: Vector2) -> bool:
 	if local_mouse.y <= _notch_hover_max_y():
 		return true
 
-	if _state == PanelState.OPEN and local_mouse.y <= _panel_hover_max_y():
+	if _is_panel_active() and local_mouse.y <= _panel_hover_max_y():
 		return true
 
 	return false
 
 
 func _on_hide_timer_timeout() -> void:
-	_set_state(PanelState.HIDDEN)
+	_request_close()
 
 
-func _set_state(next_state: PanelState) -> void:
-	if _state == next_state:
+func _request_open() -> void:
+	if _state == PanelState.OPEN and is_equal_approx(_anim_progress, 1.0):
 		return
-	_state = next_state
 
-	match next_state:
-		PanelState.HIDDEN:
-			NotchBridgeService.hide_panel(_window_id)
-			visual_root.visible = false
-			_game_window.mouse_passthrough = true
-		PanelState.OPEN:
-			_place_panel(true)
-			_game_window.mouse_passthrough = false
-			visual_root.visible = true
+	if _state == PanelState.HIDDEN:
+		_place_panel(true)
+		_game_window.mouse_passthrough = false
+		visual_root.visible = true
+		_anim_progress = 0.0
+		_apply_panel_visual(0.0)
+
+	_state = PanelState.OPENING
+	_anim_target = 1.0
+
+
+func _request_close() -> void:
+	if _state == PanelState.HIDDEN or _state == PanelState.CLOSING:
+		return
+
+	_state = PanelState.CLOSING
+	_anim_target = 0.0
+	_game_window.mouse_passthrough = true
+
+
+func _finish_hide() -> void:
+	_state = PanelState.HIDDEN
+	NotchBridgeService.hide_panel(_window_id)
+	visual_root.visible = false
+	_reset_panel_visual()
 
 
 func _place_panel(visible: bool) -> void:
@@ -149,7 +203,6 @@ func _place_panel(visible: bool) -> void:
 
 	_panel_width = float(frame.get("width", _panel_width))
 	_sync_godot_window_size()
-	# window_set_size konumu kaydirabilir — native cerceveyi hemen geri uygula.
 	frame = NotchBridgeService.place_panel_at_notch(
 		_window_id, WING_EXTENSION, PANEL_HEIGHT, _panel_width, true
 	)
@@ -175,7 +228,10 @@ func _fit_visual(size: Vector2) -> void:
 
 	_stretch_to_viewport(visual_root)
 	_stretch_to_viewport(panel)
+	panel.pivot_offset = Vector2(vp_size.x * 0.5, 0.0)
 	notch_panel.fit_to(vp_size)
+	if _is_panel_active():
+		_apply_panel_visual(_anim_progress)
 
 
 func _stretch_to_viewport(control: Control) -> void:
@@ -186,3 +242,80 @@ func _stretch_to_viewport(control: Control) -> void:
 	control.offset_bottom = 0.0
 	control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	control.size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+
+func _setup_top_glow() -> void:
+	_top_glow = Control.new()
+	_top_glow.name = "TopGlow"
+	_top_glow.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_top_glow.offset_left = 0.0
+	_top_glow.offset_top = 0.0
+	_top_glow.offset_right = 0.0
+	_top_glow.offset_bottom = 0.0
+	_top_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_top_glow.z_index = 80
+	visual_root.add_child(_top_glow)
+	_top_glow.draw.connect(_draw_top_glow)
+
+
+func _draw_top_glow() -> void:
+	if _anim_progress <= 0.01 or not is_instance_valid(_top_glow):
+		return
+
+	var opening := _anim_target > _anim_progress or _state == PanelState.OPENING
+	var eased := _ease_out_back(_anim_progress) if opening else (1.0 - _ease_in_cubic(1.0 - _anim_progress))
+	var width := _top_glow.size.x
+	if width < 1.0:
+		return
+
+	var glow_h := UIScaleScript.px(30.0)
+	var peak := eased * 0.62
+	var bands := 7
+	for i in bands:
+		var frac := float(i) / float(bands)
+		var band_a := peak * (1.0 - frac) * 0.38
+		_top_glow.draw_rect(
+			Rect2(0.0, float(i) * glow_h / float(bands), width, glow_h / float(bands)),
+			Color(0.95, 0.78, 0.42, band_a),
+			true
+		)
+
+	_top_glow.draw_rect(Rect2(0.0, 0.0, width, UIScaleScript.px(2.0)), Color(1.0, 0.92, 0.65, peak * 0.9), true)
+	var center_w := width * 0.42
+	_top_glow.draw_rect(
+		Rect2((width - center_w) * 0.5, 0.0, center_w, UIScaleScript.px(3.0)),
+		Color(1.0, 0.96, 0.82, peak * 0.55),
+		true
+	)
+
+
+func _apply_panel_visual(open_amount: float) -> void:
+	var opening := _anim_target > _anim_progress
+	var eased := _ease_out_back(open_amount) if opening else (1.0 - _ease_in_cubic(1.0 - open_amount))
+	var slide := UIScaleScript.px(SLIDE_PX) * (1.0 - eased)
+	var scale := lerpf(SCALE_MIN, 1.0, eased)
+	var alpha := lerpf(0.0, 1.0, eased)
+
+	panel.offset_top = -slide
+	panel.scale = Vector2(scale, scale)
+	panel.modulate = Color(1.0, 1.0, 1.0, alpha)
+	if is_instance_valid(_top_glow):
+		_top_glow.queue_redraw()
+
+
+func _reset_panel_visual() -> void:
+	panel.offset_top = 0.0
+	panel.scale = Vector2.ONE
+	panel.modulate = Color.WHITE
+
+
+func _ease_out_back(t: float) -> float:
+	var c1 := 1.70158
+	var c3 := c1 + 1.0
+	var u := clampf(t, 0.0, 1.0)
+	return 1.0 + c3 * pow(u - 1.0, 3.0) + c1 * pow(u - 1.0, 2.0)
+
+
+func _ease_in_cubic(t: float) -> float:
+	var u := clampf(t, 0.0, 1.0)
+	return u * u * u

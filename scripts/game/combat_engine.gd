@@ -19,7 +19,7 @@ var hero: Hero
 var enemy: Enemy
 var enemies: Array[Enemy] = []
 var enemy_types: PackedStringArray = []
-var last_spell_name := "Asa"
+var last_spell_name := "Staff"
 var combo_flash := ""
 var _slain_flags: Array[bool] = []
 var _hero_dead := false
@@ -91,7 +91,7 @@ func tick_melee() -> void:
 	if front != null and front.hp > 0.0:
 		var dot := front.tick_status()
 		if dot > 0.0:
-			_damage_enemy_at(front, dot, "Yanma", false)
+			_damage_enemy_at(front, dot, "Burn", false)
 
 	if front == null or front.hp <= 0.0:
 		_cleanup_dead()
@@ -209,9 +209,9 @@ func _cast_next_spell() -> Dictionary:
 
 
 func _cast_staff() -> Dictionary:
-	var dmg := hero.staff_damage()
-	spell_cast.emit({"name": "Asa", "damage": dmg, "element": "physical"})
-	return {"name": "Asa", "damage": dmg}
+	var dmg := hero.weapon_damage()
+	spell_cast.emit({"name": "Staff", "damage": dmg, "element": "physical"})
+	return {"name": "Staff", "damage": dmg}
 
 
 func _cast_fireball() -> Dictionary:
@@ -226,8 +226,8 @@ func _cast_fireball() -> Dictionary:
 		combo_triggered.emit(combo_flash, dmg)
 	if target != null:
 		target.apply_status(Enemy.Status.BURNING, 5)
-	spell_cast.emit({"name": "Ates Topu", "damage": dmg, "element": "fire", "combo": combo})
-	return {"name": "Ates Topu", "damage": dmg, "show_combo": combo}
+	spell_cast.emit({"name": "Fireball", "damage": dmg, "element": "fire", "combo": combo})
+	return {"name": "Fireball", "damage": dmg, "show_combo": combo}
 
 
 func _cast_frostbolt() -> Dictionary:
@@ -236,15 +236,15 @@ func _cast_frostbolt() -> Dictionary:
 	var dmg := (7.0 + hero.spell_power * 1.1) * hero.school_bonus_for("ice")
 	if target != null:
 		target.apply_status(Enemy.Status.FROZEN, 4)
-	spell_cast.emit({"name": "Buz Oku", "damage": dmg, "element": "ice"})
-	return {"name": "Buz Oku", "damage": dmg}
+	spell_cast.emit({"name": "Frostbolt", "damage": dmg, "element": "ice"})
+	return {"name": "Frostbolt", "damage": dmg}
 
 
 func _cast_arcane_bolt() -> Dictionary:
 	hero.mana -= 20.0
 	var dmg := (9.0 + hero.spell_power * 1.3) * hero.school_bonus_for("arcane")
-	spell_cast.emit({"name": "Kadim Isin", "damage": dmg, "element": "arcane"})
-	return {"name": "Kadim Isin", "damage": dmg}
+	spell_cast.emit({"name": "Arcane Bolt", "damage": dmg, "element": "arcane"})
+	return {"name": "Arcane Bolt", "damage": dmg}
 
 
 func _damage_enemy_at(foe: Enemy, amount: float, source: String, _combo: bool) -> void:
@@ -257,11 +257,5 @@ func _damage_enemy_at(foe: Enemy, amount: float, source: String, _combo: bool) -
 
 
 func _roll_loot() -> Dictionary:
-	var roll := randf()
-	if roll > 0.92:
-		return {"name": "Epik Asa", "rarity": "epic", "power": 4}
-	if roll > 0.78:
-		return {"name": "Nadir Pelerin", "rarity": "rare", "power": 2}
-	if roll > 0.55:
-		return {"name": "Tilsim Parcasi", "rarity": "common", "power": 1}
-	return {"name": "Altin Tozu", "rarity": "common", "power": 0}
+	const ItemDataScript = preload("res://scripts/game/item_data.gd")
+	return ItemDataScript.roll_loot_instance()

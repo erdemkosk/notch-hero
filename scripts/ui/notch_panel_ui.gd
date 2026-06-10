@@ -1,34 +1,30 @@
 extends Control
 
+const UIScaleScript = preload("res://scripts/ui/ui_scale.gd")
+const UiFont = preload("res://scripts/ui/ui_font.gd")
+
 enum Tab { COMBAT, INVENTORY, FORGE, MARKET }
 
-const TAB_NAMES := {
-	Tab.COMBAT: "Savas",
-	Tab.INVENTORY: "Envanter",
-	Tab.FORGE: "Ors",
-	Tab.MARKET: "Pazar",
-}
-
-const NAV_HEIGHT := 44.0
-const NAV_FONT := 20
+const NAV_HEIGHT := UIScaleScript.NAV_HEIGHT
 
 @onready var content_host: Control = $VBox/ContentHost
 @onready var combat_strip: Control = $VBox/ContentHost/CombatStrip
 @onready var inventory_view: Control = $VBox/ContentHost/InventoryView
 @onready var forge_view: Control = $VBox/ContentHost/ForgeView
 @onready var market_view: Control = $VBox/ContentHost/MarketView
-@onready var nav_bar: HBoxContainer = $VBox/NavBar
+@onready var nav_bar: Control = $VBox/NavBar
 @onready var inventory_bag: Control = $VBox/ContentHost/InventoryView/InventoryBag
+@onready var equipment_panel: Control = $VBox/ContentHost/InventoryView/EquipmentPanel
 @onready var forge_label: Label = $VBox/ContentHost/ForgeView/ForgeLabel
 @onready var forge_button: Button = $VBox/ContentHost/ForgeView/ForgeButton
 @onready var market_list: ItemList = $VBox/ContentHost/MarketView/MarketList
 
 var _tab := Tab.COMBAT
-var _nav_buttons: Dictionary = {}
 
 
 func _ready() -> void:
-	_build_nav()
+	UiFont.setup()
+	nav_bar.tab_pressed.connect(_select_tab)
 	forge_button.pressed.connect(func() -> void: GameState.forge_enchant())
 	market_list.item_activated.connect(_on_market_buy)
 	GameState.state_changed.connect(_refresh_tabs)
@@ -52,57 +48,19 @@ func fit_to(panel_size: Vector2) -> void:
 	nav_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 
-func _build_nav() -> void:
-	for tab in Tab.values():
-		var btn := Button.new()
-		btn.text = TAB_NAMES[tab]
-		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		btn.custom_minimum_size = Vector2(0, NAV_HEIGHT)
-		btn.focus_mode = Control.FOCUS_NONE
-		btn.add_theme_font_size_override("font_size", NAV_FONT)
-		btn.add_theme_color_override("font_color", Color(0.92, 0.88, 0.78))
-		btn.add_theme_color_override("font_hover_color", Color(1.0, 0.96, 0.86))
-		btn.add_theme_color_override("font_pressed_color", Color(1.0, 0.92, 0.7))
-		btn.add_theme_stylebox_override("normal", _nav_style(false))
-		btn.add_theme_stylebox_override("hover", _nav_style(false, true))
-		btn.add_theme_stylebox_override("pressed", _nav_style(true))
-		btn.pressed.connect(func() -> void: _select_tab(tab))
-		nav_bar.add_child(btn)
-		_nav_buttons[tab] = btn
-
-
-func _nav_style(active: bool, hover: bool = false) -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.bg_color = Color(0.48, 0.32, 0.18) if active else Color(0.34, 0.22, 0.13)
-	if hover and not active:
-		box.bg_color = Color(0.42, 0.28, 0.16)
-	box.border_color = Color(0.68, 0.5, 0.28)
-	box.set_border_width_all(1)
-	box.set_corner_radius_all(4)
-	box.content_margin_top = 6
-	box.content_margin_bottom = 4
-	box.content_margin_left = 2
-	box.content_margin_right = 2
-	return box
-
-
 func _select_tab(tab: Tab) -> void:
 	_tab = tab
 	combat_strip.visible = tab == Tab.COMBAT
 	inventory_view.visible = tab == Tab.INVENTORY
 	forge_view.visible = tab == Tab.FORGE
 	market_view.visible = tab == Tab.MARKET
-	_refresh_nav_styles()
+	if nav_bar.has_method("set_active_tab"):
+		nav_bar.set_active_tab(tab)
+	if tab == Tab.INVENTORY:
+		GameState.mark_inventory_seen()
 	_refresh_tabs()
-
-
-func _refresh_nav_styles() -> void:
-	for tab in _nav_buttons.keys():
-		var btn: Button = _nav_buttons[tab]
-		var active: bool = tab == _tab
-		btn.add_theme_stylebox_override("normal", _nav_style(active))
-		btn.add_theme_stylebox_override("hover", _nav_style(active, true))
-		btn.modulate = Color(1.08, 1.04, 0.92) if active else Color(0.88, 0.86, 0.82)
+	if tab == Tab.INVENTORY and inventory_view != null:
+		inventory_view.call_deferred("_layout_children")
 
 
 func _refresh_tabs() -> void:
@@ -111,20 +69,26 @@ func _refresh_tabs() -> void:
 
 	if inventory_bag.has_method("queue_redraw"):
 		inventory_bag.queue_redraw()
+	if equipment_panel.has_method("queue_redraw"):
+		equipment_panel.queue_redraw()
+	if inventory_view.has_method("queue_redraw"):
+		inventory_view.queue_redraw()
+	if nav_bar.has_method("queue_redraw"):
+		nav_bar.queue_redraw()
 
 	var hero := GameState.hero
 	var cost: int = 25 + hero.staff_enchant * 18
 	var risk := 0.0 if hero.staff_enchant < 5 else (18.0 + hero.staff_enchant * 3.0)
-	forge_label.text = "Asa +%d | %d altin | risk %.0f%%" % [hero.staff_enchant, cost, risk]
+	forge_label.text = "Staff +%d | %d gold | risk %.0f%%" % [hero.staff_enchant, cost, risk]
 
 	market_list.clear()
 	for key in GameState.market_prices.keys():
 		var price: int = int(round(GameState.market_prices[key]))
-		market_list.add_item("%s  %d altin" % [key, price])
+		market_list.add_item("%s  %d gold" % [key, price])
 
-	forge_label.add_theme_font_size_override("font_size", 14)
-	forge_button.add_theme_font_size_override("font_size", 16)
-	market_list.add_theme_font_size_override("font_size", 14)
+	forge_label.add_theme_font_size_override("font_size", UIScaleScript.font(14))
+	forge_button.add_theme_font_size_override("font_size", UIScaleScript.font(16))
+	market_list.add_theme_font_size_override("font_size", UIScaleScript.font(14))
 
 
 func _on_market_buy(index: int) -> void:

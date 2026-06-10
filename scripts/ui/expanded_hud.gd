@@ -55,9 +55,9 @@ func _layout_arena() -> void:
 
 func _setup_schools() -> void:
 	school_option.clear()
-	school_option.add_item("Ates (Pyromancy)", MagicSchoolScript.School.PYROMANCY)
-	school_option.add_item("Buz (Cryomancy)", MagicSchoolScript.School.CRYOMANCY)
-	school_option.add_item("Kadim (Arcane)", MagicSchoolScript.School.ARCANE)
+	school_option.add_item("Fire (Pyromancy)", MagicSchoolScript.School.PYROMANCY)
+	school_option.add_item("Ice (Cryomancy)", MagicSchoolScript.School.CRYOMANCY)
+	school_option.add_item("Arcane", MagicSchoolScript.School.ARCANE)
 	school_option.select(GameState.hero.school)
 	school_option.item_selected.connect(func(idx: int) -> void:
 		GameState.set_school(idx)
@@ -69,7 +69,7 @@ func refresh() -> void:
 	var enemy: Enemy = GameState.combat.enemy
 
 	title_label.text = "Lv.%d %s" % [hero.level, MagicSchoolScript.NAMES[hero.school]]
-	gold_label.text = "%d altin | %d kill" % [hero.gold, GameState.total_kills]
+	gold_label.text = "%d gold | %d kills" % [hero.gold, GameState.total_kills]
 
 	wizard_sprite.color = MagicSchoolScript.COLORS[hero.school]
 	enemy_sprite.color = Color(0.85, 0.2, 0.25) if enemy.status == Enemy.Status.BURNING else Color(0.55, 0.58, 0.65)
@@ -95,15 +95,15 @@ func refresh() -> void:
 	var cost: int = 25 + hero.staff_enchant * 18
 	var risk := 0.0 if hero.staff_enchant < 5 else (18.0 + hero.staff_enchant * 3.0)
 	forge_label.text = (
-		"Asa: +%d\nMaliyet: %d altin\nRisk: %.0f%%"
+		"Staff: +%d\nCost: %d gold\nRisk: %.0f%%"
 		% [hero.staff_enchant, cost, risk]
 	)
-	forge_button.text = "Arti Bas (+1)"
+	forge_button.text = "Enchant (+1)"
 
 	market_list.clear()
 	for key in GameState.market_prices.keys():
 		var price: int = int(round(GameState.market_prices[key]))
-		market_list.add_item("%s  %d altin" % [key, price])
+		market_list.add_item("%s  %d gold" % [key, price])
 
 	_layout_arena()
 

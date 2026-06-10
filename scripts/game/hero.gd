@@ -1,6 +1,7 @@
 extends RefCounted
 
 const MagicSchoolScript = preload("res://scripts/game/magic_school.gd")
+const ItemDataScript = preload("res://scripts/game/item_data.gd")
 
 var school: MagicSchoolScript.School = MagicSchoolScript.School.PYROMANCY
 var level: int = 1
@@ -19,6 +20,19 @@ var mana_regen: float = 3.0
 
 var staff_enchant: int = 0
 var inventory: Array[Dictionary] = []
+var equipment: Dictionary = {}
+
+signal loot_added(item: Dictionary)
+
+
+func _init() -> void:
+	_reset_equipment()
+
+
+func _reset_equipment() -> void:
+	equipment.clear()
+	for slot in ItemDataScript.EQUIP_SLOTS:
+		equipment[slot] = null
 
 
 func xp_progress() -> float:
@@ -73,7 +87,25 @@ func school_bonus_for(element: String) -> float:
 
 func add_loot(item: Dictionary) -> void:
 	inventory.append(item)
+	loot_added.emit(item)
 
 
 func staff_damage() -> float:
 	return 4.0 + staff_enchant * 1.5 + spell_power * 0.4
+
+
+func equipped_items() -> Array:
+	var items: Array = []
+	for slot in equipment.keys():
+		var item: Variant = equipment[slot]
+		if item != null and typeof(item) == TYPE_DICTIONARY:
+			items.append(item)
+	return items
+
+
+func equipment_stats() -> Dictionary:
+	return ItemDataScript.aggregate_stats(equipped_items())
+
+
+func weapon_damage() -> float:
+	return staff_damage() + equipment_stats().get("attack", 0.0)

@@ -4,9 +4,9 @@ extends RefCounted
 enum School { PYROMANCY, CRYOMANCY, ARCANE }
 
 const NAMES := {
-	School.PYROMANCY: "Ates Buyucusu",
-	School.CRYOMANCY: "Buz Buyucusu",
-	School.ARCANE: "Kadim Buyucu",
+	School.PYROMANCY: "Pyromancer",
+	School.CRYOMANCY: "Cryomancer",
+	School.ARCANE: "Arcane Mage",
 }
 
 const COLORS := {

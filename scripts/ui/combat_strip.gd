@@ -1,32 +1,40 @@
 extends Control
 
+const UIScaleScript = preload("res://scripts/ui/ui_scale.gd")
 const HeroSpriteScript = preload("res://scripts/ui/hero_sprite.gd")
 const EnemySpriteScript = preload("res://scripts/ui/enemy_sprite.gd")
 const CombatEnemyActorScript = preload("res://scripts/ui/combat_enemy_actor.gd")
 const CombatBiomeScript = preload("res://scripts/ui/combat_biome.gd")
 const PortalSpriteScript = preload("res://scripts/ui/portal_sprite.gd")
 const StageDataScript = preload("res://scripts/game/stage_data.gd")
+const ItemDataScript = preload("res://scripts/game/item_data.gd")
+const MagicSchoolScript = preload("res://scripts/game/magic_school.gd")
+const NavIconsScript = preload("res://scripts/ui/nav_icons.gd")
+const UiFont = preload("res://scripts/ui/ui_font.gd")
+const StageMapDrawScript = preload("res://scripts/ui/stage_map_draw.gd")
+const CombatOverlayDrawScript = preload("res://scripts/ui/combat_overlay_draw.gd")
+const InventorySlotDrawScript = preload("res://scripts/ui/inventory_slot_draw.gd")
 
 const HP_ENEMY := Color(0.92, 0.28, 0.28)
 const HP_ALLY := Color(0.35, 0.88, 0.45)
 
 const FRAME := 32.0
-const SPRITE_SCALE := 2.0
+const SPRITE_SCALE := UIScaleScript.SPRITE_SCALE
 const SPRITE_W := FRAME * SPRITE_SCALE
 const HERO_ANCHOR_X := 0.68
-const SCROLL_SPEED := 147.5
-const APPROACH_SPEED := 122.5
-const ENEMY_SPAWN_X := -72.0
-const SLOT_GAP := 54.0
-const QUEUE_BACKOFF := 78.0
+const SCROLL_SPEED := 147.5 * UIScaleScript.FACTOR
+const APPROACH_SPEED := 122.5 * UIScaleScript.FACTOR
+const ENEMY_SPAWN_X := -72.0 * UIScaleScript.FACTOR
+const SLOT_GAP := 54.0 * UIScaleScript.FACTOR
+const QUEUE_BACKOFF := 78.0 * UIScaleScript.FACTOR
 
 const INTRO_HOLD := 1.45
 const INTRO_FADE := 0.65
 const RETRY_HOLD := 1.05
 const RETRY_FADE := 0.5
 const WAVE_PAUSE := 0.45
-const PORTAL_SCALE := 2.0
-const PORTAL_BEHIND_X := 82.0
+const PORTAL_SCALE := UIScaleScript.PORTAL_SCALE
+const PORTAL_BEHIND_X := 82.0 * UIScaleScript.FACTOR
 const PORTAL_GROW_MIN := 0.16
 
 const BOSS_INTRO_HOLD := 1.75
@@ -34,7 +42,16 @@ const BOSS_STING_SEC := 0.38
 
 const HP_BOSS := Color(0.98, 0.72, 0.22)
 
-const STAGE_HUD_HEIGHT := 42.0
+const STAGE_HUD_HEIGHT := 38.0 * UIScaleScript.FACTOR
+
+const EQUIP_RARITY_RANK := {
+	"basic": 0,
+	"common": 1,
+	"trade": 1,
+	"rare": 2,
+	"epic": 3,
+	"unique": 4,
+}
 
 # Kahraman sola kosuyor; zemin ve dekor saga aksin (kamera player'da sabit).
 func _parallax_offset(speed_mul: float, period: float) -> float:
@@ -59,12 +76,14 @@ var _intro_phase := ""
 var _intro_timer := 0.0
 var _pending_enemies: Array = []
 var _banner_alpha := 0.0
+var _banner_enter := 0.0
 var _banner_title := ""
 var _banner_subtitle := ""
 var _banner_biome := ""
 var _hud_stage_label := ""
 var _hud_stage_name := ""
 var _hud_wave_text := ""
+var _hud_world := 1
 var _biome: Dictionary = CombatBiomeScript.resolve("desert")
 var _actors: Array[CombatEnemyActorScript] = []
 var _sprites: Array[AnimatedSprite2D] = []
@@ -79,9 +98,13 @@ var _hero_emerge := 0.0
 var _damage_numbers: Array[Dictionary] = []
 var _boss_display_name := ""
 var _boss_intro_alpha := 0.0
+var _boss_enter := 0.0
 var _boss_shake := 0.0
 var _boss_sting_player: AudioStreamPlayer
 var _queue_breath_time := 0.0
+var _last_equip_stats: Dictionary = {}
+var _equip_stats_ready := false
+var _equip_glow_pulse := 0.0
 
 
 func _ready() -> void:
@@ -122,6 +145,9 @@ func _ready() -> void:
 	GameState.stage_runner.stage_entered.connect(_on_stage_entered)
 	GameState.stage_info_changed.connect(_refresh_hud_label)
 	GameState.state_changed.connect(_on_state_changed)
+	_last_equip_stats = GameState.hero.equipment_stats().duplicate()
+	_equip_stats_ready = true
+	_sync_hero_equip_visual()
 	call_deferred("_layout_hero")
 
 
@@ -222,10 +248,11 @@ func _on_stage_entered(info: Dictionary) -> void:
 		"stage":
 			_banner_subtitle = stage_name
 		"retry":
-			_banner_subtitle = "Yeniden dene"
+			_banner_subtitle = "Try again"
 		_:
-			_banner_subtitle = "Dalga %d/%d" % [wave_index, wave_count]
+			_banner_subtitle = "Wave %d/%d" % [wave_index, wave_count]
 
+	_hud_world = int(info.get("world", _hud_world))
 	_refresh_hud_label(label, wave_index, wave_count, stage_name)
 	_pending_enemies = info.get("enemies", [])
 
@@ -260,6 +287,7 @@ func _boss_name_from_enemies(enemies: Array) -> String:
 func _start_boss_intro(boss_name: String) -> void:
 	_boss_display_name = boss_name
 	_boss_intro_alpha = 0.0
+	_boss_enter = 0.0
 	_boss_shake = 0.42
 	_banner_alpha = 0.0
 	_intro_phase = "boss_intro"
@@ -300,6 +328,7 @@ func _start_portal_intro(hold_sec: float, fade_sec: float) -> void:
 		_ground_y = horizon + 8.0
 		_hero_x = size.x * HERO_ANCHOR_X - SPRITE_W * 0.5
 	_banner_alpha = 1.0
+	_banner_enter = 0.0
 	_intro_phase = "portal_hold"
 	_intro_timer = hold_sec
 	_intro_hold_duration = hold_sec
@@ -380,21 +409,24 @@ func _refresh_hud_label(
 			_hud_stage_label = ""
 			_hud_stage_name = ""
 			_hud_wave_text = ""
+			_hud_world = 1
 			return
 		label = GameState.stage_runner.current_label()
 		wave_index = GameState.stage_runner.wave_index + 1
 		wave_count = GameState.stage_runner.wave_count()
 		stage_name = str(stage.get("name", ""))
+		_hud_world = int(stage.get("world", 1))
 
 	if label.is_empty():
 		_hud_stage_label = ""
 		_hud_stage_name = ""
 		_hud_wave_text = ""
+		_hud_world = 1
 		return
 
 	_hud_stage_label = label
 	_hud_stage_name = stage_name
-	_hud_wave_text = "Dalga %d/%d" % [wave_index, wave_count]
+	_hud_wave_text = "Wave %d/%d" % [wave_index, wave_count]
 	queue_redraw()
 
 
@@ -441,7 +473,11 @@ func _process(delta: float) -> void:
 		return
 
 	_update_damage_numbers(delta)
+	_update_overlay_anim(delta)
 	_queue_breath_time += delta
+	_equip_glow_pulse += delta
+	if _equip_glow_rank() >= 1:
+		_queue_bars_redraw()
 
 	if _intro_phase == "boss_intro":
 		_intro_timer -= delta
@@ -517,7 +553,7 @@ func _process(delta: float) -> void:
 		return
 
 	if not _scroll_frozen:
-		var scroll_rate := SCROLL_SPEED if not _in_melee else SCROLL_SPEED * 0.35
+		var scroll_rate: float = SCROLL_SPEED if not _in_melee else SCROLL_SPEED * 0.35
 		_scroll_x += delta * scroll_rate
 
 	if not _in_melee:
@@ -698,7 +734,7 @@ func _on_enemy_damaged(slot: int, amount: float, source: String) -> void:
 		return
 	if slot != _combat_front_slot():
 		return
-	var kind := "dot" if source == "Yanma" else "deal"
+	var kind := "dot" if source == "Burn" else "deal"
 	if slot < _sprites.size() and is_instance_valid(_sprites[slot]):
 		_sprites[slot].play_action("hurt")
 	_spawn_damage_number(_popup_pos_for_enemy_slot(slot), amount, kind)
@@ -713,12 +749,18 @@ func _combat_front_slot() -> int:
 func _spawn_damage_number(at: Vector2, amount: float, kind: String) -> void:
 	if amount <= 0.0:
 		return
+	_spawn_floating_text(at + Vector2(randf_range(-6.0, 6.0), 0.0), str(int(round(amount))), kind, 0.85)
+
+
+func _spawn_floating_text(at: Vector2, text: String, kind: String, life: float = 1.05) -> void:
+	if text.is_empty():
+		return
 	_damage_numbers.append({
-		"text": str(int(round(amount))),
-		"x": at.x + randf_range(-6.0, 6.0),
+		"text": text,
+		"x": at.x,
 		"y": at.y,
-		"life": 0.85,
-		"max_life": 0.85,
+		"life": life,
+		"max_life": life,
 		"kind": kind,
 	})
 
@@ -763,6 +805,10 @@ func _damage_color(kind: String, alpha: float) -> Color:
 			return Color(1.0, 0.38, 0.32, alpha)
 		"dot":
 			return Color(1.0, 0.62, 0.22, alpha)
+		"buff_atk":
+			return Color(1.0, 0.82, 0.42, alpha)
+		"buff_armor":
+			return Color(0.55, 0.88, 1.0, alpha)
 		_:
 			return Color(1.0, 0.92, 0.45, alpha)
 
@@ -770,20 +816,24 @@ func _damage_color(kind: String, alpha: float) -> Color:
 func _draw_damage_numbers(canvas: CanvasItem) -> void:
 	if _damage_numbers.is_empty():
 		return
-	var font := ThemeDB.fallback_font
+	var font: Font = UiFont.get_font()
 	for pop in _damage_numbers:
 		var life := float(pop["life"])
 		var max_life := float(pop["max_life"])
 		var alpha := clampf(life / max_life, 0.0, 1.0)
 		var kind: String = str(pop["kind"])
-		var size := 11 if kind == "dot" else 15
+		var font_size := UIScaleScript.font(15)
+		if kind == "dot":
+			font_size = UIScaleScript.font(11)
+		elif kind.begins_with("buff"):
+			font_size = UIScaleScript.font(9)
 		var text: String = str(pop["text"])
 		var x := float(pop["x"])
 		var y := float(pop["y"])
-		var tw := font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, size).x
+		var tw: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size).x
 		var col := _damage_color(kind, alpha)
-		canvas.draw_string(font, Vector2(x - tw * 0.5 + 1.0, y + 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(0, 0, 0, alpha * 0.55))
-		canvas.draw_string(font, Vector2(x - tw * 0.5, y), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
+		canvas.draw_string(font, Vector2(x - tw * 0.5 + 1.0, y + 1.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(0, 0, 0, alpha * 0.55))
+		canvas.draw_string(font, Vector2(x - tw * 0.5, y), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, col)
 
 
 func _flash_front_enemy(action: String) -> void:
@@ -829,8 +879,65 @@ func _on_enemy_defeated(_rewards: Dictionary) -> void:
 
 
 func _on_state_changed() -> void:
+	_track_equip_changes()
+	_sync_hero_equip_visual()
 	queue_redraw()
 	_queue_bars_redraw()
+
+
+func _track_equip_changes() -> void:
+	var stats := GameState.hero.equipment_stats()
+	if not _equip_stats_ready:
+		_last_equip_stats = stats.duplicate()
+		_equip_stats_ready = true
+		return
+
+	var atk_old := float(_last_equip_stats.get("attack", 0.0))
+	var atk_new := float(stats.get("attack", 0.0))
+	var armor_old := float(_last_equip_stats.get("armor", 0.0))
+	var armor_new := float(stats.get("armor", 0.0))
+	var pos := _popup_pos_for_hero()
+	if atk_new > atk_old:
+		_spawn_floating_text(pos, "+%d ATK" % int(round(atk_new - atk_old)), "buff_atk")
+	if armor_new > armor_old:
+		_spawn_floating_text(pos + Vector2(0.0, -UIScaleScript.px(8.0)), "+%d ARM" % int(round(armor_new - armor_old)), "buff_armor")
+	_last_equip_stats = stats.duplicate()
+
+
+func _equip_glow_rank() -> int:
+	return int(EQUIP_RARITY_RANK.get(_highest_equip_rarity(), 0))
+
+
+func _highest_equip_rarity() -> String:
+	var best := "basic"
+	var best_rank := -1
+	for item in GameState.hero.equipped_items():
+		var rarity := ItemDataScript.item_rarity(item)
+		var rank := int(EQUIP_RARITY_RANK.get(rarity, 0))
+		if rank > best_rank:
+			best_rank = rank
+			best = rarity
+	return best
+
+
+func _equip_glow_color() -> Color:
+	var school: Color = MagicSchoolScript.COLORS.get(GameState.hero.school, Color(1.0, 0.7, 0.5)) as Color
+	var rarity_col: Color = ItemDataScript.RARITY_COLORS.get(_highest_equip_rarity(), Color(0.75, 0.75, 0.8)) as Color
+	return school.lerp(rarity_col, 0.48)
+
+
+func _sync_hero_equip_visual() -> void:
+	if not is_instance_valid(_hero_sprite):
+		return
+	var glow_col := _equip_glow_color()
+	var rank := _equip_glow_rank()
+	var tint := 1.0 + rank * 0.035
+	_hero_sprite.modulate = Color(
+		clampf(0.9 + glow_col.r * 0.12 * tint, 0.0, 1.25),
+		clampf(0.9 + glow_col.g * 0.12 * tint, 0.0, 1.25),
+		clampf(0.9 + glow_col.b * 0.12 * tint, 0.0, 1.25),
+		1.0
+	)
 
 
 func _queue_bars_redraw() -> void:
@@ -842,8 +949,10 @@ func _draw_combat_bars() -> void:
 	if size.x < 10.0 or size.y < 10.0 or not is_instance_valid(_bars_layer):
 		return
 	var ground_y := size.y * 0.42 + 8.0
+	_draw_hero_equip_glow(_bars_layer, ground_y)
 	_draw_actor_hp_bars(_bars_layer, ground_y)
 	_draw_hero_hp(_bars_layer, ground_y)
+	_draw_hero_equip_buffs(_bars_layer, ground_y)
 	_draw_damage_numbers(_bars_layer)
 
 
@@ -859,6 +968,7 @@ func _draw() -> void:
 	_draw_scrolling_ground(horizon)
 
 	_draw_biome_decor(horizon)
+	_draw_top_status_strip()
 	_draw_stage_hud()
 	_draw_stage_banner()
 	_draw_boss_intro()
@@ -1037,7 +1147,15 @@ func _draw_actor_hp_bars(canvas: CanvasItem, ground_y: float) -> void:
 		_draw_hp_bar(canvas, x, y, bar_w, ratio, fill, bar_h)
 		if actor.enemy.is_boss:
 			var font := ThemeDB.fallback_font
-			canvas.draw_string(font, Vector2(x, y - 9), "BOSS", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, HP_BOSS)
+			canvas.draw_string(
+				font,
+				Vector2(x, y - UIScaleScript.px(9.0)),
+				"BOSS",
+				HORIZONTAL_ALIGNMENT_LEFT,
+				-1,
+				UIScaleScript.font(9),
+				HP_BOSS
+			)
 
 
 func _draw_hero_hp(canvas: CanvasItem, ground_y: float) -> void:
@@ -1048,155 +1166,167 @@ func _draw_hero_hp(canvas: CanvasItem, ground_y: float) -> void:
 	var bar_w := SPRITE_W + 8.0
 	var x := _hero_x
 	var y := ground_y - SPRITE_W - 10.0
-	_draw_hp_bar(canvas, x, y, bar_w, ratio, HP_ALLY, 4.0)
+	_draw_hp_bar(canvas, x, y, bar_w, ratio, HP_ALLY, UIScaleScript.px(4.0))
+
+
+func _draw_hero_equip_glow(canvas: CanvasItem, ground_y: float) -> void:
+	if not is_instance_valid(_hero_sprite) or not _hero_sprite.visible:
+		return
+	var rank := _equip_glow_rank()
+	if rank < 1:
+		return
+	var col := _equip_glow_color()
+	var pulse := 0.62 + 0.38 * sin(_equip_glow_pulse * 3.1)
+	var alpha := (0.07 + rank * 0.035) * pulse
+	var cx := _hero_x + SPRITE_W * 0.5
+	var cy := ground_y - SPRITE_W * 0.52
+	var rad := SPRITE_W * (0.5 + rank * 0.05)
+	canvas.draw_circle(Vector2(cx, cy), rad, Color(col.r, col.g, col.b, alpha))
+	canvas.draw_circle(Vector2(cx, cy), rad * 0.68, Color(col.r, col.g, col.b, alpha * 0.45))
+
+
+func _draw_hero_equip_buffs(canvas: CanvasItem, ground_y: float) -> void:
+	if not is_instance_valid(_hero_sprite) or not _hero_sprite.visible:
+		return
+	var stats := GameState.hero.equipment_stats()
+	var atk := int(round(float(stats.get("attack", 0.0))))
+	var armor := int(round(float(stats.get("armor", 0.0))))
+	if atk <= 0 and armor <= 0:
+		return
+
+	var bar_y := ground_y - SPRITE_W - 10.0
+	var badge_h := UIScaleScript.px(11.0)
+	var gap := UIScaleScript.px(3.0)
+	var font: Font = UiFont.get_font()
+	var fs := UIScaleScript.font(7)
+	var entries: Array[Dictionary] = []
+	if atk > 0:
+		entries.append({"text": str(atk), "col": Color(1.0, 0.78, 0.38), "kind": "atk"})
+	if armor > 0:
+		entries.append({"text": str(armor), "col": Color(0.52, 0.84, 1.0), "kind": "armor"})
+
+	var widths: Array[float] = []
+	var total_w := 0.0
+	for entry in entries:
+		var tw: float = font.get_string_size(str(entry["text"]), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + UIScaleScript.px(14.0)
+		widths.append(tw)
+		total_w += tw
+	total_w += gap * maxf(0.0, float(entries.size() - 1))
+
+	var x := _hero_x + (SPRITE_W + 8.0) * 0.5 - total_w * 0.5
+	var y := bar_y - badge_h - UIScaleScript.px(3.0)
+	for i in entries.size():
+		var entry: Dictionary = entries[i]
+		var w := widths[i]
+		var rect := Rect2(x, y, w, badge_h)
+		var entry_col: Color = entry["col"] as Color
+		canvas.draw_rect(rect, Color(0.08, 0.06, 0.1, 0.88), true)
+		canvas.draw_rect(rect, entry_col.darkened(0.25), false, 1.0)
+		var icon_c := Vector2(rect.position.x + UIScaleScript.px(6.0), rect.position.y + badge_h * 0.52)
+		var icon_s := badge_h * 0.22
+		if str(entry["kind"]) == "armor":
+			_draw_mini_shield(canvas, icon_c, icon_s, entry_col)
+		else:
+			NavIconsScript.draw(canvas, icon_c, 0, entry_col, icon_s)
+		var tx: float = rect.position.x + UIScaleScript.px(12.0)
+		var ty: float = rect.position.y + badge_h - UIScaleScript.px(2.0)
+		canvas.draw_string(font, Vector2(tx, ty), str(entry["text"]), HORIZONTAL_ALIGNMENT_LEFT, -1, fs, entry_col.lightened(0.12))
+		x += w + gap
+
+
+func _draw_mini_shield(canvas: CanvasItem, center: Vector2, scale: float, col: Color) -> void:
+	var s := scale
+	var w := maxf(1.0, s * 0.12)
+	var top := center + Vector2(0.0, -s * 0.34)
+	var left := center + Vector2(-s * 0.28, s * 0.1)
+	var right := center + Vector2(s * 0.28, s * 0.1)
+	var bottom := center + Vector2(0.0, s * 0.36)
+	canvas.draw_line(top, left, col, w)
+	canvas.draw_line(top, right, col, w)
+	canvas.draw_line(left, bottom, col, w)
+	canvas.draw_line(right, bottom, col, w)
+	canvas.draw_line(left, right, col, w * 0.85)
 
 
 func _draw_stage_hud() -> void:
-	if _hud_stage_label.is_empty():
+	if _hud_stage_label.is_empty() or GameState.stage_runner == null:
 		return
 
-	var font := ThemeDB.fallback_font
-	var box_w := size.x
 	var box_h := STAGE_HUD_HEIGHT
-	var box_x := 0.0
-	var box_y := size.y - box_h
-	var pad := 10.0
+	var bounds := Rect2(0.0, size.y - box_h, size.x, box_h)
+	StageMapDrawScript.draw(self, bounds, {
+		"wave_index": GameState.stage_runner.wave_index,
+		"wave_count": GameState.stage_runner.wave_count(),
+		"stage_label": _hud_stage_label,
+		"stage_name": _hud_stage_name,
+		"world": _hud_world,
+		"biome": _biome,
+	})
 
-	draw_rect(Rect2(box_x, box_y, box_w, box_h), Color(0.05, 0.04, 0.08, 0.94), true)
-	draw_rect(Rect2(box_x, box_y, box_w, 1.0), Color(0.58, 0.44, 0.26, 0.75), true)
 
-	var progress := _stage_run_progress()
-	var accent: Color = _biome.get("accent", Color(0.85, 0.72, 0.38))
-	var text_y := box_y + pad + 14.0
+func _update_overlay_anim(delta: float) -> void:
+	if _banner_alpha > 0.02:
+		_banner_enter = minf(1.0, _banner_enter + delta / 0.34)
+	elif _banner_enter > 0.0:
+		_banner_enter = maxf(0.0, _banner_enter - delta * 5.0)
 
-	var stage_size := 18
-	var name_size := 13
-	var wave_size := 12
-	var cx := box_x + pad
+	if _boss_intro_alpha > 0.02:
+		_boss_enter = minf(1.0, _boss_enter + delta / 0.38)
+	elif _boss_enter > 0.0:
+		_boss_enter = 0.0
 
-	draw_string(
-		font,
-		Vector2(cx, text_y),
-		_hud_stage_label,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1,
-		stage_size,
-		Color(1.0, 0.9, 0.58)
+
+func _draw_top_status_strip() -> void:
+	var hero := GameState.hero
+	CombatOverlayDrawScript.draw_top_strip(
+		self,
+		size,
+		hero.level,
+		hero.gold,
+		hero.xp,
+		hero.xp_to_next
 	)
-	cx += font.get_string_size(_hud_stage_label, HORIZONTAL_ALIGNMENT_LEFT, -1, stage_size).x + 10.0
-
-	if not _hud_stage_name.is_empty():
-		draw_string(
-			font,
-			Vector2(cx, text_y),
-			_hud_stage_name,
-			HORIZONTAL_ALIGNMENT_LEFT,
-			-1,
-			name_size,
-			Color(0.94, 0.9, 0.84)
-		)
-		cx += font.get_string_size(_hud_stage_name, HORIZONTAL_ALIGNMENT_LEFT, -1, name_size).x + 10.0
-
-	if not _hud_wave_text.is_empty():
-		draw_string(
-			font,
-			Vector2(cx, text_y),
-			_hud_wave_text,
-			HORIZONTAL_ALIGNMENT_LEFT,
-			-1,
-			wave_size,
-			Color(0.72, 0.86, 0.98)
-		)
-
-	var bar_h := 7.0
-	var bar_y := box_y + box_h - pad - bar_h
-	var bar_x := box_x + pad
-	var bar_w := box_w - pad * 2.0
-	_draw_progress_bar(bar_x, bar_y, bar_w, bar_h, float(progress["ratio"]), accent)
-
-	var step_text := "%d / %d" % [int(progress["current"]), int(progress["total"])]
-	var step_size := 11
-	var step_w := font.get_string_size(step_text, HORIZONTAL_ALIGNMENT_LEFT, -1, step_size).x
-	var marker_x := bar_x + bar_w * float(progress["ratio"])
-	marker_x = clampf(marker_x, bar_x + 4.0, bar_x + bar_w - 4.0)
-	draw_rect(Rect2(marker_x - 1.5, bar_y - 2.0, 3.0, bar_h + 4.0), Color(1.0, 0.95, 0.82, 0.95), true)
-	draw_string(
-		font,
-		Vector2(bar_x + bar_w - step_w, bar_y - 4.0),
-		step_text,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1,
-		step_size,
-		Color(0.82, 0.78, 0.72, 0.95)
-	)
-
-
-func _stage_run_progress() -> Dictionary:
-	var runner = GameState.stage_runner
-	if runner == null or runner.stages.is_empty():
-		return {"ratio": 0.0, "current": 0, "total": 0}
-
-	var total_stages: int = runner.stages.size()
-	var wave_count: int = maxi(runner.wave_count(), 1)
-	var wave_frac := float(runner.wave_index) / float(wave_count)
-	var ratio := (float(runner.stage_index) + wave_frac) / float(total_stages)
-	return {
-		"ratio": clampf(ratio, 0.0, 1.0),
-		"current": runner.stage_index + 1,
-		"total": total_stages,
-	}
 
 
 func _draw_stage_banner() -> void:
 	if _banner_alpha <= 0.01:
 		return
-
-	var alpha := clampf(_banner_alpha, 0.0, 1.0)
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.05, 0.04, 0.08, 0.82 * alpha), true)
-
-	var font := ThemeDB.fallback_font
-	var title_size := 30
-	var sub_size := 14
-	var biome_size := 11
-	var center_y := size.y * 0.4
-	var title_color := Color(1.0, 0.92, 0.65, alpha)
-	var sub_color := Color(0.92, 0.88, 0.8, alpha * 0.95)
-	var biome_color := Color(0.72, 0.82, 0.95, alpha * 0.88)
-
-	draw_string(font, Vector2(size.x * 0.5, center_y - 8), _banner_title, HORIZONTAL_ALIGNMENT_CENTER, -1, title_size, title_color)
-	draw_string(font, Vector2(size.x * 0.5, center_y + 22), _banner_subtitle, HORIZONTAL_ALIGNMENT_CENTER, -1, sub_size, sub_color)
-	if not _banner_biome.is_empty():
-		draw_string(font, Vector2(size.x * 0.5, center_y + 42), _banner_biome, HORIZONTAL_ALIGNMENT_CENTER, -1, biome_size, biome_color)
+	CombatOverlayDrawScript.draw_banner_card(
+		self,
+		size,
+		_banner_alpha,
+		_banner_enter,
+		_banner_title,
+		_banner_subtitle,
+		_banner_biome,
+		_biome
+	)
 
 
 func _draw_boss_intro() -> void:
 	if _boss_intro_alpha <= 0.01:
 		return
-
-	var alpha := clampf(_boss_intro_alpha, 0.0, 1.0)
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.03, 0.0, 0.07, 0.72 * alpha), true)
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.55, 0.12, 0.08, 0.18 * alpha), true)
-
-	var font := ThemeDB.fallback_font
 	var shake_x := sin(_boss_shake * 48.0) * _boss_shake * 5.0
-	var center_x := size.x * 0.5 + shake_x
-	var center_y := size.y * 0.36
-	var tag_color := Color(1.0, 0.78, 0.28, alpha)
-	var name_color := Color(1.0, 0.94, 0.82, alpha)
-	var warn_color := Color(0.95, 0.42, 0.32, alpha * 0.85)
-
-	draw_string(font, Vector2(center_x, center_y - 28), "BOSS", HORIZONTAL_ALIGNMENT_CENTER, -1, 14, warn_color)
-	draw_string(font, Vector2(center_x, center_y), _boss_display_name, HORIZONTAL_ALIGNMENT_CENTER, -1, 26, tag_color)
-	draw_string(font, Vector2(center_x, center_y + 28), "Son dalga", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, name_color)
+	CombatOverlayDrawScript.draw_boss_card(
+		self,
+		size,
+		_boss_intro_alpha,
+		_boss_enter,
+		_boss_display_name,
+		shake_x
+	)
 
 
 func _draw_hp_bar(canvas: CanvasItem, x: float, y: float, width: float, ratio: float, fill: Color, height: float = 4.0) -> void:
-	canvas.draw_rect(Rect2(x, y, width, height), Color(0.12, 0.1, 0.1, 0.88))
-	canvas.draw_rect(Rect2(x, y, width * ratio, height), fill)
-
-
-func _draw_progress_bar(x: float, y: float, width: float, height: float, ratio: float, fill: Color) -> void:
-	draw_rect(Rect2(x, y, width, height), Color(0.1, 0.08, 0.12, 0.9), true)
-	draw_rect(Rect2(x, y, width, height), Color(0.42, 0.32, 0.22, 0.45), false, 1.0)
-	if ratio > 0.0:
-		draw_rect(Rect2(x + 1.0, y + 1.0, maxf(0.0, (width - 2.0) * ratio), height - 2.0), fill, true)
+	var rect := Rect2(x, y, width, height)
+	var r := minf(height * 0.5, UIScaleScript.px(2.5))
+	InventorySlotDrawScript._draw_rounded_fill(canvas, rect, r, Color(0.08, 0.06, 0.1, 0.92))
+	if ratio > 0.01:
+		var fill_rect := Rect2(x, y, width * clampf(ratio, 0.0, 1.0), height)
+		InventorySlotDrawScript._draw_rounded_fill(canvas, fill_rect, r, fill)
+		canvas.draw_rect(
+			Rect2(x + r, y + UIScaleScript.px(0.5), maxf(0.0, fill_rect.size.x - r * 2.0), UIScaleScript.px(1.0)),
+			Color(fill.r, fill.g, fill.b, 0.35),
+			true
+		)
+	InventorySlotDrawScript._draw_rounded_stroke(canvas, rect, r, Color(0.22, 0.18, 0.14, 0.85), UIScaleScript.px(0.75))

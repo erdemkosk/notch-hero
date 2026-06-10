@@ -11,17 +11,17 @@ static func load_document(path: String = DEFAULT_PATH) -> Array:
 	_biomes.clear()
 	_enemy_defs.clear()
 	if not FileAccess.file_exists(path):
-		push_error("Stage dosyasi bulunamadi: %s" % path)
+		push_error("Stage file not found: %s" % path)
 		return []
 
 	var text := FileAccess.get_file_as_string(path)
 	var parsed: Variant = JSON.parse_string(text)
 	if parsed == null:
-		push_error("Stage JSON okunamadi: %s" % path)
+		push_error("Failed to parse stage JSON: %s" % path)
 		return []
 
 	if typeof(parsed) != TYPE_DICTIONARY:
-		push_error("Stage JSON kok nesnesi olmali")
+		push_error("Stage JSON root must be an object")
 		return []
 
 	_biomes = _parse_biomes(parsed.get("biomes", {}))

@@ -8,6 +8,7 @@ const Hero = preload("res://scripts/game/hero.gd")
 const CombatEngineScript = preload("res://scripts/game/combat_engine.gd")
 const MagicSchoolScript = preload("res://scripts/game/magic_school.gd")
 const StageRunnerScript = preload("res://scripts/game/stage_runner.gd")
+const ItemDataScript = preload("res://scripts/game/item_data.gd")
 
 const TICK_SEC := 0.32
 
@@ -22,12 +23,17 @@ var market_prices := {
 var recent_log: Array[String] = []
 var total_kills: int = 0
 var melee_engaged := false
+var inventory_unseen: int = 0
 
 var _tick_timer: Timer
 
 
 func _ready() -> void:
+	ItemDataScript.load_catalog()
+	ItemDataScript.preload_all_textures()
 	hero = Hero.new()
+	_seed_starter_items()
+	hero.loot_added.connect(_on_loot_added)
 	combat = CombatEngineScript.new(hero)
 	combat.spell_cast.connect(_on_spell_cast)
 	combat.enemy_defeated.connect(_on_enemy_defeated)
@@ -64,13 +70,13 @@ func _on_stage_entered(_info: Dictionary) -> void:
 func _on_hero_died() -> void:
 	melee_engaged = false
 	stage_runner.on_hero_died(hero)
-	_log("Oldun! Stage basindan yeniden.")
+	_log("You died! Restarting from stage start.")
 	state_changed.emit()
 
 
 func set_school(school: int) -> void:
 	hero.school = school as MagicSchoolScript.School
-	_log("Ekol: %s" % MagicSchoolScript.NAMES[hero.school])
+	_log("School: %s" % MagicSchoolScript.NAMES[hero.school])
 	state_changed.emit()
 
 
@@ -99,32 +105,124 @@ func combat_tick() -> void:
 func forge_enchant() -> bool:
 	var cost: int = 25 + hero.staff_enchant * 18
 	if hero.gold < cost:
-		_log("Ors: yetersiz altin (%d)" % cost)
+		_log("Forge: not enough gold (%d)" % cost)
 		return false
 
 	hero.gold -= cost
 	if hero.staff_enchant >= 5 and randf() < 0.18 + hero.staff_enchant * 0.03:
 		hero.staff_enchant = 0
-		_log("Ors: asa YANDI! +0")
+		_log("Forge: staff BURNED! +0")
 		state_changed.emit()
 		return false
 
 	hero.staff_enchant += 1
-	_log("Ors: asa +%d oldu" % hero.staff_enchant)
+	_log("Forge: staff is now +%d" % hero.staff_enchant)
 	state_changed.emit()
 	return true
+
+
+func mark_inventory_seen() -> void:
+	if inventory_unseen <= 0:
+		return
+	inventory_unseen = 0
+	state_changed.emit()
+
+
+func _on_loot_added(_item: Dictionary) -> void:
+	inventory_unseen += 1
+
+
+func _gain_inventory_item(item: Dictionary) -> void:
+	hero.inventory.append(item)
+	inventory_unseen += 1
 
 
 func sell_item(index: int) -> bool:
 	if index < 0 or index >= hero.inventory.size():
 		return false
 	var item: Dictionary = hero.inventory[index]
-	var value := 8 + int(item.get("power", 1)) * 6
+	var def := ItemDataScript.get_def(str(item.get("id", "")))
+	var stats := ItemDataScript.compute_stats(def)
+	var value := 8 + int(stats.get("power", item.get("power", 1))) * 6
 	hero.gold += value
 	hero.inventory.remove_at(index)
-	_log("Satildi: %s (+%d altin)" % [item.get("name", "?"), value])
+	_log("Sold: %s (+%d gold)" % [ItemDataScript.display_name(item), value])
 	state_changed.emit()
 	return true
+
+
+func equip_from_inventory(inventory_index: int, equip_slot: String) -> bool:
+	if inventory_index < 0 or inventory_index >= hero.inventory.size():
+		return false
+	if not ItemDataScript.EQUIP_SLOTS.has(equip_slot):
+		return false
+
+	var item: Dictionary = hero.inventory[inventory_index]
+	var item_slot := ItemDataScript.item_slot(item)
+	if not ItemDataScript.slot_accepts(item_slot, equip_slot):
+		return false
+
+	hero.inventory.remove_at(inventory_index)
+	var current: Variant = hero.equipment.get(equip_slot)
+	if current != null and typeof(current) == TYPE_DICTIONARY:
+		_gain_inventory_item(current)
+
+	hero.equipment[equip_slot] = item
+	_log("Equipped: %s" % ItemDataScript.display_name(item))
+	state_changed.emit()
+	return true
+
+
+func unequip_slot(equip_slot: String) -> bool:
+	if not hero.equipment.has(equip_slot):
+		return false
+
+	var current: Variant = hero.equipment.get(equip_slot)
+	if current == null or typeof(current) != TYPE_DICTIONARY:
+		return false
+
+	_gain_inventory_item(current)
+	hero.equipment[equip_slot] = null
+	_log("Unequipped: %s" % ItemDataScript.display_name(current))
+	state_changed.emit()
+	return true
+
+
+func swap_equipment(from_slot: String, to_slot: String) -> bool:
+	if from_slot == to_slot:
+		return false
+	if not hero.equipment.has(from_slot) or not hero.equipment.has(to_slot):
+		return false
+
+	var from_item: Variant = hero.equipment[from_slot]
+	if from_item == null or typeof(from_item) != TYPE_DICTIONARY:
+		return false
+
+	var to_item: Variant = hero.equipment[to_slot]
+	var from_type := ItemDataScript.item_slot(from_item)
+
+	if to_item != null and typeof(to_item) == TYPE_DICTIONARY:
+		if not ItemDataScript.slot_accepts(from_type, to_slot):
+			return false
+		if not ItemDataScript.slot_accepts(ItemDataScript.item_slot(to_item), from_slot):
+			return false
+		hero.equipment[from_slot] = to_item
+		hero.equipment[to_slot] = from_item
+	else:
+		if not ItemDataScript.slot_accepts(from_type, to_slot):
+			return false
+		hero.equipment[to_slot] = from_item
+		hero.equipment[from_slot] = null
+
+	state_changed.emit()
+	return true
+
+
+func _seed_starter_items() -> void:
+	hero.add_loot(ItemDataScript.make_instance("swords/common-sword1-removebg-preview"))
+	hero.add_loot(ItemDataScript.make_instance("chest/basic-chest-removebg-preview"))
+	hero.add_loot(ItemDataScript.make_instance("ring/common-ring-removebg-preview"))
+	hero.add_loot(ItemDataScript.make_instance("earrings/common-earring"))
 
 
 func buy_crystal(key: String) -> bool:
@@ -133,11 +231,11 @@ func buy_crystal(key: String) -> bool:
 	var price: float = market_prices[key]
 	var cost := int(round(price))
 	if hero.gold < cost:
-		_log("Pazar: yetersiz altin")
+		_log("Market: not enough gold")
 		return false
 	hero.gold -= cost
 	hero.add_loot({"name": key, "rarity": "trade", "power": 1})
-	_log("Alindi: %s (-%d altin)" % [key, cost])
+	_log("Bought: %s (-%d gold)" % [key, cost])
 	state_changed.emit()
 	return true
 
@@ -155,14 +253,14 @@ func _on_spell_cast(info: Dictionary) -> void:
 
 func _on_enemy_defeated(rewards: Dictionary) -> void:
 	total_kills += 1
-	var msg := "+%d XP, +%d altin" % [rewards.get("xp", 0), rewards.get("gold", 0)]
+	var msg := "+%d XP, +%d gold" % [rewards.get("xp", 0), rewards.get("gold", 0)]
 	if rewards.get("leveled", false):
-		msg += " | SEVIYE ATLADI!"
+		msg += " | LEVEL UP!"
 	_log(msg)
 
 
 func _on_combo(name: String, damage: float) -> void:
-	_log("%s %.0f hasar!" % [name, damage])
+	_log("%s %.0f damage!" % [name, damage])
 	combat_event.emit(name)
 
 

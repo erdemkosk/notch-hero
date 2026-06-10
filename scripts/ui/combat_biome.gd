@@ -5,7 +5,7 @@ const StageDataScript = preload("res://scripts/game/stage_data.gd")
 
 const FALLBACK := {
 	"desert": {
-		"label": "Col",
+		"label": "Desert",
 		"sky": Color(0.58, 0.28, 0.22),
 		"ground": Color(0.86, 0.76, 0.42),
 		"ground_dark": Color(0.72, 0.6, 0.32),

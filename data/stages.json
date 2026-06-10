@@ -1,7 +1,7 @@
 {
   "biomes": {
     "desert": {
-      "label": "Col",
+      "label": "Desert",
       "sky": [0.58, 0.28, 0.22],
       "ground": [0.86, 0.76, 0.42],
       "ground_dark": [0.72, 0.6, 0.32],
@@ -11,7 +11,7 @@
       "decor": "desert"
     },
     "forest": {
-      "label": "Orman",
+      "label": "Forest",
       "sky": [0.35, 0.48, 0.58],
       "ground": [0.28, 0.52, 0.28],
       "ground_dark": [0.18, 0.38, 0.2],
@@ -21,7 +21,7 @@
       "decor": "forest"
     },
     "water": {
-      "label": "Vaha",
+      "label": "Oasis",
       "sky": [0.42, 0.62, 0.82],
       "ground": [0.52, 0.78, 0.62],
       "ground_dark": [0.34, 0.58, 0.48],
@@ -31,7 +31,7 @@
       "decor": "water"
     },
     "lava": {
-      "label": "Lav",
+      "label": "Lava",
       "sky": [0.42, 0.12, 0.1],
       "ground": [0.28, 0.16, 0.14],
       "ground_dark": [0.18, 0.1, 0.08],
@@ -41,7 +41,7 @@
       "decor": "lava"
     },
     "snow": {
-      "label": "Kar",
+      "label": "Snow",
       "sky": [0.62, 0.72, 0.88],
       "ground": [0.88, 0.92, 0.96],
       "ground_dark": [0.72, 0.78, 0.86],
@@ -51,7 +51,7 @@
       "decor": "snow"
     },
     "ruins": {
-      "label": "Harabe",
+      "label": "Ruins",
       "sky": [0.38, 0.34, 0.42],
       "ground": [0.52, 0.48, 0.44],
       "ground_dark": [0.38, 0.34, 0.32],
@@ -61,7 +61,7 @@
       "decor": "ruins"
     },
     "industrial": {
-      "label": "Ocak",
+      "label": "Foundry",
       "sky": [0.22, 0.2, 0.24],
       "ground": [0.34, 0.32, 0.3],
       "ground_dark": [0.22, 0.2, 0.18],
@@ -71,7 +71,7 @@
       "decor": "industrial"
     },
     "void": {
-      "label": "Bosluk",
+      "label": "Void",
       "sky": [0.12, 0.08, 0.18],
       "ground": [0.22, 0.18, 0.28],
       "ground_dark": [0.14, 0.1, 0.2],
@@ -122,7 +122,7 @@
     {
       "world": 1,
       "stage": 1,
-      "name": "Kum Yolu",
+      "name": "Sand Road",
       "biome": "desert",
       "waves": [
         { "enemies": ["gladiator"] },
@@ -134,7 +134,7 @@
     {
       "world": 1,
       "stage": 2,
-      "name": "Vaha Kenari",
+      "name": "Oasis Edge",
       "biome": "water",
       "waves": [
         { "enemies": ["cobra"] },
@@ -145,7 +145,7 @@
     {
       "world": 1,
       "stage": 3,
-      "name": "Col Gecidi",
+      "name": "Desert Pass",
       "biome": "forest",
       "waves": [
         { "enemies": ["twig_blight"] },
@@ -156,7 +156,7 @@
     {
       "world": 1,
       "stage": 4,
-      "name": "Harabe Kapisi",
+      "name": "Ruins Gate",
       "biome": "ruins",
       "waves": [
         { "enemies": ["ratfolk_mage"] },
@@ -167,7 +167,7 @@
     {
       "world": 2,
       "stage": 1,
-      "name": "Lav Koprusu",
+      "name": "Lava Bridge",
       "biome": "lava",
       "waves": [
         { "enemies": ["intellect_devourer"] },
@@ -179,7 +179,7 @@
     {
       "world": 2,
       "stage": 2,
-      "name": "Demir Ocagi",
+      "name": "Iron Foundry",
       "biome": "industrial",
       "waves": [
         { "enemies": ["brain_mole"] },
@@ -190,7 +190,7 @@
     {
       "world": 2,
       "stage": 3,
-      "name": "Son Kale",
+      "name": "Final Keep",
       "biome": "snow",
       "waves": [
         { "enemies": ["kobold_priest", "bandit_necromancer"] },
@@ -201,7 +201,7 @@
     {
       "world": 3,
       "stage": 1,
-      "name": "Uzay Limani",
+      "name": "Space Port",
       "biome": "industrial",
       "waves": [
         { "enemies": ["space_soldier"] },
@@ -212,7 +212,7 @@
     {
       "world": 3,
       "stage": 2,
-      "name": "Bosluk Hatti",
+      "name": "Void Line",
       "biome": "void",
       "waves": [
         { "enemies": ["space_soldier", "leshy_ranger"] },
@@ -223,7 +223,7 @@
     {
       "world": 3,
       "stage": 3,
-      "name": "Son Savunma",
+      "name": "Last Stand",
       "biome": "void",
       "waves": [
         { "enemies": ["goblin_mech", "space_soldier"] },
