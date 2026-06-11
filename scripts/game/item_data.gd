@@ -51,6 +51,20 @@ const SLOT_NAMES := {
 	"consumable": "Consumable",
 }
 
+const WEAPON_TYPE_NAMES := {
+	"kukri": "Kukri",
+}
+
+const WEAPON_FOLDER_NAMES := {
+	"knives": "Knife",
+	"swords": "Sword",
+	"axes": "Axe",
+	"sticks": "Staff",
+	"maces": "Mace",
+	"warhammers": "Warhammer",
+	"spears": "Spear",
+}
+
 const POTION_KINDS := ["health", "mana"]
 
 const STAT_LABELS := {
@@ -108,8 +122,8 @@ const RARITY_POWER := {
 const RARITY_MULT := {
 	"basic": 1.0,
 	"common": 1.4,
-	"rare": 2.2,
-	"unique": 3.5,
+	"rare": 1.6,
+	"unique": 2.2,
 }
 
 const SLOT_STATS := {
@@ -237,6 +251,18 @@ static func max_stack_for(item: Dictionary) -> int:
 	return maxi(1, int(def.get("max_stack", GameBalanceScript.consumable_max_stack())))
 
 
+static func stack_room_left(item: Dictionary) -> int:
+	return maxi(0, max_stack_for(item) - stack_count(item))
+
+
+static func can_stack_merge(target: Dictionary, incoming: Dictionary) -> bool:
+	if target.is_empty() or incoming.is_empty():
+		return false
+	if str(target.get("id", "")) != str(incoming.get("id", "")):
+		return false
+	return stack_room_left(target) > 0 and max_stack_for(incoming) > 1
+
+
 static func consumable_use_def(item: Dictionary) -> Dictionary:
 	var use: Variant = get_def(str(item.get("id", ""))).get("use", {})
 	if typeof(use) != TYPE_DICTIONARY:
@@ -308,6 +334,28 @@ static func display_name(item: Dictionary) -> String:
 
 static func item_slot(item: Dictionary) -> String:
 	return str(get_def(str(item.get("id", ""))).get("slot", ""))
+
+
+static func weapon_type(item: Dictionary) -> String:
+	return str(get_def(str(item.get("id", ""))).get("weapon_type", ""))
+
+
+static func weapon_family(item: Dictionary) -> String:
+	var def := get_def(str(item.get("id", "")))
+	var family := str(def.get("folder", ""))
+	if family.is_empty():
+		var id := str(item.get("id", ""))
+		if id.contains("/"):
+			return id.split("/")[0]
+	return family
+
+
+static func weapon_type_name(item: Dictionary) -> String:
+	var type_id := weapon_type(item)
+	if not type_id.is_empty():
+		return str(WEAPON_TYPE_NAMES.get(type_id, type_id.capitalize()))
+	var family := weapon_family(item)
+	return str(WEAPON_FOLDER_NAMES.get(family, family.capitalize() if not family.is_empty() else ""))
 
 
 static func item_rarity(item: Dictionary) -> String:
@@ -474,6 +522,11 @@ static func tooltip_lines(item: Dictionary, footer_hint: String = "") -> PackedS
 		lines.append("%s — Potion" % rarity_name(rarity))
 	elif cat == "material":
 		lines.append("%s — Material" % rarity_name(rarity))
+	elif str(def.get("slot", "")) == "weapon":
+		var type_label := weapon_type_name(item)
+		if type_label.is_empty():
+			type_label = slot_name("weapon")
+		lines.append("%s — %s" % [rarity_name(rarity), type_label])
 	else:
 		lines.append("%s — %s" % [rarity_name(rarity), slot_name(str(def.get("slot", "")))])
 
@@ -808,7 +861,7 @@ static func get_modifier_def(mod_id: String) -> Dictionary:
 
 static func current_ilvl() -> int:
 	if typeof(GameState) != TYPE_NIL and GameState.stage_runner != null:
-		return maxi(1, GameState.stage_runner.stage_index + 1)
+		return maxi(1, GameState.stage_runner.progression_layer() + 1)
 	return 1
 
 

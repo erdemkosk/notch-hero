@@ -95,6 +95,7 @@ static func _parse_enemy_defs(raw: Variant) -> Dictionary:
 			"xp": int(entry.get("xp", 8)),
 			"scale": float(entry.get("scale", 1.0)),
 			"boss": bool(entry.get("boss", false)),
+			"boss_weight": float(entry.get("boss_weight", 1.0)),
 		}
 	return defs
 

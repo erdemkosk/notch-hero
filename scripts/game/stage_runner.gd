@@ -69,10 +69,21 @@ func current_wave_enemies() -> Array:
 	return enemies
 
 
+func progression_layer() -> int:
+	var stage := current_stage()
+	if stage.is_empty():
+		return 0
+	return GameBalanceScript.progression_layer(
+		int(stage.get("world", 1)),
+		int(stage.get("stage", 1))
+	)
+
+
 func enemy_difficulty_for(type_id: String) -> float:
-	var mul := GameBalanceScript.enemy_difficulty_mul(stage_index, wave_index)
+	var layer := progression_layer()
+	var mul := GameBalanceScript.enemy_difficulty_mul_for_layer(layer, wave_index)
 	if StageDataScript.is_boss_type(type_id):
-		mul *= GameBalanceScript.boss_difficulty_factor(stage_index)
+		mul *= GameBalanceScript.boss_difficulty_factor(layer)
 	return mul
 
 
@@ -95,7 +106,7 @@ func on_wave_cleared(hero: Hero) -> void:
 func on_hero_died(hero: Hero) -> void:
 	if stages.is_empty():
 		return
-	_restore_hero(hero)
+	# Keep level, XP, gold and other run progress; only retry the stage waves.
 	wave_index = 0
 	_refill_hero(hero)
 	_emit_wave(hero, "retry")

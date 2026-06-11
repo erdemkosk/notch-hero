@@ -62,19 +62,41 @@ func _drop_feedback() -> int:
 			return 1
 		return -1
 
-	if InventoryDragScript.source == InventoryDragScript.Source.POTION_BAR \
-			and _inventory_bag != null \
-			and _inventory_bag.get_global_rect().has_point(global_mouse):
-		if GameState.hero.has_inventory_room():
-			return 1
-		return -1
-
 	if InventoryDragScript.source == InventoryDragScript.Source.EQUIPMENT \
 			and _inventory_bag != null \
 			and _inventory_bag.get_global_rect().has_point(global_mouse):
 		if GameState.hero.has_inventory_room():
 			return 1
 		return -1
+
+	if _inventory_bag != null and _inventory_bag.get_global_rect().has_point(global_mouse):
+		if not _inventory_bag.has_method("slot_at_global"):
+			return 0
+		var bag_slot: int = _inventory_bag.slot_at_global(global_mouse)
+		if bag_slot < 0:
+			return 0
+
+		if InventoryDragScript.source == InventoryDragScript.Source.INVENTORY:
+			if bag_slot == InventoryDragScript.inventory_index:
+				return 0
+			if bag_slot < GameState.hero.inventory.size():
+				var target: Dictionary = GameState.hero.inventory[bag_slot]
+				if ItemDataScript.can_stack_merge(target, InventoryDragScript.item):
+					return 1
+				return -1
+			return 0
+
+		if InventoryDragScript.source == InventoryDragScript.Source.POTION_BAR:
+			if bag_slot < GameState.hero.inventory.size():
+				var target: Dictionary = GameState.hero.inventory[bag_slot]
+				if ItemDataScript.can_stack_merge(target, InventoryDragScript.item):
+					return 1
+				if GameState.hero.has_inventory_room():
+					return 1
+				return -1
+			if GameState.hero.has_inventory_room():
+				return 1
+			return -1
 
 	return 0
 

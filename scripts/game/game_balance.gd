@@ -7,24 +7,29 @@ const DEFAULTS := {
 	"hero": {
 		"base_attack": 3,
 		"base_max_hp": 10,
+		"hp_mul": 5.0,
 		"base_max_mana": 40,
 		"base_spell_power": 0,
 		"level_hp_gain": 2,
+		"level_attack_gain": 1,
 		"level_spell_power_gain": 1,
 		"staff_enchant_attack": 1.0,
 		"min_damage_taken": 1,
 	},
 	"combat": {
-		"armor_blocks_per_point": 1.0,
+		"armor_reduction_divisor": 40.0,
+		"armor_max_reduction_pct": 60.0,
+		"double_attack_speed_pct": 75.0,
 	},
 	"stages": {
-		"enemy_scale_base": 0.58,
-		"enemy_scale_per_stage": 0.11,
-		"enemy_scale_per_wave": 0.04,
-		"enemy_level_hp_mul": 0.08,
-		"enemy_level_atk_mul": 0.08,
-		"enemy_boss_level_hp_mul": 0.12,
-		"enemy_boss_level_atk_mul": 0.12,
+		"stages_per_world": 3,
+		"layer_scale_base": 0.65,
+		"layer_scale_per_layer": 0.035,
+		"layer_scale_per_wave": 0.012,
+		"enemy_level_hp_mul": 0.04,
+		"enemy_level_atk_mul": 0.04,
+		"enemy_boss_level_hp_mul": 0.06,
+		"enemy_boss_level_atk_mul": 0.06,
 		"enemy_role_hp_mod": {
 			"melee": 1.0,
 			"ranged": 0.85,
@@ -36,18 +41,23 @@ const DEFAULTS := {
 			"charger": 1.12,
 		},
 		"multi_enemy_hp_mul": 0.88,
-		"first_stage_boss_factor": 0.48,
-		"early_boss_factor": 0.72,
+		"first_layer_boss_factor": 0.72,
+		"early_layer_boss_factor": 0.88,
+		"boss_hp_base": 32.0,
+		"boss_atk_base": 3.5,
+		"boss_scale_per_layer": 0.28,
+		"enemy_hp_mul": 5.0,
+		"enemy_damage_mul": 2.0,
 	},
 	"loot": {
-		"drop_chance": 0.015,
-		"boss_drop_chance": 0.06,
+		"drop_chance": 0.05,
+		"boss_drop_chance": 0.15,
 		"potion_drop_chance": 0.10,
 		"boss_potion_drop_chance": 0.20,
 		"rarity_unique": 0.012,
 		"rarity_rare": 0.08,
 		"rarity_common": 0.30,
-		"pity_kills": 50,
+		"pity_kills": 28,
 	},
 	"inventory": {
 		"base_bag_slots": 9,
@@ -102,6 +112,18 @@ static func hero_cfg() -> Dictionary:
 	return _config.get("hero", DEFAULTS["hero"]) as Dictionary
 
 
+static func hero_hp_mul() -> float:
+	return maxf(0.1, float(hero_cfg().get("hp_mul", 1.0)))
+
+
+static func enemy_hp_mul() -> float:
+	return maxf(0.1, float(stage_cfg().get("enemy_hp_mul", 1.0)))
+
+
+static func enemy_damage_mul() -> float:
+	return maxf(0.1, float(stage_cfg().get("enemy_damage_mul", 1.0)))
+
+
 static func combat_cfg() -> Dictionary:
 	if not _loaded:
 		load_config()
@@ -114,20 +136,32 @@ static func stage_cfg() -> Dictionary:
 	return _config.get("stages", DEFAULTS["stages"]) as Dictionary
 
 
+static func stages_per_world() -> int:
+	return maxi(1, int(stage_cfg().get("stages_per_world", 3)))
+
+
+static func progression_layer(world: int, stage_num: int) -> int:
+	return maxi(0, (maxi(1, world) - 1) * stages_per_world() + maxi(1, stage_num) - 1)
+
+
+static func enemy_difficulty_mul_for_layer(layer: int, wave_index: int = 0) -> float:
+	var cfg := stage_cfg()
+	var base := float(cfg.get("layer_scale_base", 0.65))
+	var per_layer := float(cfg.get("layer_scale_per_layer", 0.035))
+	var per_wave := float(cfg.get("layer_scale_per_wave", 0.012))
+	return maxf(0.35, base + layer * per_layer + wave_index * per_wave)
+
+
 static func enemy_difficulty_mul(stage_index: int, wave_index: int = 0) -> float:
-	var cfg := stage_cfg()
-	var base := float(cfg.get("enemy_scale_base", 0.58))
-	var per_stage := float(cfg.get("enemy_scale_per_stage", 0.11))
-	var per_wave := float(cfg.get("enemy_scale_per_wave", 0.04))
-	return maxf(0.35, base + stage_index * per_stage + wave_index * per_wave)
+	return enemy_difficulty_mul_for_layer(stage_index, wave_index)
 
 
-static func boss_difficulty_factor(stage_index: int) -> float:
+static func boss_difficulty_factor(layer: int) -> float:
 	var cfg := stage_cfg()
-	if stage_index <= 0:
-		return float(cfg.get("first_stage_boss_factor", 0.48))
-	if stage_index <= 2:
-		return float(cfg.get("early_boss_factor", 0.72))
+	if layer <= 0:
+		return float(cfg.get("first_layer_boss_factor", cfg.get("first_stage_boss_factor", 0.72)))
+	if layer <= 2:
+		return float(cfg.get("early_layer_boss_factor", cfg.get("early_boss_factor", 0.88)))
 	return 1.0
 
 
@@ -226,6 +260,12 @@ static func roll_rarity() -> String:
 
 
 static func apply_armor(raw_damage: float, armor: float) -> float:
-	var blocks := float(combat_cfg().get("armor_blocks_per_point", 1.0))
 	var min_dmg := float(hero_cfg().get("min_damage_taken", 1.0))
-	return maxf(min_dmg, raw_damage - armor * blocks)
+	if armor <= 0.0:
+		return maxf(min_dmg, raw_damage)
+
+	var cfg := combat_cfg()
+	var divisor := maxf(1.0, float(cfg.get("armor_reduction_divisor", 40.0)))
+	var max_pct := clampf(float(cfg.get("armor_max_reduction_pct", 60.0)), 0.0, 95.0) / 100.0
+	var reduction := clampf(armor / (armor + divisor), 0.0, max_pct)
+	return maxf(min_dmg, raw_damage * (1.0 - reduction))

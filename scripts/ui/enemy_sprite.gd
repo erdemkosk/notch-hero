@@ -354,6 +354,7 @@ func play_action(action: String) -> void:
 func _on_animation_finished() -> void:
 	var finished := animation
 	if finished == "death":
+		action_finished.emit("death")
 		return
 	if sprite_frames.get_animation_loop(finished):
 		return

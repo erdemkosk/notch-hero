@@ -173,6 +173,8 @@ func _on_hero_died() -> void:
 
 
 func _restart_stage_after_death() -> void:
+	combat.clear_wave()
+	combat.cancel_exchange()
 	stage_runner.on_hero_died(hero)
 	_log("You died! Restarting stage from wave 1.")
 	request_save()
@@ -191,11 +193,12 @@ func set_melee_engaged(active: bool) -> void:
 	melee_engaged = active
 
 
-func combat_melee_exchange() -> void:
+func combat_begin_round() -> String:
 	if not melee_engaged:
-		return
-	combat.tick_melee()
+		return "none"
+	var phase := combat.begin_combat_round()
 	state_changed.emit()
+	return phase
 
 
 func refresh_combat_pacing() -> void:
@@ -207,9 +210,7 @@ func refresh_combat_pacing() -> void:
 func combat_tick() -> void:
 	if not session_active or session_paused:
 		return
-	if melee_engaged:
-		combat.tick_melee()
-	else:
+	if not melee_engaged:
 		combat.tick_passive()
 	var life_regen := hero.life_regen_per_tick()
 	if life_regen > 0.0 and hero.hp > 0.0:
@@ -222,18 +223,18 @@ func combat_tick() -> void:
 
 
 func _try_auto_potions() -> void:
-	if hero.hp <= 0.0 or _potion_cooldown > 0:
+	if hero.hp <= 0.0 or _potion_cooldown > 0 or not melee_engaged:
 		return
 
 	var hp_ratio := hero.hp / maxf(1.0, hero.max_hp)
-	if hp_ratio < GameBalanceScript.auto_hp_threshold():
+	if hp_ratio <= GameBalanceScript.auto_hp_threshold():
 		var stack := hero.potion_bar_stack("health")
 		if not stack.is_empty():
 			_consume_potion_bar("health")
 			return
 
 	var mana_ratio := hero.mana / maxf(1.0, hero.max_mana)
-	if mana_ratio < GameBalanceScript.auto_mana_threshold():
+	if mana_ratio <= GameBalanceScript.auto_mana_threshold():
 		var stack := hero.potion_bar_stack("mana")
 		if not stack.is_empty():
 			_consume_potion_bar("mana")
@@ -282,26 +283,42 @@ func move_inventory_to_potion_bar(inventory_index: int, kind: String) -> bool:
 		hero.inventory[inventory_index] = item
 
 	var overflow := int(result.get("overflow", 0))
-	if overflow > 0 and hero.has_inventory_room():
-		hero.inventory.append(ItemDataScript.make_consumable_stack(str(item.get("id", "")), overflow))
+	if overflow > 0:
+		var leftover := ItemDataScript.make_consumable_stack(str(item.get("id", "")), overflow)
+		hero.add_stackable_to_inventory(leftover)
 
 	request_save()
 	state_changed.emit()
 	return true
 
 
-func move_potion_bar_to_inventory(kind: String) -> bool:
-	if not hero.has_inventory_room():
-		_log("Bag full.")
+func move_inventory_stack(from_index: int, to_index: int) -> bool:
+	if from_index == to_index:
 		return false
+	if not hero.merge_inventory_slots(from_index, to_index):
+		return false
+	request_save()
+	state_changed.emit()
+	return true
 
+
+func move_potion_bar_to_inventory(kind: String, prefer_index: int = -1) -> bool:
 	var stack := hero.clear_potion_bar_slot(kind)
 	if stack.is_empty():
 		return false
 
-	hero.inventory.append(stack)
-	inventory_unseen += 1
+	var result := hero.add_stackable_to_inventory(stack, prefer_index)
+	if int(result.get("added", 0)) <= 0:
+		hero.potion_bar[kind] = stack
+		_log("Bag full.")
+		return false
 
+	var remaining: Dictionary = result.get("remaining", {}) as Dictionary
+	if not remaining.is_empty():
+		hero.potion_bar[kind] = remaining
+		_log("Bag full — potion bar kept the rest.")
+
+	inventory_unseen += 1
 	request_save()
 	state_changed.emit()
 	return true
@@ -524,16 +541,42 @@ func _on_enemy_defeated(rewards: Dictionary) -> void:
 	var msg := "+%d XP, +%d gold" % [rewards.get("xp", 0), rewards.get("gold", 0)]
 	if rewards.get("leveled", false):
 		msg += " | LEVEL UP!"
-	if rewards.get("item_dropped", false):
-		var item: Dictionary = rewards.get("item", {}) as Dictionary
-		msg += " | Loot: %s" % ItemDataScript.display_name(item)
-	if rewards.get("potion_dropped", false):
-		var potion: Dictionary = rewards.get("potion", {}) as Dictionary
-		msg += " | Potion: %s" % ItemDataScript.display_name(potion)
-	elif rewards.get("bag_full", false):
-		msg += " | Bag full!"
 	_log(msg)
 	request_save()
+
+
+func grant_kill_loot(rewards: Dictionary) -> Dictionary:
+	var result := {
+		"item_dropped": false,
+		"potion_dropped": false,
+		"bag_full": false,
+	}
+
+	var item: Dictionary = rewards.get("item", {}) as Dictionary
+	if not item.is_empty():
+		if hero.add_loot(item):
+			result["item_dropped"] = true
+		else:
+			result["bag_full"] = true
+
+	var potion: Dictionary = rewards.get("potion", {}) as Dictionary
+	if not potion.is_empty():
+		if hero.add_loot(potion):
+			result["potion_dropped"] = true
+		elif not result["bag_full"]:
+			result["bag_full"] = true
+
+	if result["item_dropped"]:
+		_log("Loot: %s" % ItemDataScript.display_name(item))
+	if result["potion_dropped"]:
+		_log("Potion: %s" % ItemDataScript.display_name(potion))
+	elif result["bag_full"]:
+		_log("Bag full!")
+
+	if result["item_dropped"] or result["potion_dropped"] or result["bag_full"]:
+		request_save()
+
+	return result
 
 
 func _on_combo(name: String, damage: float) -> void:

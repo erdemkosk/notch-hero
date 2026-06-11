@@ -82,7 +82,11 @@ func refresh_combat_stats() -> void:
 	var prev_max_hp := max_hp
 	var prev_max_mana := max_mana
 
-	max_hp = float(cfg.get("base_max_hp", 5.0)) + float(eq.get("max_hp", 0.0)) + level_hp_bonus
+	max_hp = (
+		float(cfg.get("base_max_hp", 5.0))
+		+ float(eq.get("max_hp", 0.0))
+		+ level_hp_bonus
+	) * GameBalanceScript.hero_hp_mul()
 	max_mana = float(cfg.get("base_max_mana", 40.0)) + float(eq.get("max_mana", 0.0))
 	spell_power = int(cfg.get("base_spell_power", 0)) + int(eq.get("spell_power", 0.0)) + level_spell_power_bonus
 	mana_regen = float(cfg.get("base_mana_regen", 3.0)) * (1.0 + float(eq.get("mana_regen_pct", 0.0)) / 100.0)
@@ -100,6 +104,12 @@ func refresh_combat_stats() -> void:
 
 func attack_speed_multiplier() -> float:
 	return 1.0 + float(equipment_stats().get("attack_speed_pct", 0.0)) / 100.0
+
+
+func attacks_per_round() -> int:
+	var bonus_pct := float(equipment_stats().get("attack_speed_pct", 0.0))
+	var threshold_pct := float(GameBalanceScript.combat_cfg().get("double_attack_speed_pct", 75.0))
+	return 2 if bonus_pct >= threshold_pct else 1
 
 
 func move_speed_multiplier() -> float:
@@ -122,7 +132,8 @@ func attack_power() -> float:
 	var cfg := GameBalanceScript.hero_cfg()
 	var eq := equipment_stats()
 	var staff_bonus := float(staff_enchant) * float(cfg.get("staff_enchant_attack", 1.0))
-	return float(cfg.get("base_attack", 1.0)) + float(eq.get("attack", 0.0)) + staff_bonus
+	var level_atk := float(maxi(0, level - 1)) * float(cfg.get("level_attack_gain", 1.0))
+	return float(cfg.get("base_attack", 1.0)) + float(eq.get("attack", 0.0)) + staff_bonus + level_atk
 
 
 func take_damage(raw_amount: float) -> float:
@@ -222,11 +233,107 @@ func clear_potion_bar_slot(kind: String) -> Dictionary:
 
 
 func add_loot(item: Dictionary) -> bool:
-	if not has_inventory_room():
+	var result := add_stackable_to_inventory(item)
+	if int(result.get("added", 0)) <= 0:
 		return false
-	inventory.append(item)
+	if not (result.get("remaining", {}) as Dictionary).is_empty():
+		return false
 	loot_added.emit(item)
 	return true
+
+
+func add_stackable_to_inventory(item: Dictionary, prefer_index: int = -1) -> Dictionary:
+	var result := {"added": 0, "remaining": {}}
+	if item.is_empty():
+		return result
+
+	var incoming := item.duplicate(true)
+	var original := ItemDataScript.stack_count(incoming)
+	if original <= 0:
+		return result
+
+	if prefer_index >= 0:
+		incoming = _merge_stack_into_inventory_index(prefer_index, incoming, result)
+
+	for i in inventory.size():
+		if ItemDataScript.stack_count(incoming) <= 0:
+			break
+		if i == prefer_index:
+			continue
+		incoming = _merge_stack_into_inventory_index(i, incoming, result)
+
+	while ItemDataScript.stack_count(incoming) > 0:
+		if not has_inventory_room():
+			break
+		var chunk := mini(ItemDataScript.stack_count(incoming), ItemDataScript.max_stack_for(incoming))
+		inventory.append(ItemDataScript.make_consumable_stack(str(incoming.get("id", "")), chunk))
+		result["added"] = int(result.get("added", 0)) + chunk
+		var left := ItemDataScript.stack_count(incoming) - chunk
+		if left <= 0:
+			incoming = {}
+		else:
+			incoming["count"] = left
+
+	if ItemDataScript.stack_count(incoming) > 0:
+		result["remaining"] = incoming
+	else:
+		result["remaining"] = {}
+
+	return result
+
+
+func merge_inventory_slots(from_index: int, to_index: int) -> bool:
+	if from_index == to_index:
+		return false
+	if from_index < 0 or from_index >= inventory.size():
+		return false
+	if to_index < 0 or to_index >= inventory.size():
+		return false
+
+	var src: Dictionary = inventory[from_index]
+	var dst: Dictionary = inventory[to_index]
+	if not ItemDataScript.can_stack_merge(dst, src):
+		return false
+
+	var move := mini(ItemDataScript.stack_room_left(dst), ItemDataScript.stack_count(src))
+	if move <= 0:
+		return false
+
+	dst["count"] = ItemDataScript.stack_count(dst) + move
+	inventory[to_index] = dst
+
+	var left := ItemDataScript.stack_count(src) - move
+	if left <= 0:
+		inventory.remove_at(from_index)
+	else:
+		src["count"] = left
+		inventory[from_index] = src
+	return true
+
+
+func _merge_stack_into_inventory_index(index: int, incoming: Dictionary, result: Dictionary) -> Dictionary:
+	if index < 0 or index >= inventory.size():
+		return incoming
+	if ItemDataScript.stack_count(incoming) <= 0:
+		return incoming
+
+	var target: Dictionary = inventory[index]
+	if not ItemDataScript.can_stack_merge(target, incoming):
+		return incoming
+
+	var move := mini(ItemDataScript.stack_room_left(target), ItemDataScript.stack_count(incoming))
+	if move <= 0:
+		return incoming
+
+	target["count"] = ItemDataScript.stack_count(target) + move
+	inventory[index] = target
+	result["added"] = int(result.get("added", 0)) + move
+
+	var left := ItemDataScript.stack_count(incoming) - move
+	if left <= 0:
+		return {}
+	incoming["count"] = left
+	return incoming
 
 
 func weapon_damage() -> float:

@@ -2,30 +2,36 @@ extends RefCounted
 
 const Hero = preload("res://scripts/game/hero.gd")
 const Enemy = preload("res://scripts/game/enemy.gd")
-const MagicSchoolScript = preload("res://scripts/game/magic_school.gd")
 const EnemySpriteScript = preload("res://scripts/ui/enemy_sprite.gd")
 const StageDataScript = preload("res://scripts/game/stage_data.gd")
 const GameBalanceScript = preload("res://scripts/game/game_balance.gd")
 const ItemDataScript = preload("res://scripts/game/item_data.gd")
 
-signal spell_cast(info: Dictionary)
+signal attack_started(info: Dictionary)
 signal enemy_defeated(rewards: Dictionary)
 signal enemy_slain(slot: int)
 signal enemy_damaged(slot: int, amount: float, source: String)
 signal wave_spawned(count: int, types: PackedStringArray)
 signal hero_damaged(amount: float)
 signal hero_died
+
+# Kept for older UI hooks; combat is melee-only for now.
+signal spell_cast(info: Dictionary)
 signal combo_triggered(name: String, damage: float)
+
+enum MeleePhase { IDLE, HERO_SWING, HERO_RESOLVING, ENEMY_SWING }
 
 var hero: Hero
 var enemy: Enemy
 var enemies: Array[Enemy] = []
 var enemy_types: PackedStringArray = []
-var last_spell_name := "Staff"
+var last_attack_name := "Attack"
+var last_spell_name := "Attack"
 var combo_flash := ""
 var _slain_flags: Array[bool] = []
 var _hero_dead := false
-var _exchange_busy := false
+var _melee_phase := MeleePhase.IDLE
+var _hero_swings_left := 0
 var _pending_strike: Dictionary = {}
 var _pending_enemy_damage := 0.0
 
@@ -100,102 +106,63 @@ func tick_passive() -> void:
 	hero.regen_mana(0.45)
 
 
-func is_exchange_busy() -> bool:
-	return _exchange_busy
+func is_melee_idle() -> bool:
+	return _melee_phase == MeleePhase.IDLE
 
 
-func tick_melee() -> void:
-	begin_melee_exchange()
+func is_hero_swing_pending() -> bool:
+	return _melee_phase == MeleePhase.HERO_SWING and not _pending_strike.is_empty()
 
 
-func begin_melee_exchange() -> bool:
-	if _exchange_busy:
-		return false
-	if hero.hp <= 0.0:
-		return false
-	if enemies.is_empty() or living_count() <= 0:
-		return false
+func is_enemy_swing_pending() -> bool:
+	return _melee_phase == MeleePhase.ENEMY_SWING
+
+
+func begin_combat_round() -> String:
+	if _melee_phase != MeleePhase.IDLE:
+		return "none"
+	if hero.hp <= 0.0 or living_count() <= 0:
+		return "idle"
 
 	combo_flash = ""
-	hero.regen_mana()
+	_hero_swings_left = hero.attacks_per_round()
 
-	var front := _front_enemy()
-	if front != null and front.hp > 0.0:
-		var dot := front.tick_status()
-		if dot > 0.0:
-			_damage_enemy_at(front, dot, "Burn", false)
-
-	front = _front_enemy()
-	if front == null or front.hp <= 0.0:
-		_cleanup_dead()
-		return false
-
-	var cast := _cast_next_spell()
-	if cast.is_empty():
-		return false
-
-	last_spell_name = str(cast.get("name", "Staff"))
-	_pending_strike = cast.duplicate()
-	_pending_enemy_damage = 0.0
-	_exchange_busy = true
-
-	spell_cast.emit({
-		"name": last_spell_name,
-		"damage": cast.get("damage", 0.0),
-		"element": cast.get("element", "physical"),
-		"combo": cast.get("show_combo", false),
-	})
-	return true
+	if living_count() <= 0:
+		return "idle"
+	if _begin_hero_swing():
+		return "hero_swing"
+	return _queue_enemy_turn()
 
 
-func commit_hero_strike() -> void:
-	if not _exchange_busy or _pending_strike.is_empty():
-		return
+func commit_hero_strike() -> String:
+	if _melee_phase != MeleePhase.HERO_SWING or _pending_strike.is_empty():
+		return "none"
+
+	_melee_phase = MeleePhase.HERO_RESOLVING
 
 	var front := _front_enemy()
 	var dmg: float = float(_pending_strike.get("damage", 0.0))
-	var source: String = str(_pending_strike.get("name", last_spell_name))
-	var show_combo: bool = bool(_pending_strike.get("show_combo", false))
+	var source: String = str(_pending_strike.get("name", last_attack_name))
 	_pending_strike.clear()
 
 	if front != null and front.hp > 0.0 and dmg > 0.0:
-		_damage_enemy_at(front, dmg, source, show_combo)
+		_damage_enemy_at(front, dmg, source)
 
 	_cleanup_dead()
 
+	if hero.hp <= 0.0 or living_count() <= 0:
+		_melee_phase = MeleePhase.IDLE
+		return "idle"
 
-func prepare_enemy_counter() -> bool:
-	if not _exchange_busy:
+	_hero_swings_left -= 1
+	if _hero_swings_left > 0 and _begin_hero_swing():
+		return "hero_swing"
+	return _queue_enemy_turn()
+
+
+func commit_enemy_strike() -> bool:
+	if _melee_phase != MeleePhase.ENEMY_SWING:
 		return false
-	if living_count() <= 0 or hero.hp <= 0.0:
-		_finish_exchange()
-		return false
-
-	var slot := _front_slot()
-	if slot < 0 or slot >= enemies.size():
-		_finish_exchange()
-		return false
-
-	var foe: Enemy = enemies[slot]
-	if foe.hp <= 0.0 or foe.is_frozen():
-		_finish_exchange()
-		return false
-
-	var enemy_type := "gladiator"
-	if slot < enemy_types.size():
-		enemy_type = enemy_types[slot]
-	var dmg := _enemy_strike_damage(foe, enemy_type)
-	if dmg <= 0.0:
-		_finish_exchange()
-		return false
-
-	_pending_enemy_damage = dmg
-	return true
-
-
-func commit_enemy_strike() -> void:
-	if not _exchange_busy:
-		return
 
 	var dmg := _pending_enemy_damage
 	_pending_enemy_damage = 0.0
@@ -207,11 +174,70 @@ func commit_enemy_strike() -> void:
 			_hero_dead = true
 			hero_died.emit()
 
-	_finish_exchange()
+	_melee_phase = MeleePhase.IDLE
+	return true
 
 
 func cancel_exchange() -> void:
-	_finish_exchange()
+	_reset_melee()
+
+
+func _begin_hero_swing() -> bool:
+	if hero.hp <= 0.0 or living_count() <= 0 or _hero_swings_left <= 0:
+		return false
+
+	var attack := _build_hero_attack()
+	if attack.is_empty():
+		_hero_swings_left = 0
+		return false
+
+	last_attack_name = str(attack.get("name", "Attack"))
+	last_spell_name = last_attack_name
+	_pending_strike = attack.duplicate()
+	_melee_phase = MeleePhase.HERO_SWING
+
+	var payload := {
+		"name": last_attack_name,
+		"damage": attack.get("damage", 0.0),
+		"element": "physical",
+	}
+	attack_started.emit(payload)
+	spell_cast.emit(payload)
+	return true
+
+
+func _queue_enemy_turn() -> String:
+	if hero.hp <= 0.0 or living_count() <= 0:
+		_melee_phase = MeleePhase.IDLE
+		return "idle"
+
+	var slot := _front_slot()
+	if slot < 0 or slot >= enemies.size():
+		_melee_phase = MeleePhase.IDLE
+		return "idle"
+
+	var foe: Enemy = enemies[slot]
+	if foe.hp <= 0.0:
+		_melee_phase = MeleePhase.IDLE
+		return "idle"
+
+	var enemy_type := "gladiator"
+	if slot < enemy_types.size():
+		enemy_type = enemy_types[slot]
+	var dmg := _enemy_strike_damage(foe, enemy_type)
+	if dmg < 0.0:
+		dmg = 0.0
+
+	_pending_enemy_damage = dmg
+	_melee_phase = MeleePhase.ENEMY_SWING
+	return "enemy_turn"
+
+
+func _build_hero_attack() -> Dictionary:
+	var dmg := hero.weapon_damage()
+	if dmg <= 0.0:
+		dmg = 1.0
+	return {"name": "Attack", "damage": dmg, "element": "physical"}
 
 
 func clear_wave() -> void:
@@ -224,13 +250,14 @@ func clear_wave() -> void:
 
 
 func _finish_exchange() -> void:
-	_exchange_busy = false
+	_reset_melee()
+
+
+func _reset_melee() -> void:
+	_melee_phase = MeleePhase.IDLE
+	_hero_swings_left = 0
 	_pending_strike.clear()
 	_pending_enemy_damage = 0.0
-
-
-func tick() -> void:
-	tick_melee()
 
 
 func _front_enemy() -> Enemy:
@@ -290,36 +317,28 @@ func _collect_rewards(foe: Enemy) -> Dictionary:
 	var xp := foe.xp_reward
 	hero.gold += gold
 	var leveled := hero.add_xp(xp)
-	var item_dropped := false
 	var dropped_item: Dictionary = {}
-	var potion_dropped := false
 	var dropped_potion: Dictionary = {}
 
 	var pity_drop := GameState.should_pity_loot()
 	var rolled_drop := GameBalanceScript.roll_kill_loot(foe.is_boss)
 	if rolled_drop or pity_drop:
 		dropped_item = _roll_loot()
-		if hero.add_loot(dropped_item):
-			item_dropped = true
-		else:
-			dropped_item = {}
 	else:
 		GameState.record_kill_without_loot()
 
 	if GameBalanceScript.should_drop_potion(foe.is_boss):
 		dropped_potion = ItemDataScript.roll_potion_loot()
-		if not dropped_potion.is_empty() and hero.add_loot(dropped_potion):
-			potion_dropped = true
-		else:
-			dropped_potion = {}
 
 	return {
 		"gold": gold,
 		"xp": xp,
 		"leveled": leveled,
-		"item_dropped": item_dropped,
-		"potion_dropped": potion_dropped,
-		"bag_full": (rolled_drop or pity_drop) and not item_dropped,
+		"item_dropped": false,
+		"potion_dropped": false,
+		"item_rolled": not dropped_item.is_empty(),
+		"potion_rolled": not dropped_potion.is_empty(),
+		"bag_full": false,
 		"item": dropped_item,
 		"potion": dropped_potion,
 	}
@@ -332,52 +351,7 @@ func _enemy_strike_damage(foe: Enemy, _enemy_type: String) -> float:
 	return dmg
 
 
-func _cast_next_spell() -> Dictionary:
-	if hero.mana >= 20.0:
-		return _cast_arcane_bolt()
-	if hero.mana >= 15.0 and (hero.school == MagicSchoolScript.School.PYROMANCY or randf() > 0.45):
-		return _cast_fireball()
-	if hero.mana >= 12.0:
-		return _cast_frostbolt()
-	return _cast_staff()
-
-
-func _cast_staff() -> Dictionary:
-	var dmg := hero.weapon_damage()
-	return {"name": "Staff", "damage": dmg, "element": "physical"}
-
-
-func _cast_fireball() -> Dictionary:
-	hero.mana -= 15.0
-	var target := _front_enemy()
-	var dmg := (10.0 + hero.spell_power * 1.4) * hero.school_bonus_for("fire")
-	var combo := false
-	if target != null and target.is_frozen():
-		dmg *= 3.0
-		combo = true
-		combo_flash = "Thermal Shock!"
-		combo_triggered.emit(combo_flash, dmg)
-	if target != null:
-		target.apply_status(Enemy.Status.BURNING, 5)
-	return {"name": "Fireball", "damage": dmg, "element": "fire", "show_combo": combo}
-
-
-func _cast_frostbolt() -> Dictionary:
-	hero.mana -= 12.0
-	var target := _front_enemy()
-	var dmg := (7.0 + hero.spell_power * 1.1) * hero.school_bonus_for("ice")
-	if target != null:
-		target.apply_status(Enemy.Status.FROZEN, 4)
-	return {"name": "Frostbolt", "damage": dmg, "element": "ice"}
-
-
-func _cast_arcane_bolt() -> Dictionary:
-	hero.mana -= 20.0
-	var dmg := (9.0 + hero.spell_power * 1.3) * hero.school_bonus_for("arcane")
-	return {"name": "Arcane Bolt", "damage": dmg, "element": "arcane"}
-
-
-func _damage_enemy_at(foe: Enemy, amount: float, source: String, _combo: bool) -> void:
+func _damage_enemy_at(foe: Enemy, amount: float, source: String) -> void:
 	if amount <= 0.0:
 		return
 	foe.hp = maxf(0.0, foe.hp - amount)

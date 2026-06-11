@@ -1981,6 +1981,54 @@
       }
     },
     {
+      "id": "knives/training-kukri",
+      "name": "Training Kukri",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/knives/basic-kukri.png",
+      "folder": "knives",
+      "weapon_type": "kukri",
+      "stats": {
+        "attack": 4
+      }
+    },
+    {
+      "id": "knives/gurkha-kukri",
+      "name": "Gurkha Kukri",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/knives/common-kukri.png",
+      "folder": "knives",
+      "weapon_type": "kukri",
+      "stats": {
+        "attack": 8
+      }
+    },
+    {
+      "id": "knives/war-kukri",
+      "name": "War Kukri",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/knives/rare-kukri.png",
+      "folder": "knives",
+      "weapon_type": "kukri",
+      "stats": {
+        "attack": 16
+      }
+    },
+    {
+      "id": "knives/chakma",
+      "name": "Chakma",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/knives/unique-kukri.png",
+      "folder": "knives",
+      "weapon_type": "kukri",
+      "stats": {
+        "attack": 38
+      }
+    },
+    {
       "id": "spears/wooden-spear",
       "name": "Wooden Spear",
       "slot": "weapon",

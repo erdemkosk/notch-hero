@@ -705,6 +705,17 @@ func _slot_at(local_pos: Vector2) -> int:
 	return -1
 
 
+func slot_at_global(global_pos: Vector2) -> int:
+	var local_pos := get_global_transform().affine_inverse() * global_pos
+	var slot := _slot_at(local_pos)
+	if slot < 0:
+		return -1
+	var layout := _compute_layout()
+	if slot >= _usable_slots(layout):
+		return -1
+	return slot
+
+
 func _tab_at(local_pos: Vector2) -> int:
 	var layout := _compute_layout()
 	var bar: Rect2 = layout["tab_bar"]

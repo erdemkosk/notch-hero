@@ -7,9 +7,7 @@ extends Control
 @onready var enemy_sprite: ColorRect = $Root/Arena/Enemy
 @onready var spell_label: Label = $Root/Arena/SpellLabel
 const StatBarControl = preload("res://scripts/ui/stat_bar.gd")
-const MagicSchoolScript = preload("res://scripts/game/magic_school.gd")
 const Hero = preload("res://scripts/game/hero.gd")
-const Enemy = preload("res://scripts/game/enemy.gd")
 
 @onready var hp_bar: StatBarControl = $Root/Arena/HPBar
 @onready var mp_bar: StatBarControl = $Root/Arena/MPBar
@@ -20,11 +18,12 @@ const Enemy = preload("res://scripts/game/enemy.gd")
 @onready var forge_label: Label = $Root/Tabs/Örs/ForgeLabel
 @onready var forge_button: Button = $Root/Tabs/Örs/ForgeButton
 @onready var market_list: ItemList = $Root/Tabs/Pazar/MarketList
-@onready var school_option: OptionButton = $Root/Tabs/Savaş/SchoolRow/SchoolOption
+@onready var school_row: Control = $Root/Tabs/Savaş/SchoolRow
 
 
 func _ready() -> void:
-	_setup_schools()
+	if is_instance_valid(school_row):
+		school_row.visible = false
 	forge_button.pressed.connect(_on_forge_pressed)
 	market_list.item_activated.connect(_on_market_buy)
 	inventory_list.item_activated.connect(_on_inventory_sell)
@@ -53,32 +52,16 @@ func _layout_arena() -> void:
 	spell_label.size = Vector2(bar_w - 40.0, 14)
 
 
-func _setup_schools() -> void:
-	school_option.clear()
-	school_option.add_item("Fire (Pyromancy)", MagicSchoolScript.School.PYROMANCY)
-	school_option.add_item("Ice (Cryomancy)", MagicSchoolScript.School.CRYOMANCY)
-	school_option.add_item("Arcane", MagicSchoolScript.School.ARCANE)
-	school_option.select(GameState.hero.school)
-	school_option.item_selected.connect(func(idx: int) -> void:
-		GameState.set_school(idx)
-	)
-
-
 func refresh() -> void:
 	var hero: Hero = GameState.hero
-	var enemy: Enemy = GameState.combat.enemy
 
-	title_label.text = "Lv.%d %s" % [hero.level, MagicSchoolScript.NAMES[hero.school]]
+	title_label.text = "Lv.%d %s" % [hero.level, hero.player_name]
 	gold_label.text = "%d gold | %d kills" % [hero.gold, GameState.total_kills]
 
-	wizard_sprite.color = MagicSchoolScript.COLORS[hero.school]
-	enemy_sprite.color = Color(0.85, 0.2, 0.25) if enemy.status == Enemy.Status.BURNING else Color(0.55, 0.58, 0.65)
-	if enemy.status == Enemy.Status.FROZEN:
-		enemy_sprite.color = Color(0.55, 0.85, 1.0)
+	wizard_sprite.color = Color(0.82, 0.72, 0.55)
+	enemy_sprite.color = Color(0.55, 0.58, 0.65)
 
-	spell_label.text = GameState.combat.last_spell_name
-	if not GameState.combat.combo_flash.is_empty():
-		spell_label.text = GameState.combat.combo_flash
+	spell_label.text = GameState.combat.last_attack_name
 
 	hp_bar.set_value(hero.hp, hero.max_hp, "HP")
 	mp_bar.set_value(hero.mana, hero.max_mana, "MP")

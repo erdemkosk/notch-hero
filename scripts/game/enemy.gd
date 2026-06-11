@@ -28,6 +28,9 @@ func apply_type_def(type_id: String, player_level: int, difficulty_mul: float = 
 
 	var hp_base := float(def.get("hp", 28.0))
 	var atk_base := float(def.get("attack", 3.0))
+	if is_boss:
+		hp_base = _boss_scaled_stat("hp", def)
+		atk_base = _boss_scaled_stat("attack", def)
 	var stage_cfg := GameBalanceScript.stage_cfg()
 	var hp_level_mul := float(
 		stage_cfg.get("enemy_boss_level_hp_mul" if is_boss else "enemy_level_hp_mul", 0.12 if is_boss else 0.08)
@@ -52,9 +55,9 @@ func apply_type_def(type_id: String, player_level: int, difficulty_mul: float = 
 	var role_hp := float(role_hp_mods.get(role, 1.0))
 	var role_atk := float(role_atk_mods.get(role, 1.0))
 
-	max_hp = hp_base * hp_mul * diff * role_hp
+	max_hp = hp_base * hp_mul * diff * role_hp * GameBalanceScript.enemy_hp_mul()
 	hp = max_hp
-	attack_damage = atk_base * atk_mul * diff * role_atk
+	attack_damage = atk_base * atk_mul * diff * role_atk * GameBalanceScript.enemy_damage_mul()
 	gold_reward = int(round(float(def.get("gold", 5)) * (1.4 if is_boss else 1.0)))
 	xp_reward = int(round(float(def.get("xp", 8)) * (1.5 if is_boss else 1.0)))
 
@@ -90,3 +93,20 @@ func is_frozen() -> bool:
 func apply_status(new_status: Status, duration: int = 4) -> void:
 	status = new_status
 	status_ticks = duration
+
+
+func _boss_scaled_stat(stat_key: String, def: Dictionary) -> float:
+	var cfg := GameBalanceScript.stage_cfg()
+	var layer := 0
+	if typeof(GameState) != TYPE_NIL and GameState.stage_runner != null:
+		layer = GameState.stage_runner.progression_layer()
+
+	var hp_base := float(cfg.get("boss_hp_base", 32.0))
+	var atk_base := float(cfg.get("boss_atk_base", 3.5))
+	var per_layer := float(cfg.get("boss_scale_per_layer", 0.28))
+	var weight := float(def.get("boss_weight", 1.0))
+	var tier := 1.0 + float(layer) * per_layer
+
+	if stat_key == "hp":
+		return hp_base * tier * weight
+	return atk_base * tier * weight

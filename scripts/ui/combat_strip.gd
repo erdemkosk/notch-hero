@@ -8,7 +8,6 @@ const CombatBiomeScript = preload("res://scripts/ui/combat_biome.gd")
 const PortalSpriteScript = preload("res://scripts/ui/portal_sprite.gd")
 const StageDataScript = preload("res://scripts/game/stage_data.gd")
 const ItemDataScript = preload("res://scripts/game/item_data.gd")
-const MagicSchoolScript = preload("res://scripts/game/magic_school.gd")
 const UiFont = preload("res://scripts/ui/ui_font.gd")
 const StageMapDrawScript = preload("res://scripts/ui/stage_map_draw.gd")
 const CombatOverlayDrawScript = preload("res://scripts/ui/combat_overlay_draw.gd")
@@ -151,6 +150,9 @@ var _boss_shake := 0.0
 var _boss_sting_player: AudioStreamPlayer
 var _queue_breath_time := 0.0
 var _awaiting_enemy_strike := false
+var _awaiting_hero_strike := false
+var _attacking_enemy_slot := -1
+var _pending_round_start := false
 var _last_equip_stats: Dictionary = {}
 var _equip_stats_ready := false
 var _potion_use_flash := {"health": 0.0, "mana": 0.0}
@@ -461,7 +463,6 @@ func _begin_portal_burst() -> void:
 
 func _finish_intro() -> void:
 	if _intro_finish_generation != _intro_generation:
-		_intro_phase = ""
 		return
 
 	_intro_phase = ""
@@ -799,7 +800,7 @@ func _start_melee() -> void:
 		return
 	_in_melee = true
 	GameState.set_melee_engaged(true)
-	GameState.combat_melee_exchange()
+	_begin_combat_round()
 
 
 func _stop_melee() -> void:
@@ -807,6 +808,9 @@ func _stop_melee() -> void:
 		return
 	_in_melee = false
 	_awaiting_enemy_strike = false
+	_awaiting_hero_strike = false
+	_attacking_enemy_slot = -1
+	_pending_round_start = false
 	GameState.combat.cancel_exchange()
 	GameState.set_melee_engaged(false)
 
@@ -832,69 +836,63 @@ func _ensure_walk() -> void:
 				sprite.play("walk")
 
 
-func _on_spell_cast(info: Dictionary) -> void:
+func _on_spell_cast(_info: Dictionary) -> void:
 	if not _in_melee:
 		return
 	_flash = 0.14
-	if info.get("combo", false):
-		call_deferred("_resolve_hero_attack_hit")
-		return
-	var element: String = info.get("element", "physical")
-	var anim := "attack_slash"
-	match element:
-		"fire":
-			anim = "attack_down"
-		"ice":
-			anim = "attack_thrust"
-	_hero_sprite.play_action(anim)
+	_awaiting_hero_strike = true
+	_hero_sprite.play_action("attack_slash")
 
 
 func _on_hero_action_finished(anim_name: String) -> void:
-	if not _in_melee:
+	if not _in_melee or not _awaiting_hero_strike:
 		return
 	if HERO_ATTACK_ANIMS.has(anim_name):
 		_resolve_hero_attack_hit()
 
 
 func _resolve_hero_attack_hit() -> void:
-	if not _in_melee or not GameState.combat.is_exchange_busy():
+	if not _in_melee or not _awaiting_hero_strike:
 		return
-	GameState.combat.commit_hero_strike()
+	if not GameState.combat.is_hero_swing_pending():
+		_awaiting_hero_strike = false
+		return
+	_awaiting_hero_strike = false
+	var next_phase: String = GameState.combat.commit_hero_strike()
 	GameState.state_changed.emit()
-	if not _in_melee or GameState.hero.hp <= 0.0:
-		return
-	if GameState.combat.prepare_enemy_counter():
-		_play_front_enemy_attack()
+	_advance_melee_turn(next_phase)
 
 
 func _play_front_enemy_attack() -> void:
 	var slot := _combat_front_slot()
 	if slot < 0 or slot >= _sprites.size():
-		GameState.combat.commit_enemy_strike()
-		GameState.state_changed.emit()
+		_finish_enemy_turn()
 		return
 	var sprite: AnimatedSprite2D = _sprites[slot]
 	if not is_instance_valid(sprite) or not sprite.visible:
-		GameState.combat.commit_enemy_strike()
-		GameState.state_changed.emit()
+		_finish_enemy_turn()
 		return
-	if sprite.sprite_frames == null or not sprite.sprite_frames.has_animation("attack"):
-		GameState.combat.commit_enemy_strike()
-		GameState.state_changed.emit()
-		return
+
+	_attacking_enemy_slot = slot
 	_awaiting_enemy_strike = true
+
+	if sprite.sprite_frames == null or not sprite.sprite_frames.has_animation("attack"):
+		_finish_enemy_turn()
+		return
+
 	sprite.play_action("attack")
 
 
 func _on_enemy_action_finished(anim_name: String, sprite: AnimatedSprite2D) -> void:
 	if not _awaiting_enemy_strike or anim_name != "attack":
 		return
-	var slot := _combat_front_slot()
-	if slot < 0 or slot >= _sprites.size() or _sprites[slot] != sprite:
+	if _attacking_enemy_slot < 0 or _attacking_enemy_slot >= _sprites.size():
+		return
+	if _sprites[_attacking_enemy_slot] != sprite:
 		return
 	_awaiting_enemy_strike = false
-	GameState.combat.commit_enemy_strike()
-	GameState.state_changed.emit()
+	_attacking_enemy_slot = -1
+	_finish_enemy_turn()
 
 
 func _on_hero_damaged(amount: float) -> void:
@@ -916,6 +914,57 @@ func _on_hero_died() -> void:
 	_scroll_frozen = true
 	_flash = 0.35
 	_trigger_screen_shake(0.48)
+	if GameState.combat != null:
+		GameState.combat.clear_wave()
+	if is_instance_valid(_hero_sprite) and _hero_sprite.sprite_frames != null:
+		if _hero_sprite.sprite_frames.has_animation("death"):
+			_hero_sprite.play("death")
+
+
+func _finish_enemy_turn() -> void:
+	if not GameState.combat.is_enemy_swing_pending():
+		return
+	if not GameState.combat.commit_enemy_strike():
+		return
+	_awaiting_enemy_strike = false
+	_attacking_enemy_slot = -1
+	GameState.state_changed.emit()
+	_schedule_next_combat_round()
+
+
+func _schedule_next_combat_round() -> void:
+	if _pending_round_start:
+		return
+	_pending_round_start = true
+	call_deferred("_run_scheduled_combat_round")
+
+
+func _run_scheduled_combat_round() -> void:
+	_pending_round_start = false
+	_begin_combat_round()
+
+
+func _begin_combat_round() -> void:
+	if not _in_melee or GameState.hero.hp <= 0.0:
+		return
+	if GameState.combat == null or GameState.combat.living_count() <= 0:
+		return
+	if not GameState.combat.is_melee_idle():
+		return
+	var next_phase: String = GameState.combat_begin_round()
+	_advance_melee_turn(next_phase)
+
+
+func _advance_melee_turn(phase: String) -> void:
+	if not _in_melee or GameState.hero.hp <= 0.0:
+		return
+	match phase:
+		"hero_swing":
+			pass
+		"enemy_turn":
+			_play_front_enemy_attack()
+		"idle", "none":
+			pass
 
 
 func _on_enemy_damaged(slot: int, amount: float, source: String) -> void:
@@ -923,9 +972,11 @@ func _on_enemy_damaged(slot: int, amount: float, source: String) -> void:
 		return
 	if slot != _combat_front_slot():
 		return
-	var kind := "dot" if source == "Burn" else "deal"
+	var kind := "deal"
 	if slot < _sprites.size() and is_instance_valid(_sprites[slot]):
-		_sprites[slot].play_action("hurt")
+		var sprite: AnimatedSprite2D = _sprites[slot]
+		if sprite.animation != "attack" and not _awaiting_enemy_strike:
+			sprite.play_action("hurt")
 	_spawn_damage_number(_popup_pos_for_enemy_slot(slot), amount, kind)
 
 
@@ -1053,23 +1104,7 @@ func _on_enemy_slain(slot: int) -> void:
 
 
 func _on_enemy_defeated(rewards: Dictionary) -> void:
-	if rewards.get("item_dropped", false):
-		_spawn_floating_text(
-			_popup_pos_for_hero() + Vector2(0.0, -UIScaleScript.px(18.0)),
-			"Loot!",
-			"buff_atk",
-			1.05
-		)
-	if rewards.get("potion_dropped", false):
-		_spawn_floating_text(
-			_popup_pos_for_hero() + Vector2(0.0, -UIScaleScript.px(10.0)),
-			"Potion!",
-			"potion_gain",
-			0.95
-		)
-		_queue_bars_redraw()
-	if _actors.size() > 0:
-		_actors.remove_at(0)
+	var has_loot := bool(rewards.get("item_rolled", false)) or bool(rewards.get("potion_rolled", false))
 	var freed_sprite: AnimatedSprite2D = null
 	if _sprites.size() > 0:
 		freed_sprite = _sprites[0]
@@ -1080,8 +1115,19 @@ func _on_enemy_defeated(rewards: Dictionary) -> void:
 					freed_sprite.queue_free()
 			)
 
+	if has_loot:
+		_schedule_loot_after_death(freed_sprite, rewards)
+		return
+
+	if _actors.size() > 0:
+		_actors.remove_at(0)
+
 	if GameState.combat.living_count() > 0:
 		return
+	_advance_wave_after_pause()
+
+
+func _advance_wave_after_pause() -> void:
 	_stop_melee()
 	_combat_locked = true
 	_scroll_frozen = false
@@ -1092,6 +1138,48 @@ func _on_enemy_defeated(rewards: Dictionary) -> void:
 		if is_inside_tree():
 			GameState.on_wave_cleared()
 	)
+
+
+func _schedule_loot_after_death(sprite: AnimatedSprite2D, rewards: Dictionary) -> void:
+	var pending := (rewards as Dictionary).duplicate(true)
+	var flow_token := _wave_advance_token
+
+	var grant := func() -> void:
+		if not is_inside_tree():
+			return
+		var granted := GameState.grant_kill_loot(pending)
+		if granted.get("item_dropped", false):
+			_spawn_floating_text(
+				_popup_pos_for_hero() + Vector2(0.0, -UIScaleScript.px(18.0)),
+				"Loot!",
+				"buff_atk",
+				1.05
+			)
+		if granted.get("potion_dropped", false):
+			_spawn_floating_text(
+				_popup_pos_for_hero() + Vector2(0.0, -UIScaleScript.px(10.0)),
+				"Potion!",
+				"potion_gain",
+				0.95
+			)
+			_queue_bars_redraw()
+		if _actors.size() > 0:
+			_actors.remove_at(0)
+		# Death/retry may have invalidated this kill's wave flow.
+		if flow_token != _wave_advance_token:
+			return
+		if GameState.combat.living_count() > 0:
+			return
+		_advance_wave_after_pause()
+
+	if is_instance_valid(sprite) and sprite.sprite_frames != null and sprite.sprite_frames.has_animation("death"):
+		sprite.action_finished.connect(func(anim_name: String) -> void:
+			if anim_name != "death":
+				return
+			grant.call()
+		, CONNECT_ONE_SHOT)
+	else:
+		get_tree().create_timer(0.55).timeout.connect(grant)
 
 
 func _on_state_changed() -> void:
@@ -1190,10 +1278,9 @@ func _highest_equip_rarity() -> String:
 
 func _equip_glow_color() -> Color:
 	if not GameState.has_hero():
-		return Color(1.0, 0.7, 0.5)
-	var school: Color = MagicSchoolScript.COLORS.get(GameState.hero.school, Color(1.0, 0.7, 0.5)) as Color
+		return Color(0.82, 0.72, 0.55)
 	var rarity_col: Color = ItemDataScript.RARITY_COLORS.get(_highest_equip_rarity(), Color(0.75, 0.75, 0.8)) as Color
-	return school.lerp(rarity_col, 0.48)
+	return Color(0.82, 0.72, 0.55).lerp(rarity_col, 0.48)
 
 
 func _sync_hero_equip_visual() -> void:
