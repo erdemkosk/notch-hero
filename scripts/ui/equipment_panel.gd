@@ -10,6 +10,8 @@ const EquipmentSlotIconsScript = preload("res://scripts/ui/equipment_slot_icons.
 const InventoryHoverScript = preload("res://scripts/ui/inventory_hover.gd")
 const InventoryPanelChromeScript = preload("res://scripts/ui/inventory_panel_chrome.gd")
 const InventoryIconDrawScript = preload("res://scripts/ui/inventory_icon_draw.gd")
+const CombatPotionBarScript = preload("res://scripts/ui/combat_potion_bar.gd")
+const InventorySlotMetricsScript = preload("res://scripts/ui/inventory_slot_metrics.gd")
 
 const LABEL_COLOR := Color(0.82, 0.72, 0.58)
 const SLOT_HI := Color(0.32, 0.2, 0.12)
@@ -51,6 +53,7 @@ const BONUS_STAT_DEFS := [
 ]
 
 var _hover_slot := ""
+var _hover_potion := ""
 var _hero_sheet: Texture2D
 var _bag_ref: Control
 var _shared_slot_side := -1.0
@@ -65,17 +68,22 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if _needs_pulse_redraw():
-		_pulse_phase += delta * 5.5
-		queue_redraw()
-	elif InventoryDragScript.active:
+	if InventoryDragScript.active:
 		_pulse_phase += delta * 6.5
+		var local_pos := get_local_mouse_position()
+		_hover_slot = _slot_at(local_pos)
+		_hover_potion = _potion_kind_at(local_pos)
+		queue_redraw()
+	elif _needs_pulse_redraw():
+		_pulse_phase += delta * 5.5
 		queue_redraw()
 	else:
 		_pulse_phase = 0.0
 
 
 func _needs_pulse_redraw() -> bool:
+	if not GameState.has_hero():
+		return false
 	for slot in ItemDataScript.EQUIP_SLOTS:
 		var equipped: Variant = GameState.hero.equipment.get(slot)
 		if equipped != null and typeof(equipped) == TYPE_DICTIONARY:
@@ -96,12 +104,21 @@ func set_shared_slot_side(side: float) -> void:
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		_hover_slot = _slot_at(get_local_mouse_position())
+		_hover_potion = _potion_kind_at(get_local_mouse_position())
 		queue_redraw()
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		_on_press(event.position)
 
 
 func _on_press(local_pos: Vector2) -> void:
+	var potion_kind: String = _potion_kind_at(local_pos)
+	if not potion_kind.is_empty():
+		var stack := GameState.hero.potion_bar_stack(potion_kind)
+		if not stack.is_empty():
+			var rect := _potion_slot_rect(potion_kind)
+			InventoryDragScript.start_potion_bar(potion_kind, stack, rect.size.x)
+		return
+
 	var slot := _slot_at(local_pos)
 	if slot.is_empty():
 		return
@@ -117,8 +134,13 @@ func slot_at_global(global_pos: Vector2) -> String:
 	return _slot_at(local_pos)
 
 
+func potion_kind_at_global(global_pos: Vector2) -> String:
+	var local_pos := get_global_transform().affine_inverse() * global_pos
+	return _potion_kind_at(local_pos)
+
+
 func _draw() -> void:
-	if size.x < 40.0 or size.y < 40.0:
+	if not GameState.has_hero() or size.x < 40.0 or size.y < 40.0:
 		return
 
 	var panel_rect := Rect2(2.0, 2.0, size.x - 4.0, size.y - 4.0)
@@ -127,6 +149,7 @@ func _draw() -> void:
 	_draw_stat_cards(panel_rect)
 	_draw_hero_preview()
 	_draw_slots()
+	_draw_potion_bar()
 	_draw_hover_tooltip()
 
 
@@ -191,6 +214,8 @@ func _grid_metrics() -> Dictionary:
 	var left_col_x := pad_edge
 	var origin_x := left_col_x + col_w + col_gap
 	var right_col_x := origin_x + grid_w + col_gap
+	var potion_col_w: float = InventorySlotMetricsScript.potion_column_width(side)
+	var potion_col_x := right_col_x + col_w + col_gap
 
 	var avail_h := size.y - pad_top - pad_bottom
 	var origin_y := pad_top + maxf(0.0, (avail_h - grid_h) * 0.5)
@@ -205,6 +230,8 @@ func _grid_metrics() -> Dictionary:
 		"stat_col_w": col_w,
 		"left_col_x": left_col_x,
 		"right_col_x": right_col_x,
+		"potion_col_x": potion_col_x,
+		"potion_col_w": potion_col_w,
 	}
 
 
@@ -218,7 +245,63 @@ func _slot_rect_for(equip_slot: String) -> Rect2:
 	return Rect2(x, y, side, side)
 
 
+func _potion_metrics() -> Dictionary:
+	return CombatPotionBarScript.equip_panel_layout(_grid_metrics())
+
+
+func _potion_slot_rect(kind: String) -> Rect2:
+	return CombatPotionBarScript.slot_rect(_potion_metrics(), kind)
+
+
+func _draw_potion_bar() -> void:
+	var metrics := _potion_metrics()
+	var drag_valid := ""
+	var drag_invalid := ""
+	var dragging_from := ""
+	var drag_item_kind := ""
+	if InventoryDragScript.active:
+		if InventoryDragScript.source == InventoryDragScript.Source.POTION_BAR:
+			dragging_from = InventoryDragScript.potion_kind
+		elif InventoryDragScript.source == InventoryDragScript.Source.INVENTORY \
+				and ItemDataScript.is_potion(InventoryDragScript.item):
+			drag_item_kind = ItemDataScript.potion_kind(InventoryDragScript.item)
+			if not drag_item_kind.is_empty():
+				drag_valid = drag_item_kind
+				if not _hover_potion.is_empty() and _hover_potion != drag_item_kind:
+					drag_invalid = _hover_potion
+
+	CombatPotionBarScript.draw(
+		self,
+		metrics,
+		GameState.hero,
+		{},
+		{},
+		_pulse_phase,
+		_hover_potion,
+		drag_valid,
+		drag_invalid,
+		dragging_from,
+		drag_item_kind
+	)
+
+
+func _potion_kind_at(local_pos: Vector2) -> String:
+	return CombatPotionBarScript.potion_kind_at(_potion_metrics(), local_pos)
+
+
 func _draw_hover_tooltip() -> void:
+	if not _hover_potion.is_empty():
+		var stack := GameState.hero.potion_bar_stack(_hover_potion)
+		if not stack.is_empty():
+			ItemTooltipScript.draw_for_slot(
+				self,
+				_potion_slot_rect(_hover_potion),
+				stack,
+				Rect2(Vector2.ZERO, size),
+				"Auto-used in combat when low"
+			)
+		return
+
 	if _hover_slot.is_empty():
 		return
 

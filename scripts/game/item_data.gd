@@ -1,6 +1,8 @@
 extends RefCounted
 class_name ItemData
 
+const GameBalanceScript = preload("res://scripts/game/game_balance.gd")
+
 const CATALOG_PATH := "res://data/items.json"
 const WEAPONS_CATALOG_PATH := "res://data/weapons.json"
 const EQUIPMENT_CATALOG_PATH := "res://data/equipment.json"
@@ -46,7 +48,10 @@ const SLOT_NAMES := {
 	"earring": "Earring",
 	"ring": "Ring",
 	"amulet": "Amulet",
+	"consumable": "Consumable",
 }
+
+const POTION_KINDS := ["health", "mana"]
 
 const STAT_LABELS := {
 	"attack": "Attack",
@@ -170,6 +175,10 @@ static func make_instance(id: String, ilvl: int = 1) -> Dictionary:
 	if def.is_empty():
 		return item
 
+	if is_consumable_def(def):
+		item["count"] = 1
+		return item
+
 	var rarity := str(def.get("rarity", "common"))
 	var unique_mods: Variant = def.get("unique_mods", [])
 	if rarity == "unique" and typeof(unique_mods) == TYPE_ARRAY and not unique_mods.is_empty():
@@ -178,6 +187,92 @@ static func make_instance(id: String, ilvl: int = 1) -> Dictionary:
 		var count := _mod_count_for_rarity(rarity)
 		item["mods"] = _roll_mods_for(str(def.get("slot", "")), count, ilvl)
 	return item
+
+
+static func make_consumable_stack(id: String, count: int = 1) -> Dictionary:
+	return {"id": id, "count": maxi(1, count)}
+
+
+static func is_consumable_def(def: Dictionary) -> bool:
+	return str(def.get("slot", "")) == "consumable"
+
+
+static func is_consumable(item: Dictionary) -> bool:
+	return is_consumable_def(get_def(str(item.get("id", ""))))
+
+
+static func is_potion(item: Dictionary) -> bool:
+	return str(get_def(str(item.get("id", ""))).get("category", "")) == "potion"
+
+
+static func potion_kind(item: Dictionary) -> String:
+	var kind := str(get_def(str(item.get("id", ""))).get("potion_kind", ""))
+	if POTION_KINDS.has(kind):
+		return kind
+	return ""
+
+
+static func item_category(item: Dictionary) -> String:
+	var id := str(item.get("id", ""))
+	if id.is_empty():
+		var legacy := str(item.get("name", "")).to_lower()
+		if "crystal" in legacy or "shard" in legacy or "dust" in legacy:
+			return "material"
+		return "material"
+	return str(get_def(id).get("category", ""))
+
+
+static func stack_count(item: Dictionary) -> int:
+	if item.is_empty():
+		return 0
+	return maxi(1, int(item.get("count", 1)))
+
+
+static func max_stack_for(item: Dictionary) -> int:
+	var def := get_def(str(item.get("id", "")))
+	if def.is_empty():
+		return 1
+	if not bool(def.get("stackable", false)):
+		return 1
+	return maxi(1, int(def.get("max_stack", GameBalanceScript.consumable_max_stack())))
+
+
+static func consumable_use_def(item: Dictionary) -> Dictionary:
+	var use: Variant = get_def(str(item.get("id", ""))).get("use", {})
+	if typeof(use) != TYPE_DICTIONARY:
+		return {}
+	return use
+
+
+static func apply_consumable_effects(hero: Variant, item: Dictionary) -> Dictionary:
+	var use := consumable_use_def(item)
+	var result := {"heal_hp": 0.0, "restore_mana": 0.0}
+	if use.is_empty() or hero == null:
+		return result
+
+	var heal := float(use.get("heal_hp", 0.0))
+	if heal > 0.0:
+		var before: float = float(hero.hp)
+		hero.hp = minf(float(hero.max_hp), float(hero.hp) + heal)
+		result["heal_hp"] = float(hero.hp) - before
+
+	var mana := float(use.get("restore_mana", 0.0))
+	if mana > 0.0:
+		var before_m: float = float(hero.mana)
+		hero.mana = minf(float(hero.max_mana), float(hero.mana) + mana)
+		result["restore_mana"] = float(hero.mana) - before_m
+
+	return result
+
+
+static func is_gear_loot_id(id: String) -> bool:
+	var def := get_def(id)
+	if def.is_empty():
+		return false
+	if is_consumable_def(def):
+		return false
+	var slot := str(def.get("slot", ""))
+	return slot == "weapon" or EQUIP_SLOTS.has(slot)
 
 
 static func display_name(item: Dictionary) -> String:
@@ -346,6 +441,9 @@ static func sell_value(item: Dictionary) -> int:
 	var id := str(item.get("id", ""))
 	if id.is_empty():
 		return 8 + int(item.get("power", 1)) * 6
+	var def := get_def(id)
+	if not def.is_empty() and def.has("sell_gold"):
+		return int(def.get("sell_gold", 0))
 	var stats := compute_instance_stats(item)
 	return 8 + int(stats.get("power", 1)) * 6
 
@@ -371,15 +469,34 @@ static func tooltip_lines(item: Dictionary, footer_hint: String = "") -> PackedS
 
 	var rarity := str(def.get("rarity", "common"))
 	lines.append(display_name(item))
-	lines.append("%s — %s" % [rarity_name(rarity), slot_name(str(def.get("slot", "")))])
+	var cat := str(def.get("category", ""))
+	if is_potion(item):
+		lines.append("%s — Potion" % rarity_name(rarity))
+	elif cat == "material":
+		lines.append("%s — Material" % rarity_name(rarity))
+	else:
+		lines.append("%s — %s" % [rarity_name(rarity), slot_name(str(def.get("slot", "")))])
+
+	var use := consumable_use_def(item)
+	var heal := float(use.get("heal_hp", 0.0))
+	if heal > 0.0:
+		lines.append("Restores %.0f HP" % heal)
+	var mana := float(use.get("restore_mana", 0.0))
+	if mana > 0.0:
+		lines.append("Restores %.0f Mana" % mana)
+	if stack_count(item) > 1:
+		lines.append("Stack: %d / %d" % [stack_count(item), max_stack_for(item)])
+	if is_potion(item):
+		lines.append("Place in potion bar to use")
 
 	var base_stats := compute_stats(def)
-	for key in ["attack", "armor", "max_hp", "max_mana", "spell_power"]:
-		var amount := float(base_stats.get(key, 0.0))
-		if amount > 0.0:
-			var line := format_stat_line(key, amount)
-			if not line.is_empty():
-				lines.append(line)
+	if not is_consumable(item):
+		for key in ["attack", "armor", "max_hp", "max_mana", "spell_power"]:
+			var amount := float(base_stats.get(key, 0.0))
+			if amount > 0.0:
+				var line := format_stat_line(key, amount)
+				if not line.is_empty():
+					lines.append(line)
 
 	var mods: Array = item.get("mods", [])
 	if typeof(mods) == TYPE_ARRAY:
@@ -540,12 +657,65 @@ static func draw_item_icon(
 
 	var tex: Texture2D = get_texture(id)
 	if tex == null:
+		if is_consumable(item):
+			draw_consumable_icon(canvas, slot_rect, item, inset_px)
+			return true
 		return false
 
 	var content := _content_rect_for(id, tex)
 	var draw := icon_draw_rects(slot_rect, tex, content, fit, inset_px)
 	canvas.draw_texture_rect_region(tex, draw["dest"], draw["src"], modulate)
 	return true
+
+
+static func draw_consumable_icon(
+	canvas: CanvasItem,
+	slot_rect: Rect2,
+	item: Dictionary,
+	inset_px: float = ICON_INSET
+) -> void:
+	var inner := icon_inner_rect(slot_rect, inset_px)
+	if inner.size.x <= 2.0 or inner.size.y <= 2.0:
+		return
+
+	var kind := potion_kind(item)
+	var cat := item_category(item)
+	var fill := Color(0.55, 0.22, 0.22)
+	if kind == "mana":
+		fill = Color(0.28, 0.42, 0.88)
+	elif cat == "material":
+		fill = Color(0.72, 0.52, 0.22)
+
+	var w := inner.size.x
+	var h := inner.size.y
+	var cx := inner.position.x + w * 0.5
+	var flask_w := w * 0.38
+	var flask_h := h * 0.72
+	var body := Rect2(cx - flask_w * 0.5, inner.position.y + h * 0.22, flask_w, flask_h)
+	canvas.draw_rect(body, fill.darkened(0.15))
+	canvas.draw_rect(Rect2(body.position.x, body.position.y, body.size.x, body.size.y * 0.35), fill.lightened(0.12))
+	var neck_w := flask_w * 0.45
+	canvas.draw_rect(
+		Rect2(cx - neck_w * 0.5, inner.position.y + h * 0.1, neck_w, h * 0.14),
+		fill.darkened(0.25)
+	)
+	canvas.draw_rect(body.grow(-1.0), Color(0.1, 0.08, 0.06, 0.35), false, 1.0)
+
+	var count := stack_count(item)
+	if count > 1:
+		var font := ThemeDB.fallback_font
+		var sz := int(maxf(8.0, inner.size.y * 0.28))
+		var text := "x%d" % count
+		var tw := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x
+		canvas.draw_string(
+			font,
+			Vector2(inner.end.x - tw - 1.0, inner.end.y - 2.0),
+			text,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1,
+			sz,
+			Color(0.98, 0.94, 0.86)
+		)
 
 
 static func slot_accepts(item_slot_type: String, equip_slot: String) -> bool:
@@ -822,13 +992,16 @@ static func aggregate_stats(items: Array) -> Dictionary:
 	return totals
 
 
-static func ids_by_rarity(rarity: String) -> Array[String]:
+static func ids_by_rarity(rarity: String, gear_only: bool = false) -> Array[String]:
 	if _defs.is_empty():
 		load_catalog()
 	var result: Array[String] = []
 	for id in _defs.keys():
-		if str(_defs[id].get("rarity", "")) == rarity:
-			result.append(id)
+		if str(_defs[id].get("rarity", "")) != rarity:
+			continue
+		if gear_only and not is_gear_loot_id(id):
+			continue
+		result.append(id)
 	return result
 
 
@@ -848,7 +1021,38 @@ static func roll_rarity() -> String:
 
 static func roll_loot_instance(ilvl: int = 1) -> Dictionary:
 	var rarity := roll_rarity()
-	var pool := ids_by_rarity(rarity)
+	var pool := ids_by_rarity(rarity, true)
 	if pool.is_empty():
-		return make_instance(random_id(), ilvl)
+		var fallback := ids_by_rarity(rarity, false)
+		if fallback.is_empty():
+			return make_instance(random_id(), ilvl)
+		return make_instance(fallback[randi() % fallback.size()], ilvl)
 	return make_instance(pool[randi() % pool.size()], ilvl)
+
+
+static func potion_ids() -> Array[String]:
+	if _defs.is_empty():
+		load_catalog()
+	var result: Array[String] = []
+	for id in _defs.keys():
+		if str(get_def(id).get("category", "")) == "potion":
+			result.append(id)
+	return result
+
+
+static func roll_potion_loot() -> Dictionary:
+	var health_pool: Array[String] = []
+	var mana_pool: Array[String] = []
+	for id in potion_ids():
+		var kind: String = str(get_def(id).get("potion_kind", ""))
+		if kind == "health":
+			health_pool.append(id)
+		elif kind == "mana":
+			mana_pool.append(id)
+
+	var pick_from: Array[String] = health_pool
+	if not mana_pool.is_empty() and (health_pool.is_empty() or randf() > 0.58):
+		pick_from = mana_pool
+	if pick_from.is_empty():
+		return {}
+	return make_consumable_stack(pick_from[randi() % pick_from.size()], 1)

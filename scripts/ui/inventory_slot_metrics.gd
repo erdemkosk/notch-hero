@@ -13,6 +13,31 @@ const EQUIP_ROWS := 4
 const BAG_WIDTH_SHARE := 0.54
 
 
+static func stat_column_width() -> float:
+	return UIScaleScript.px(44.0)
+
+
+static func potion_column_width(slot_side: float) -> float:
+	return slot_side + UIScaleScript.px(6.0)
+
+
+static func potion_column_gap() -> float:
+	return UIScaleScript.px(4.0)
+
+
+static func equip_core_width(slot_side: float) -> float:
+	var pad_edge := UIScaleScript.px(4.0)
+	var col_w := stat_column_width()
+	var col_gap := UIScaleScript.px(4.0)
+	var gap := UIScaleScript.px(2.0)
+	var grid_w := slot_side * float(EQUIP_COLS) + gap * float(EQUIP_COLS - 1)
+	return pad_edge + col_w + col_gap + grid_w + col_gap + col_w + pad_edge
+
+
+static func equip_panel_width(slot_side: float) -> float:
+	return equip_core_width(slot_side) + potion_column_gap() + potion_column_width(slot_side)
+
+
 static func slot_side_for_inner(inner: Vector2, tab_w: float = 0.0) -> float:
 	if inner.x < 20.0 or inner.y < 20.0:
 		return UIScaleScript.px(36.0)
@@ -35,13 +60,16 @@ static func slot_side_for_inner(inner: Vector2, tab_w: float = 0.0) -> float:
 static func equip_grid_side(panel_h: float, panel_w: float, cols: int = EQUIP_COLS, rows: int = EQUIP_ROWS) -> float:
 	var gap := UIScaleScript.px(2.0)
 	var pad_edge := UIScaleScript.px(4.0)
-	var col_w := UIScaleScript.px(44.0)
+	var col_w := stat_column_width()
 	var col_gap := UIScaleScript.px(4.0)
 	var pad_top := UIScaleScript.px(20.0)
 	var pad_bottom := UIScaleScript.px(6.0)
-
-	var grid_avail_w: float = panel_w - pad_edge * 2.0 - col_w * 2.0 - col_gap * 2.0
 	var grid_avail_h: float = panel_h - pad_top - pad_bottom
+	var est_by_h: float = (grid_avail_h - gap * float(rows - 1)) / float(rows)
+	var est_side := maxf(est_by_h, UIScaleScript.px(22.0))
+	var core_w := panel_w - potion_column_gap() - potion_column_width(est_side)
+
+	var grid_avail_w: float = core_w - pad_edge * 2.0 - col_w * 2.0 - col_gap * 2.0
 	if grid_avail_w < 12.0 or grid_avail_h < 12.0:
 		return UIScaleScript.px(22.0)
 
@@ -89,15 +117,6 @@ static func bag_panel_width(slot_side: float, cols: int = MIN_COLS) -> float:
 	var use_cols := clampi(cols, MIN_COLS, MAX_COLS)
 	var grid_w := slot_side * float(use_cols) + gap * float(use_cols - 1)
 	return edge * 2.0 + pad * 2.0 + grid_w
-
-
-static func equip_panel_width(slot_side: float) -> float:
-	var pad_edge := UIScaleScript.px(4.0)
-	var col_w := UIScaleScript.px(44.0)
-	var col_gap := UIScaleScript.px(4.0)
-	var gap := UIScaleScript.px(2.0)
-	var grid_w := slot_side * float(EQUIP_COLS) + gap * float(EQUIP_COLS - 1)
-	return pad_edge + col_w + col_gap + grid_w + col_gap + col_w + pad_edge
 
 
 static func _resolve_slot_side(host_h: float) -> float:

@@ -22,6 +22,10 @@ var mana_regen: float = 3.0
 var staff_enchant: int = 0
 var inventory: Array[Dictionary] = []
 var equipment: Dictionary = {}
+var potion_bar: Dictionary = {
+	"health": null,
+	"mana": null,
+}
 
 var level_hp_bonus: float = 0.0
 var level_spell_power_bonus: int = 0
@@ -32,6 +36,7 @@ signal loot_added(item: Dictionary)
 
 func _init() -> void:
 	_reset_equipment()
+	_reset_potion_bar()
 	refresh_combat_stats()
 	hp = max_hp
 	mana = max_mana
@@ -141,6 +146,81 @@ func school_bonus_for(element: String) -> float:
 	return 1.0
 
 
+func _reset_potion_bar() -> void:
+	potion_bar = {
+		"health": null,
+		"mana": null,
+	}
+
+
+func potion_bar_stack(kind: String) -> Dictionary:
+	var entry: Variant = potion_bar.get(kind)
+	if entry != null and typeof(entry) == TYPE_DICTIONARY:
+		return (entry as Dictionary).duplicate(true)
+	return {}
+
+
+func add_to_potion_bar(item: Dictionary) -> Dictionary:
+	var result := {"added": 0, "overflow": 0}
+	if not ItemDataScript.is_potion(item):
+		return result
+
+	var kind := ItemDataScript.potion_kind(item)
+	if kind.is_empty():
+		return result
+
+	var id := str(item.get("id", ""))
+	var amount := ItemDataScript.stack_count(item)
+	var max_stack := ItemDataScript.max_stack_for(item)
+	var current: Variant = potion_bar.get(kind)
+	if current == null or typeof(current) != TYPE_DICTIONARY:
+		var placed := mini(amount, max_stack)
+		potion_bar[kind] = {"id": id, "count": placed}
+		result["added"] = placed
+		result["overflow"] = amount - placed
+		return result
+
+	var stack: Dictionary = current
+	if str(stack.get("id", "")) != id:
+		result["overflow"] = amount
+		return result
+
+	var room := max_stack - ItemDataScript.stack_count(stack)
+	var placed := mini(amount, room)
+	if placed > 0:
+		stack["count"] = ItemDataScript.stack_count(stack) + placed
+		potion_bar[kind] = stack
+	result["added"] = placed
+	result["overflow"] = amount - placed
+	return result
+
+
+func use_potion_bar(kind: String) -> Dictionary:
+	var current: Variant = potion_bar.get(kind)
+	if current == null or typeof(current) != TYPE_DICTIONARY:
+		return {}
+
+	var stack: Dictionary = (current as Dictionary).duplicate(true)
+	var applied := ItemDataScript.apply_consumable_effects(self, stack)
+	var count := ItemDataScript.stack_count(stack) - 1
+	if count <= 0:
+		potion_bar[kind] = null
+	else:
+		stack["count"] = count
+		potion_bar[kind] = stack
+	applied["kind"] = kind
+	applied["item_id"] = str(stack.get("id", ""))
+	return applied
+
+
+func clear_potion_bar_slot(kind: String) -> Dictionary:
+	var current: Variant = potion_bar.get(kind)
+	potion_bar[kind] = null
+	if current != null and typeof(current) == TYPE_DICTIONARY:
+		return (current as Dictionary).duplicate(true)
+	return {}
+
+
 func add_loot(item: Dictionary) -> bool:
 	if not has_inventory_room():
 		return false
@@ -196,6 +276,7 @@ func reset_for_new_game(name: String) -> void:
 	level_spell_power_bonus = 0
 	inventory.clear()
 	_reset_equipment()
+	_reset_potion_bar()
 	refresh_combat_stats()
 	hp = max_hp
 	mana = max_mana
@@ -214,6 +295,14 @@ func to_dict() -> Dictionary:
 	for item in inventory:
 		if typeof(item) == TYPE_DICTIONARY:
 			inv.append((item as Dictionary).duplicate(true))
+
+	var bar := {}
+	for kind in ItemDataScript.POTION_KINDS:
+		var entry: Variant = potion_bar.get(kind)
+		if entry != null and typeof(entry) == TYPE_DICTIONARY:
+			bar[kind] = (entry as Dictionary).duplicate(true)
+		else:
+			bar[kind] = null
 
 	return {
 		"player_name": player_name,
@@ -234,6 +323,7 @@ func to_dict() -> Dictionary:
 		"level_spell_power_bonus": level_spell_power_bonus,
 		"inventory": inv,
 		"equipment": eq,
+		"potion_bar": bar,
 	}
 
 
@@ -255,6 +345,15 @@ func apply_dict(data: Dictionary) -> void:
 	for item in data.get("inventory", []):
 		if typeof(item) == TYPE_DICTIONARY:
 			inventory.append((item as Dictionary).duplicate(true))
+
+	_reset_potion_bar()
+	var bar_data: Dictionary = data.get("potion_bar", {})
+	for kind in ItemDataScript.POTION_KINDS:
+		var entry: Variant = bar_data.get(kind)
+		if entry != null and typeof(entry) == TYPE_DICTIONARY:
+			potion_bar[kind] = (entry as Dictionary).duplicate(true)
+		else:
+			potion_bar[kind] = null
 
 	_reset_equipment()
 	var eq_data: Dictionary = data.get("equipment", {})

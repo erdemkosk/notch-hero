@@ -3,6 +3,7 @@ extends Node
 signal state_changed
 signal combat_event(text: String)
 signal stage_info_changed
+signal potion_bar_used(kind: String, applied: Dictionary)
 
 const Hero = preload("res://scripts/game/hero.gd")
 const CombatEngineScript = preload("res://scripts/game/combat_engine.gd")
@@ -14,6 +15,16 @@ const GameBalanceScript = preload("res://scripts/game/game_balance.gd")
 const SaveServiceScript = preload("res://scripts/game/save_service.gd")
 
 const TICK_SEC := 0.32
+
+const MARKET_ITEM_IDS := {
+	"fire_crystal": "materials/fire-crystal",
+	"ice_shard": "materials/ice-shard",
+	"arcane_dust": "materials/arcane-dust",
+	"minor_health": "potions/minor-health",
+	"minor_mana": "potions/minor-mana",
+	"health_potion": "potions/health",
+	"mana_potion": "potions/mana",
+}
 
 var hero: Hero
 var combat: CombatEngineScript
@@ -30,8 +41,13 @@ var total_kills: int = 0
 var melee_engaged := false
 var inventory_unseen: int = 0
 var kills_without_loot: int = 0
+var _potion_cooldown: int = 0
 
 var _tick_timer: Timer
+
+
+func has_hero() -> bool:
+	return hero != null
 
 
 func _ready() -> void:
@@ -131,6 +147,10 @@ func _reset_market_prices() -> void:
 		"fire_crystal": 12.0,
 		"ice_shard": 10.0,
 		"arcane_dust": 15.0,
+		"minor_health": 8.0,
+		"minor_mana": 8.0,
+		"health_potion": 18.0,
+		"mana_potion": 18.0,
 	}
 
 
@@ -194,8 +214,97 @@ func combat_tick() -> void:
 	var life_regen := hero.life_regen_per_tick()
 	if life_regen > 0.0 and hero.hp > 0.0:
 		hero.hp = minf(hero.max_hp, hero.hp + life_regen)
+	if _potion_cooldown > 0:
+		_potion_cooldown -= 1
+	_try_auto_potions()
 	_drift_market()
 	state_changed.emit()
+
+
+func _try_auto_potions() -> void:
+	if hero.hp <= 0.0 or _potion_cooldown > 0:
+		return
+
+	var hp_ratio := hero.hp / maxf(1.0, hero.max_hp)
+	if hp_ratio < GameBalanceScript.auto_hp_threshold():
+		var stack := hero.potion_bar_stack("health")
+		if not stack.is_empty():
+			_consume_potion_bar("health")
+			return
+
+	var mana_ratio := hero.mana / maxf(1.0, hero.max_mana)
+	if mana_ratio < GameBalanceScript.auto_mana_threshold():
+		var stack := hero.potion_bar_stack("mana")
+		if not stack.is_empty():
+			_consume_potion_bar("mana")
+
+
+func _consume_potion_bar(kind: String) -> bool:
+	var applied := hero.use_potion_bar(kind)
+	if applied.is_empty():
+		return false
+
+	_potion_cooldown = GameBalanceScript.potion_use_cooldown_ticks()
+	var id := str(applied.get("item_id", ""))
+	var item_name := ItemDataScript.display_name({"id": id})
+	var heal := float(applied.get("heal_hp", 0.0))
+	var mana := float(applied.get("restore_mana", 0.0))
+	if heal > 0.0:
+		_log("Auto: %s (+%.0f HP)" % [item_name, heal])
+	elif mana > 0.0:
+		_log("Auto: %s (+%.0f MP)" % [item_name, mana])
+	potion_bar_used.emit(kind, applied)
+	request_save()
+	state_changed.emit()
+	return true
+
+
+func move_inventory_to_potion_bar(inventory_index: int, kind: String) -> bool:
+	if inventory_index < 0 or inventory_index >= hero.inventory.size():
+		return false
+	if not ItemDataScript.POTION_KINDS.has(kind):
+		return false
+
+	var item: Dictionary = hero.inventory[inventory_index]
+	if ItemDataScript.potion_kind(item) != kind:
+		return false
+
+	var result := hero.add_to_potion_bar(item)
+	var added := int(result.get("added", 0))
+	if added <= 0:
+		return false
+
+	var remaining := ItemDataScript.stack_count(item) - added
+	if remaining <= 0:
+		hero.inventory.remove_at(inventory_index)
+	else:
+		item["count"] = remaining
+		hero.inventory[inventory_index] = item
+
+	var overflow := int(result.get("overflow", 0))
+	if overflow > 0 and hero.has_inventory_room():
+		hero.inventory.append(ItemDataScript.make_consumable_stack(str(item.get("id", "")), overflow))
+
+	request_save()
+	state_changed.emit()
+	return true
+
+
+func move_potion_bar_to_inventory(kind: String) -> bool:
+	if not hero.has_inventory_room():
+		_log("Bag full.")
+		return false
+
+	var stack := hero.clear_potion_bar_slot(kind)
+	if stack.is_empty():
+		return false
+
+	hero.inventory.append(stack)
+	inventory_unseen += 1
+
+	request_save()
+	state_changed.emit()
+	return true
 
 
 func forge_enchant() -> bool:
@@ -267,7 +376,11 @@ func sell_item(index: int) -> bool:
 	var item: Dictionary = hero.inventory[index]
 	var value := ItemDataScript.sell_value(item)
 	hero.gold += value
-	hero.inventory.remove_at(index)
+	if ItemDataScript.is_consumable(item) and ItemDataScript.stack_count(item) > 1:
+		item["count"] = ItemDataScript.stack_count(item) - 1
+		hero.inventory[index] = item
+	else:
+		hero.inventory.remove_at(index)
 	_log("Sold: %s (+%d gold)" % [ItemDataScript.display_name(item), value])
 	request_save()
 	state_changed.emit()
@@ -377,12 +490,19 @@ func buy_crystal(key: String) -> bool:
 	if hero.gold < cost:
 		_log("Market: not enough gold")
 		return false
+
+	var item_id := str(MARKET_ITEM_IDS.get(key, ""))
+	if item_id.is_empty():
+		return false
+
 	hero.gold -= cost
-	if not hero.add_loot({"name": key, "rarity": "trade", "power": 1}):
+	var item := ItemDataScript.make_consumable_stack(item_id, 1)
+	if not hero.add_loot(item):
 		hero.gold += cost
 		_log("Bag full.")
 		return false
-	_log("Bought: %s (-%d gold)" % [key, cost])
+
+	_log("Bought: %s (-%d gold)" % [ItemDataScript.display_name(item), cost])
 	request_save()
 	state_changed.emit()
 	return true
@@ -407,6 +527,9 @@ func _on_enemy_defeated(rewards: Dictionary) -> void:
 	if rewards.get("item_dropped", false):
 		var item: Dictionary = rewards.get("item", {}) as Dictionary
 		msg += " | Loot: %s" % ItemDataScript.display_name(item)
+	if rewards.get("potion_dropped", false):
+		var potion: Dictionary = rewards.get("potion", {}) as Dictionary
+		msg += " | Potion: %s" % ItemDataScript.display_name(potion)
 	elif rewards.get("bag_full", false):
 		msg += " | Bag full!"
 	_log(msg)

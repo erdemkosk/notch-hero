@@ -42,6 +42,8 @@ const DEFAULTS := {
 	"loot": {
 		"drop_chance": 0.015,
 		"boss_drop_chance": 0.06,
+		"potion_drop_chance": 0.10,
+		"boss_potion_drop_chance": 0.20,
 		"rarity_unique": 0.012,
 		"rarity_rare": 0.08,
 		"rarity_common": 0.30,
@@ -49,6 +51,13 @@ const DEFAULTS := {
 	},
 	"inventory": {
 		"base_bag_slots": 9,
+	},
+	"consumables": {
+		"max_stack": 5,
+		"auto_hp_threshold": 0.5,
+		"auto_mana_threshold": 0.25,
+		"use_cooldown_ticks": 1,
+		"starter_health": 0,
 	},
 }
 
@@ -74,6 +83,7 @@ static func load_config() -> void:
 	_merge_section("stages", parsed)
 	_merge_section("loot", parsed)
 	_merge_section("inventory", parsed)
+	_merge_section("consumables", parsed)
 	_loaded = true
 
 
@@ -137,6 +147,32 @@ static func base_bag_slots() -> int:
 	return maxi(1, int(inventory_cfg().get("base_bag_slots", 9)))
 
 
+static func consumables_cfg() -> Dictionary:
+	if not _loaded:
+		load_config()
+	return _config.get("consumables", DEFAULTS["consumables"]) as Dictionary
+
+
+static func consumable_max_stack() -> int:
+	return maxi(1, int(consumables_cfg().get("max_stack", 5)))
+
+
+static func auto_hp_threshold() -> float:
+	return clampf(float(consumables_cfg().get("auto_hp_threshold", 0.5)), 0.05, 0.95)
+
+
+static func auto_mana_threshold() -> float:
+	return clampf(float(consumables_cfg().get("auto_mana_threshold", 0.25)), 0.05, 0.95)
+
+
+static func potion_use_cooldown_ticks() -> int:
+	return maxi(0, int(consumables_cfg().get("use_cooldown_ticks", 1)))
+
+
+static func starter_health_potions() -> int:
+	return maxi(0, int(consumables_cfg().get("starter_health", 0)))
+
+
 static func _normalize_chance(value: float) -> float:
 	if value > 1.0:
 		return clampf(value / 100.0, 0.0, 1.0)
@@ -161,6 +197,17 @@ static func pity_kills() -> int:
 
 static func roll_kill_loot(is_boss: bool) -> bool:
 	return should_drop_item(is_boss)
+
+
+static func potion_drop_chance(is_boss: bool) -> float:
+	var loot := loot_cfg()
+	if is_boss:
+		return _normalize_chance(float(loot.get("boss_potion_drop_chance", 0.20)))
+	return _normalize_chance(float(loot.get("potion_drop_chance", 0.10)))
+
+
+static func should_drop_potion(is_boss: bool) -> bool:
+	return randf() < potion_drop_chance(is_boss)
 
 
 static func roll_rarity() -> String:

@@ -94,12 +94,16 @@ func _layout_search_field() -> void:
 
 
 func _process(delta: float) -> void:
+	if not GameState.has_hero():
+		return
 	if _needs_pulse_redraw():
 		_pulse_phase += delta * 5.0
 		queue_redraw()
 
 
 func _needs_pulse_redraw() -> bool:
+	if not GameState.has_hero():
+		return false
 	if InventoryDragScript.active:
 		return true
 	for item in GameState.hero.inventory:
@@ -223,6 +227,8 @@ func _quick_equip_slot(slot_index: int) -> void:
 	if not _slot_has_visible_item(slot_index):
 		return
 	var item: Dictionary = GameState.hero.inventory[slot_index]
+	if ItemDataScript.is_potion(item):
+		return
 	var equip_slot := ItemDataScript.prefer_equip_slot(item, GameState.hero.equipment)
 	if equip_slot.is_empty():
 		return
@@ -256,7 +262,7 @@ func get_slot_side() -> float:
 
 
 func _draw() -> void:
-	if size.x < 40.0 or size.y < 40.0:
+	if not GameState.has_hero() or size.x < 40.0 or size.y < 40.0:
 		return
 
 	_layout_search_field()
@@ -653,12 +659,17 @@ func _draw_hover_tooltip(layout: Dictionary) -> void:
 	var cols: int = layout["cols"]
 	var rect := _slot_rect(origin, slot_size, gap_x, gap_y, cols, _hover_slot)
 
+	var item: Dictionary = GameState.hero.inventory[_hover_slot]
+	var footer := "Double-click: Sell | Shift: Equip"
+	if ItemDataScript.is_potion(item):
+		footer = "Drag to HP/MP slot — inactive here"
+
 	ItemTooltipScript.draw_for_slot(
 		self,
 		rect,
-		GameState.hero.inventory[_hover_slot],
+		item,
 		Rect2(Vector2.ZERO, size),
-		"Double-click: Sell | Shift: Equip",
+		footer,
 		GameState.hero.equipment
 	)
 
@@ -777,11 +788,12 @@ func _item_category(item: Dictionary) -> Category:
 		"earring", "ring", "amulet":
 			return Category.ACCESSORY
 
-	var name: String = str(item.get("name", "")).to_lower()
-	if "crystal" in name or "shard" in name or "dust" in name or "iksir" in name:
-		return Category.POTION
-	if "toz" in name or "altin" in name or "material" in name:
-		return Category.MATERIAL
-	if "elma" in name or "yiyecek" in name or "food" in name:
-		return Category.FOOD
-	return Category.MATERIAL
+	match ItemDataScript.item_category(item):
+		"potion":
+			return Category.POTION
+		"food":
+			return Category.FOOD
+		"material":
+			return Category.MATERIAL
+		_:
+			return Category.MATERIAL

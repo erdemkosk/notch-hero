@@ -43,12 +43,18 @@ func _finish_drag(global_pos: Vector2) -> void:
 	var on_equip := equipment_panel.get_global_rect().has_point(global_pos)
 	var on_bag := inventory_bag.get_global_rect().has_point(global_pos)
 	var equip_slot := ""
+	var potion_kind: String = ""
 	if on_equip:
-		equip_slot = equipment_panel.slot_at_global(global_pos)
+		if equipment_panel.has_method("potion_kind_at_global"):
+			potion_kind = equipment_panel.potion_kind_at_global(global_pos)
+		if potion_kind.is_empty():
+			equip_slot = equipment_panel.slot_at_global(global_pos)
 
 	match InventoryDragScript.source:
 		InventoryDragScript.Source.INVENTORY:
-			if on_equip and not equip_slot.is_empty():
+			if not potion_kind.is_empty():
+				GameState.move_inventory_to_potion_bar(InventoryDragScript.inventory_index, potion_kind)
+			elif on_equip and not equip_slot.is_empty():
 				GameState.equip_from_inventory(InventoryDragScript.inventory_index, equip_slot)
 		InventoryDragScript.Source.EQUIPMENT:
 			if on_bag:
@@ -56,6 +62,11 @@ func _finish_drag(global_pos: Vector2) -> void:
 			elif on_equip and not equip_slot.is_empty():
 				if equip_slot != InventoryDragScript.equipment_slot:
 					GameState.swap_equipment(InventoryDragScript.equipment_slot, equip_slot)
+		InventoryDragScript.Source.POTION_BAR:
+			if on_bag:
+				GameState.move_potion_bar_to_inventory(InventoryDragScript.potion_kind)
+			elif not potion_kind.is_empty() and potion_kind != InventoryDragScript.potion_kind:
+				pass
 
 	InventoryDragScript.clear()
 	if _drag_layer != null:

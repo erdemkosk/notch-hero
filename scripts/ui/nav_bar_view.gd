@@ -99,6 +99,8 @@ func _tab_at(pos: Vector2) -> int:
 
 
 func _inventory_badge() -> String:
+	if not GameState.has_hero():
+		return ""
 	if GameState.inventory_unseen > 0:
 		return str(mini(GameState.inventory_unseen, 9))
 	if GameState.hero.inventory.size() >= GameState.hero.bag_slot_capacity():

@@ -12,6 +12,7 @@ const MagicSchoolScript = preload("res://scripts/game/magic_school.gd")
 const UiFont = preload("res://scripts/ui/ui_font.gd")
 const StageMapDrawScript = preload("res://scripts/ui/stage_map_draw.gd")
 const CombatOverlayDrawScript = preload("res://scripts/ui/combat_overlay_draw.gd")
+const CombatPotionBarScript = preload("res://scripts/ui/combat_potion_bar.gd")
 const InventorySlotDrawScript = preload("res://scripts/ui/inventory_slot_draw.gd")
 
 const HP_ENEMY := Color(0.92, 0.28, 0.28)
@@ -152,7 +153,9 @@ var _queue_breath_time := 0.0
 var _awaiting_enemy_strike := false
 var _last_equip_stats: Dictionary = {}
 var _equip_stats_ready := false
-var _equip_glow_pulse := 0.0
+var _potion_use_flash := {"health": 0.0, "mana": 0.0}
+var _potion_gain_flash := {"health": 0.0, "mana": 0.0}
+var _potion_pulse := 0.0
 
 
 func _ready() -> void:
@@ -193,6 +196,13 @@ func _ready() -> void:
 	add_child(_boss_sting_player)
 
 	resized.connect(_layout_hero)
+	call_deferred("_connect_game_state")
+	call_deferred("_layout_hero")
+
+
+func _connect_game_state() -> void:
+	if GameState.combat == null:
+		return
 	GameState.combat.spell_cast.connect(_on_spell_cast)
 	GameState.combat.hero_damaged.connect(_on_hero_damaged)
 	GameState.combat.enemy_slain.connect(_on_enemy_slain)
@@ -203,10 +213,11 @@ func _ready() -> void:
 	GameState.stage_runner.stage_entered.connect(_on_stage_entered)
 	GameState.stage_info_changed.connect(_refresh_hud_label)
 	GameState.state_changed.connect(_on_state_changed)
-	_last_equip_stats = GameState.hero.equipment_stats().duplicate()
-	_equip_stats_ready = true
-	_sync_hero_equip_visual()
-	call_deferred("_layout_hero")
+	GameState.potion_bar_used.connect(_on_potion_bar_used)
+	if GameState.has_hero():
+		_last_equip_stats = GameState.hero.equipment_stats().duplicate()
+		_equip_stats_ready = true
+		_sync_hero_equip_visual()
 
 
 func _layout_hero() -> void:
@@ -580,15 +591,13 @@ func _living_actor_count() -> int:
 
 
 func _process(delta: float) -> void:
-	if GameState.session_paused:
+	if not GameState.has_hero() or GameState.session_paused:
 		return
 
 	_update_damage_numbers(delta)
+	_update_potion_flash(delta)
 	_update_overlay_anim(delta)
 	_queue_breath_time += delta
-	_equip_glow_pulse += delta
-	if _equip_glow_rank() >= 1:
-		_queue_bars_redraw()
 
 	if _intro_phase != "":
 		_process_intro(delta)
@@ -992,6 +1001,12 @@ func _damage_color(kind: String, alpha: float) -> Color:
 			return Color(1.0, 0.82, 0.42, alpha)
 		"buff_armor":
 			return Color(0.55, 0.88, 1.0, alpha)
+		"potion_heal":
+			return Color(0.42, 0.98, 0.52, alpha)
+		"potion_mana":
+			return Color(0.45, 0.78, 1.0, alpha)
+		"potion_gain":
+			return Color(0.98, 0.86, 0.42, alpha)
 		_:
 			return Color(1.0, 0.92, 0.45, alpha)
 
@@ -1045,6 +1060,14 @@ func _on_enemy_defeated(rewards: Dictionary) -> void:
 			"buff_atk",
 			1.05
 		)
+	if rewards.get("potion_dropped", false):
+		_spawn_floating_text(
+			_popup_pos_for_hero() + Vector2(0.0, -UIScaleScript.px(10.0)),
+			"Potion!",
+			"potion_gain",
+			0.95
+		)
+		_queue_bars_redraw()
 	if _actors.size() > 0:
 		_actors.remove_at(0)
 	var freed_sprite: AnimatedSprite2D = null
@@ -1078,6 +1101,38 @@ func _on_state_changed() -> void:
 	_queue_bars_redraw()
 
 
+func _on_potion_bar_used(kind: String, applied: Dictionary) -> void:
+	if not ItemDataScript.POTION_KINDS.has(kind):
+		return
+	_potion_use_flash[kind] = 1.0
+	var layout := CombatPotionBarScript.combat_layout(_bars_layer.size, STAGE_HUD_HEIGHT)
+	var slot_rect := CombatPotionBarScript.slot_rect(layout, kind)
+	var center := slot_rect.get_center()
+	var heal := float(applied.get("heal_hp", 0.0))
+	var mana := float(applied.get("restore_mana", 0.0))
+	if heal > 0.0:
+		_spawn_floating_text(center + Vector2(0.0, -UIScaleScript.px(8.0)), "+%d HP" % int(round(heal)), "potion_heal", 0.95)
+	elif mana > 0.0:
+		_spawn_floating_text(center + Vector2(0.0, -UIScaleScript.px(8.0)), "+%d MP" % int(round(mana)), "potion_mana", 0.95)
+	_queue_bars_redraw()
+
+
+func _update_potion_flash(delta: float) -> void:
+	var needs_redraw := false
+	_potion_pulse += delta
+	for kind in ItemDataScript.POTION_KINDS:
+		var use_v: float = float(_potion_use_flash.get(kind, 0.0))
+		if use_v > 0.0:
+			_potion_use_flash[kind] = maxf(0.0, use_v - delta / 0.55)
+			needs_redraw = true
+		var gain_v: float = float(_potion_gain_flash.get(kind, 0.0))
+		if gain_v > 0.0:
+			_potion_gain_flash[kind] = maxf(0.0, gain_v - delta / 0.45)
+			needs_redraw = true
+	if needs_redraw:
+		_queue_bars_redraw()
+
+
 func _move_speed_mul() -> float:
 	if GameState.hero == null:
 		return 1.0
@@ -1085,6 +1140,8 @@ func _move_speed_mul() -> float:
 
 
 func _track_equip_changes() -> void:
+	if not GameState.has_hero():
+		return
 	var stats := GameState.hero.equipment_stats()
 	if not _equip_stats_ready:
 		_last_equip_stats = stats.duplicate()
@@ -1112,10 +1169,14 @@ func _track_equip_changes() -> void:
 
 
 func _equip_glow_rank() -> int:
+	if not GameState.has_hero():
+		return 0
 	return int(EQUIP_RARITY_RANK.get(_highest_equip_rarity(), 0))
 
 
 func _highest_equip_rarity() -> String:
+	if not GameState.has_hero():
+		return "basic"
 	var best := "basic"
 	var best_rank := -1
 	for item in GameState.hero.equipped_items():
@@ -1128,6 +1189,8 @@ func _highest_equip_rarity() -> String:
 
 
 func _equip_glow_color() -> Color:
+	if not GameState.has_hero():
+		return Color(1.0, 0.7, 0.5)
 	var school: Color = MagicSchoolScript.COLORS.get(GameState.hero.school, Color(1.0, 0.7, 0.5)) as Color
 	var rarity_col: Color = ItemDataScript.RARITY_COLORS.get(_highest_equip_rarity(), Color(0.75, 0.75, 0.8)) as Color
 	return school.lerp(rarity_col, 0.48)
@@ -1163,10 +1226,10 @@ func _draw_combat_bars() -> void:
 	if size.x < 10.0 or size.y < 10.0 or not is_instance_valid(_bars_layer):
 		return
 	var ground_y := _ground_y if _ground_y > 1.0 else size.y * 0.42 + 8.0
-	_draw_hero_equip_glow(_bars_layer, ground_y)
 	_draw_actor_hp_bars(_bars_layer, ground_y)
 	_draw_hero_hp(_bars_layer, ground_y)
 	_draw_hero_equip_buffs(_bars_layer, ground_y)
+	_draw_combat_potion_bar(_bars_layer)
 	_draw_damage_numbers(_bars_layer)
 
 
@@ -1400,20 +1463,18 @@ func _draw_hero_hp(canvas: CanvasItem, ground_y: float) -> void:
 	_draw_hp_bar(canvas, x, y, bar_w, ratio, HP_ALLY, UIScaleScript.px(4.0))
 
 
-func _draw_hero_equip_glow(canvas: CanvasItem, ground_y: float) -> void:
-	if not is_instance_valid(_hero_sprite) or not _hero_sprite.visible:
+func _draw_combat_potion_bar(canvas: CanvasItem) -> void:
+	if not GameState.has_hero():
 		return
-	var rank := _equip_glow_rank()
-	if rank < 1:
-		return
-	var col := _equip_glow_color()
-	var pulse := 0.62 + 0.38 * sin(_equip_glow_pulse * 3.1)
-	var alpha := (0.07 + rank * 0.035) * pulse
-	var cx := _hero_x + SPRITE_W * 0.5
-	var cy := ground_y - SPRITE_W * 0.52
-	var rad := SPRITE_W * (0.5 + rank * 0.05)
-	canvas.draw_circle(Vector2(cx, cy), rad, Color(col.r, col.g, col.b, alpha))
-	canvas.draw_circle(Vector2(cx, cy), rad * 0.68, Color(col.r, col.g, col.b, alpha * 0.45))
+	var metrics := CombatPotionBarScript.combat_layout(canvas.size, STAGE_HUD_HEIGHT)
+	CombatPotionBarScript.draw(
+		canvas,
+		metrics,
+		GameState.hero,
+		_potion_use_flash,
+		_potion_gain_flash,
+		_potion_pulse
+	)
 
 
 func _draw_enemy_atk_badge(canvas: CanvasItem, bar_x: float, bar_y: float, bar_w: float, attack_damage: float) -> void:

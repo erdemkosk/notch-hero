@@ -37,6 +37,8 @@
   "loot": {
     "drop_chance": 0.015,
     "boss_drop_chance": 0.06,
+    "potion_drop_chance": 0.10,
+    "boss_potion_drop_chance": 0.20,
     "rarity_unique": 0.012,
     "rarity_rare": 0.08,
     "rarity_common": 0.30,
@@ -44,5 +46,12 @@
   },
   "inventory": {
     "base_bag_slots": 9
+  },
+  "consumables": {
+    "max_stack": 5,
+    "auto_hp_threshold": 0.5,
+    "auto_mana_threshold": 0.25,
+    "use_cooldown_ticks": 1,
+    "starter_health": 0
   }
 }

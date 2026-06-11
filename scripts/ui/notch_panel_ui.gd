@@ -11,6 +11,7 @@ const NAV_HEIGHT := UIScaleScript.NAV_HEIGHT
 const MainMenuViewScript = preload("res://scripts/ui/main_menu_view.gd")
 const NameIntroViewScript = preload("res://scripts/ui/name_intro_view.gd")
 const SaveServiceScript = preload("res://scripts/game/save_service.gd")
+const ItemDataScript = preload("res://scripts/game/item_data.gd")
 
 @onready var content_host: Control = $VBox/ContentHost
 @onready var combat_strip: Control = $VBox/ContentHost/CombatStrip
@@ -157,6 +158,8 @@ func _select_tab(tab: Tab) -> void:
 func _refresh_tabs() -> void:
 	if not is_inside_tree() or _phase != GamePhase.PLAYING:
 		return
+	if not GameState.has_hero():
+		return
 
 	if inventory_bag.has_method("queue_redraw"):
 		inventory_bag.queue_redraw()
@@ -175,7 +178,11 @@ func _refresh_tabs() -> void:
 	market_list.clear()
 	for key in GameState.market_prices.keys():
 		var price: int = int(round(GameState.market_prices[key]))
-		market_list.add_item("%s  %d gold" % [key, price])
+		var label := str(key)
+		var item_id: String = str(GameState.MARKET_ITEM_IDS.get(key, ""))
+		if not item_id.is_empty():
+			label = str(ItemDataScript.get_def(item_id).get("name", key))
+		market_list.add_item("%s  %d gold" % [label, price])
 
 	forge_label.add_theme_font_size_override("font_size", UIScaleScript.font_ui())
 	forge_button.add_theme_font_size_override("font_size", UIScaleScript.font_ui())

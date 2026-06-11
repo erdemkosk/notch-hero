@@ -38,17 +38,34 @@ func _process(delta: float) -> void:
 
 
 func _drop_feedback() -> int:
-	if not InventoryDragScript.active:
+	if not InventoryDragScript.active or not GameState.has_hero():
 		return 0
 
 	var global_mouse := get_global_mouse_position()
 	if _equipment_panel != null and _equipment_panel.get_global_rect().has_point(global_mouse):
+		if _equipment_panel.has_method("potion_kind_at_global"):
+			var potion_kind: String = _equipment_panel.potion_kind_at_global(global_mouse)
+			if not potion_kind.is_empty():
+				if InventoryDragScript.source == InventoryDragScript.Source.INVENTORY:
+					if ItemDataScript.potion_kind(InventoryDragScript.item) == potion_kind:
+						return 1
+					return -1
+				if InventoryDragScript.source == InventoryDragScript.Source.POTION_BAR:
+					return 0
+
 		var slot := ""
 		if _equipment_panel.has_method("slot_at_global"):
 			slot = _equipment_panel.slot_at_global(global_mouse)
 		if slot.is_empty():
 			return 0
 		if InventoryDragScript.can_drop_on_equip_slot(slot, GameState.hero.equipment):
+			return 1
+		return -1
+
+	if InventoryDragScript.source == InventoryDragScript.Source.POTION_BAR \
+			and _inventory_bag != null \
+			and _inventory_bag.get_global_rect().has_point(global_mouse):
+		if GameState.hero.has_inventory_room():
 			return 1
 		return -1
 

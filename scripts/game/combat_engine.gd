@@ -6,6 +6,7 @@ const MagicSchoolScript = preload("res://scripts/game/magic_school.gd")
 const EnemySpriteScript = preload("res://scripts/ui/enemy_sprite.gd")
 const StageDataScript = preload("res://scripts/game/stage_data.gd")
 const GameBalanceScript = preload("res://scripts/game/game_balance.gd")
+const ItemDataScript = preload("res://scripts/game/item_data.gd")
 
 signal spell_cast(info: Dictionary)
 signal enemy_defeated(rewards: Dictionary)
@@ -275,7 +276,15 @@ func _cleanup_dead() -> void:
 
 func _collect_rewards(foe: Enemy) -> Dictionary:
 	if foe.hp > 0.0:
-		return {"gold": 0, "xp": 0, "leveled": false, "item_dropped": false, "item": {}}
+		return {
+			"gold": 0,
+			"xp": 0,
+			"leveled": false,
+			"item_dropped": false,
+			"potion_dropped": false,
+			"item": {},
+			"potion": {},
+		}
 
 	var gold := foe.gold_reward
 	var xp := foe.xp_reward
@@ -283,6 +292,8 @@ func _collect_rewards(foe: Enemy) -> Dictionary:
 	var leveled := hero.add_xp(xp)
 	var item_dropped := false
 	var dropped_item: Dictionary = {}
+	var potion_dropped := false
+	var dropped_potion: Dictionary = {}
 
 	var pity_drop := GameState.should_pity_loot()
 	var rolled_drop := GameBalanceScript.roll_kill_loot(foe.is_boss)
@@ -295,13 +306,22 @@ func _collect_rewards(foe: Enemy) -> Dictionary:
 	else:
 		GameState.record_kill_without_loot()
 
+	if GameBalanceScript.should_drop_potion(foe.is_boss):
+		dropped_potion = ItemDataScript.roll_potion_loot()
+		if not dropped_potion.is_empty() and hero.add_loot(dropped_potion):
+			potion_dropped = true
+		else:
+			dropped_potion = {}
+
 	return {
 		"gold": gold,
 		"xp": xp,
 		"leveled": leveled,
 		"item_dropped": item_dropped,
+		"potion_dropped": potion_dropped,
 		"bag_full": (rolled_drop or pity_drop) and not item_dropped,
 		"item": dropped_item,
+		"potion": dropped_potion,
 	}
 
 
@@ -367,5 +387,4 @@ func _damage_enemy_at(foe: Enemy, amount: float, source: String, _combo: bool) -
 
 
 func _roll_loot() -> Dictionary:
-	const ItemDataScript = preload("res://scripts/game/item_data.gd")
 	return ItemDataScript.roll_loot_instance(ItemDataScript.current_ilvl())

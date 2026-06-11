@@ -1,3 +1,82 @@
 {
-  "items": []
+  "items": [
+    {
+      "id": "potions/minor-health",
+      "name": "Minor Health Potion",
+      "slot": "consumable",
+      "category": "potion",
+      "potion_kind": "health",
+      "rarity": "common",
+      "stackable": true,
+      "max_stack": 5,
+      "sell_gold": 4,
+      "use": { "heal_hp": 10 }
+    },
+    {
+      "id": "potions/health",
+      "name": "Health Potion",
+      "slot": "consumable",
+      "category": "potion",
+      "potion_kind": "health",
+      "rarity": "common",
+      "stackable": true,
+      "max_stack": 5,
+      "sell_gold": 9,
+      "use": { "heal_hp": 22 }
+    },
+    {
+      "id": "potions/minor-mana",
+      "name": "Minor Mana Potion",
+      "slot": "consumable",
+      "category": "potion",
+      "potion_kind": "mana",
+      "rarity": "common",
+      "stackable": true,
+      "max_stack": 5,
+      "sell_gold": 4,
+      "use": { "restore_mana": 15 }
+    },
+    {
+      "id": "potions/mana",
+      "name": "Mana Potion",
+      "slot": "consumable",
+      "category": "potion",
+      "potion_kind": "mana",
+      "rarity": "common",
+      "stackable": true,
+      "max_stack": 5,
+      "sell_gold": 9,
+      "use": { "restore_mana": 30 }
+    },
+    {
+      "id": "materials/fire-crystal",
+      "name": "Fire Crystal",
+      "slot": "consumable",
+      "category": "material",
+      "rarity": "trade",
+      "stackable": true,
+      "max_stack": 20,
+      "sell_gold": 6
+    },
+    {
+      "id": "materials/ice-shard",
+      "name": "Ice Shard",
+      "slot": "consumable",
+      "category": "material",
+      "rarity": "trade",
+      "stackable": true,
+      "max_stack": 20,
+      "sell_gold": 5
+    },
+    {
+      "id": "materials/arcane-dust",
+      "name": "Arcane Dust",
+      "slot": "consumable",
+      "category": "material",
+      "rarity": "trade",
+      "stackable": true,
+      "max_stack": 20,
+      "sell_gold": 7
+    }
+  ]
 }
