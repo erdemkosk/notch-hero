@@ -43,6 +43,13 @@ const STAT_DEFS := {
 const LEFT_STAT_KEYS := ["attack", "armor"]
 const RIGHT_STAT_KEYS := ["max_hp", "spell_power"]
 
+const BONUS_STAT_DEFS := [
+	{"key": "attack_speed_pct", "label": "AS", "suffix": "%"},
+	{"key": "move_speed_pct", "label": "MS", "suffix": "%"},
+	{"key": "life_regen", "label": "LR", "suffix": ""},
+	{"key": "bag_slots", "label": "Bag", "suffix": ""},
+]
+
 var _hover_slot := ""
 var _hero_sheet: Texture2D
 var _bag_ref: Control
@@ -130,7 +137,7 @@ func _draw_header() -> void:
 		"Equipment",
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1,
-		UIScaleScript.font(12),
+		UIScaleScript.font_emphasis(),
 		Color(0.96, 0.9, 0.72)
 	)
 
@@ -304,6 +311,7 @@ func _draw_stat_cards(_panel_rect: Rect2) -> void:
 			items.append(equipped)
 
 	var hero := GameState.hero
+	var eq := hero.equipment_stats()
 	var stats := {
 		"attack": hero.attack_power(),
 		"armor": hero.armor(),
@@ -320,6 +328,7 @@ func _draw_stat_cards(_panel_rect: Rect2) -> void:
 
 	_draw_stat_column(metrics["left_col_x"], start_y, col_w, card_h, card_gap, LEFT_STAT_KEYS, stats)
 	_draw_stat_column(metrics["right_col_x"], start_y, col_w, card_h, card_gap, RIGHT_STAT_KEYS, stats)
+	_draw_bonus_stat_row(metrics, eq, start_y + block_h + UIScaleScript.px(4.0))
 
 
 func _draw_stat_column(
@@ -367,11 +376,11 @@ func _draw_one_stat_card(card: Rect2, key: String, def: Dictionary, stats: Dicti
 		str(def.get("label", key)),
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1,
-		UIScaleScript.font(8),
+		UIScaleScript.font_caption(),
 		col.lightened(0.15)
 	)
 	var val_text := "+%.0f" % val if val > 0.0 else "0"
-	var val_sz := UIScaleScript.font(10)
+	var val_sz := UIScaleScript.font_ui()
 	var val_w := font.get_string_size(val_text, HORIZONTAL_ALIGNMENT_LEFT, -1, val_sz).x
 	draw_string(
 		font,
@@ -381,6 +390,53 @@ func _draw_one_stat_card(card: Rect2, key: String, def: Dictionary, stats: Dicti
 		-1,
 		val_sz,
 		LABEL_COLOR
+	)
+
+
+func _draw_bonus_stat_row(metrics: Dictionary, eq: Dictionary, y: float) -> void:
+	var left_x: float = metrics["left_col_x"]
+	var right_x: float = metrics["right_col_x"]
+	var col_w: float = metrics["stat_col_w"]
+	var row_w := (right_x + col_w) - left_x
+	var row_h := UIScaleScript.px(16.0)
+	var rect := Rect2(left_x, y, row_w, row_h)
+
+	var parts: PackedStringArray = []
+	for def in BONUS_STAT_DEFS:
+		var key: String = str(def.get("key", ""))
+		var val := float(eq.get(key, 0.0))
+		if val <= 0.001:
+			continue
+		var label: String = str(def.get("label", key))
+		var suffix: String = str(def.get("suffix", ""))
+		if key == "life_regen":
+			parts.append("%s +%.1f" % [label, val])
+		else:
+			parts.append("%s +%.0f%s" % [label, val, suffix])
+
+	if parts.is_empty():
+		return
+
+	InventorySlotDrawScript._draw_rounded_fill(
+		self,
+		rect,
+		UIScaleScript.px(3.0),
+		Color(0.1, 0.08, 0.06, 0.88)
+	)
+
+	var text := "  ".join(parts)
+	var font := ThemeDB.fallback_font
+	var fs := UIScaleScript.font_caption()
+	var tw := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var tx := rect.position.x + maxf(UIScaleScript.px(4.0), (rect.size.x - tw) * 0.5)
+	draw_string(
+		font,
+		Vector2(tx, rect.position.y + row_h * 0.72),
+		text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1,
+		fs,
+		Color(0.72, 0.78, 0.86)
 	)
 
 

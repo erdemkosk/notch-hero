@@ -42,7 +42,7 @@ const BOSS_STING_SEC := 0.38
 const HP_BOSS := Color(0.98, 0.72, 0.22)
 
 const STAGE_HUD_HEIGHT := 38.0 * UIScaleScript.FACTOR
-const COMBAT_BADGE_FONT := 11
+const COMBAT_BADGE_FONT := UIScaleScript.FONT_UI
 const COMBAT_BADGE_HEIGHT := 17.0
 const HERO_ATTACK_ANIMS := ["attack_slash", "attack_down", "attack_thrust"]
 
@@ -67,8 +67,48 @@ func _parallax_x(speed_mul: float, spacing: float) -> float:
 func _parallax_band_x(index: int, speed_mul: float, period: float) -> float:
 	return (float(index) * period) + _parallax_offset(speed_mul, period) - period
 
+
+func _shake_offset() -> Vector2:
+	if _screen_shake <= 0.001:
+		return Vector2.ZERO
+	var s := _screen_shake
+	return Vector2(
+		sin(_shake_phase * 53.0) * s * 5.5,
+		cos(_shake_phase * 41.0 + 1.2) * s * 4.0
+	)
+
+
+func _trigger_screen_shake(intensity: float) -> void:
+	_screen_shake = clampf(maxf(_screen_shake, intensity), 0.0, 0.48)
+	if intensity > 0.05:
+		_shake_phase += randf_range(0.4, 2.2)
+
+
+func _tick_screen_shake(delta: float) -> void:
+	if _screen_shake <= 0.0:
+		return
+	_screen_shake = maxf(0.0, _screen_shake - delta * 3.2)
+	_shake_phase += delta * 55.0
+
+
+func _apply_shake_visuals() -> void:
+	var off := _shake_offset()
+	if is_instance_valid(_bars_layer):
+		_bars_layer.position = off
+	if is_instance_valid(_overlay_layer):
+		_overlay_layer.position = off
+	if _intro_phase in ["portal_hold", "portal_burst"]:
+		return
+	if is_instance_valid(_hero_sprite) and _intro_phase == "":
+		_hero_sprite.position = _hero_anchor_pos() + off
+	if is_instance_valid(_portal_sprite):
+		_portal_sprite.position = _portal_anchor() + off
+
+
 var _scroll_x := 0.0
 var _flash := 0.0
+var _screen_shake := 0.0
+var _shake_phase := 0.0
 var _ground_y := 0.0
 var _hero_x := 0.0
 var _in_melee := false
@@ -540,6 +580,9 @@ func _living_actor_count() -> int:
 
 
 func _process(delta: float) -> void:
+	if GameState.session_paused:
+		return
+
 	_update_damage_numbers(delta)
 	_update_overlay_anim(delta)
 	_queue_breath_time += delta
@@ -549,52 +592,50 @@ func _process(delta: float) -> void:
 
 	if _intro_phase != "":
 		_process_intro(delta)
-		return
+	elif size.x >= 10.0:
+		if _flash > 0.0:
+			_flash -= delta
 
-	if size.x < 10.0:
-		return
+		if _combat_locked:
+			if not _scroll_frozen:
+				_scroll_x += delta * SCROLL_SPEED * _move_speed_mul()
+		else:
+			var approach := APPROACH_SPEED * _move_speed_mul()
+			if not _scroll_frozen:
+				var scroll_rate: float = SCROLL_SPEED if not _in_melee else SCROLL_SPEED * 0.35
+				_scroll_x += delta * scroll_rate * _move_speed_mul()
 
-	if _combat_locked:
-		if not _scroll_frozen:
-			_scroll_x += delta * SCROLL_SPEED
-		queue_redraw()
-		return
-
-	if not _scroll_frozen:
-		var scroll_rate: float = SCROLL_SPEED if not _in_melee else SCROLL_SPEED * 0.35
-		_scroll_x += delta * scroll_rate
-
-	if not _in_melee:
-		var front_actor := _front_living_actor()
-		var front_ready := false
-		for i in _actors.size():
-			var actor: CombatEnemyActorScript = _actors[i]
-			if not actor.alive or actor.enemy.hp <= 0.0:
-				continue
-			var target_x := _queue_target_x(actor)
-			if actor.x < target_x:
-				actor.x += delta * APPROACH_SPEED
+			if not _in_melee:
+				var front_actor := _front_living_actor()
+				var front_ready := false
+				for i in _actors.size():
+					var actor: CombatEnemyActorScript = _actors[i]
+					if not actor.alive or actor.enemy.hp <= 0.0:
+						continue
+					var target_x := _queue_target_x(actor)
+					if actor.x < target_x:
+						actor.x += delta * approach
+					else:
+						actor.x = target_x
+					if actor == front_actor and actor.x >= target_x - 0.5:
+						front_ready = true
+				_ensure_walk()
+				if front_ready and _living_actor_count() > 0:
+					_start_melee()
 			else:
-				actor.x = target_x
-			if actor == front_actor and actor.x >= target_x - 0.5:
-				front_ready = true
-		_ensure_walk()
-		if front_ready and _living_actor_count() > 0:
-			_start_melee()
-	else:
-		for actor in _actors:
-			if not actor.alive or actor.enemy.hp <= 0.0:
-				continue
-			var target_x := _queue_target_x(actor)
-			if actor.x < target_x:
-				actor.x = minf(actor.x + delta * APPROACH_SPEED * 1.35, target_x)
-			else:
-				actor.x = target_x
+				for actor in _actors:
+					if not actor.alive or actor.enemy.hp <= 0.0:
+						continue
+					var target_x := _queue_target_x(actor)
+					if actor.x < target_x:
+						actor.x = minf(actor.x + delta * approach * 1.35, target_x)
+					else:
+						actor.x = target_x
 
-	if _flash > 0.0:
-		_flash -= delta
+		_tick_screen_shake(delta)
+		_sync_actor_positions()
+		_apply_shake_visuals()
 
-	_sync_actor_positions()
 	queue_redraw()
 	_queue_bars_redraw()
 
@@ -710,6 +751,7 @@ func _is_actor_queue_waiting(actor: CombatEnemyActorScript) -> bool:
 
 
 func _sync_actor_positions() -> void:
+	var shake_off := _shake_offset()
 	var front_actor := _front_living_actor()
 	for i in _actors.size():
 		if i >= _sprites.size():
@@ -731,7 +773,7 @@ func _sync_actor_positions() -> void:
 			SPRITE_SCALE,
 			lane_y
 		)
-		sprite.position = pos
+		sprite.position = pos + shake_off
 		sprite.scale = EnemySpriteScript.display_scale_for(actor.enemy_type, SPRITE_SCALE)
 		sprite.visible = actor.alive and actor.enemy.hp > 0.0
 		if waiting:
@@ -850,6 +892,7 @@ func _on_hero_damaged(amount: float) -> void:
 	if not _in_melee:
 		return
 	_flash = 0.2
+	_trigger_screen_shake(clampf(amount * 0.022 + 0.14, 0.14, 0.42))
 	_spawn_damage_number(_popup_pos_for_hero(), amount, "hurt", true)
 	if GameState.hero.hp > 0.0:
 		_hero_sprite.play_action("hurt")
@@ -863,6 +906,7 @@ func _on_hero_died() -> void:
 	_combat_locked = true
 	_scroll_frozen = true
 	_flash = 0.35
+	_trigger_screen_shake(0.48)
 
 
 func _on_enemy_damaged(slot: int, amount: float, source: String) -> void:
@@ -1034,6 +1078,12 @@ func _on_state_changed() -> void:
 	_queue_bars_redraw()
 
 
+func _move_speed_mul() -> float:
+	if GameState.hero == null:
+		return 1.0
+	return GameState.hero.move_speed_multiplier()
+
+
 func _track_equip_changes() -> void:
 	var stats := GameState.hero.equipment_stats()
 	if not _equip_stats_ready:
@@ -1045,11 +1095,19 @@ func _track_equip_changes() -> void:
 	var atk_new := float(stats.get("attack", 0.0))
 	var armor_old := float(_last_equip_stats.get("armor", 0.0))
 	var armor_new := float(stats.get("armor", 0.0))
+	var as_old := float(_last_equip_stats.get("attack_speed_pct", 0.0))
+	var as_new := float(stats.get("attack_speed_pct", 0.0))
+	var ms_old := float(_last_equip_stats.get("move_speed_pct", 0.0))
+	var ms_new := float(stats.get("move_speed_pct", 0.0))
 	var pos := _popup_pos_for_hero()
 	if atk_new > atk_old:
 		_spawn_floating_text(pos, "+%d ATK" % int(round(atk_new - atk_old)), "buff_atk")
 	if armor_new > armor_old:
 		_spawn_floating_text(pos + Vector2(0.0, -UIScaleScript.px(8.0)), "+%d ARM" % int(round(armor_new - armor_old)), "buff_armor")
+	if as_new > as_old:
+		_spawn_floating_text(pos + Vector2(0.0, -UIScaleScript.px(16.0)), "+%d%% AS" % int(round(as_new - as_old)), "buff_atk")
+	if ms_new > ms_old:
+		_spawn_floating_text(pos + Vector2(0.0, -UIScaleScript.px(24.0)), "+%d%% MS" % int(round(ms_new - ms_old)), "buff_armor")
 	_last_equip_stats = stats.duplicate()
 
 
@@ -1087,6 +1145,8 @@ func _sync_hero_equip_visual() -> void:
 		clampf(0.9 + glow_col.b * 0.12 * tint, 0.0, 1.25),
 		1.0
 	)
+	if GameState.hero != null:
+		_hero_sprite.speed_scale = clampf(GameState.hero.attack_speed_multiplier(), 0.75, 2.2)
 
 
 func _queue_bars_redraw() -> void:
@@ -1114,6 +1174,10 @@ func _draw() -> void:
 	if size.x < 10.0 or size.y < 10.0:
 		return
 
+	var shake_off := _shake_offset()
+	if shake_off != Vector2.ZERO:
+		draw_set_transform(shake_off, 0.0, Vector2.ONE)
+
 	var horizon := size.y * 0.42
 	var sky: Color = _biome.get("sky", Color(0.5, 0.5, 0.5))
 	var ground: Color = _biome.get("ground", Color(0.6, 0.6, 0.5))
@@ -1127,6 +1191,9 @@ func _draw() -> void:
 
 	if _flash > 0.0:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0.95, 0.35, 0.3, _flash * 0.28), true)
+
+	if shake_off != Vector2.ZERO:
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _draw_biome_decor(horizon: float) -> void:
@@ -1317,7 +1384,7 @@ func _draw_actor_hp_bars(canvas: CanvasItem, ground_y: float) -> void:
 				"BOSS",
 				HORIZONTAL_ALIGNMENT_LEFT,
 				-1,
-				UIScaleScript.font(9),
+				UIScaleScript.font_caption(),
 				HP_BOSS
 			)
 
@@ -1452,7 +1519,8 @@ func _draw_top_status_strip() -> void:
 		hero.level,
 		hero.gold,
 		hero.xp,
-		hero.xp_to_next
+		hero.xp_to_next,
+		hero.player_name
 	)
 
 

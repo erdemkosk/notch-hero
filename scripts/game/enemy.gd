@@ -1,6 +1,7 @@
 extends RefCounted
 
 const StageDataScript = preload("res://scripts/game/stage_data.gd")
+const GameBalanceScript = preload("res://scripts/game/game_balance.gd")
 
 enum Status { NONE, BURNING, FROZEN }
 
@@ -27,12 +28,33 @@ func apply_type_def(type_id: String, player_level: int, difficulty_mul: float = 
 
 	var hp_base := float(def.get("hp", 28.0))
 	var atk_base := float(def.get("attack", 3.0))
-	var level_mul := 1.0 + float(level - 1) * (0.12 if is_boss else 0.08)
+	var stage_cfg := GameBalanceScript.stage_cfg()
+	var hp_level_mul := float(
+		stage_cfg.get("enemy_boss_level_hp_mul" if is_boss else "enemy_level_hp_mul", 0.12 if is_boss else 0.08)
+	)
+	var atk_level_mul := float(
+		stage_cfg.get("enemy_boss_level_atk_mul" if is_boss else "enemy_level_atk_mul", 0.12 if is_boss else 0.08)
+	)
+	var hp_mul := 1.0 + float(level - 1) * hp_level_mul
+	var atk_mul := 1.0 + float(level - 1) * atk_level_mul
 	var diff := maxf(0.25, difficulty_mul)
+	var role := str(def.get("role", "melee"))
+	var role_hp_mods: Dictionary = stage_cfg.get("enemy_role_hp_mod", {
+		"melee": 1.0,
+		"ranged": 0.85,
+		"charger": 1.28,
+	})
+	var role_atk_mods: Dictionary = stage_cfg.get("enemy_role_atk_mod", {
+		"melee": 1.0,
+		"ranged": 1.18,
+		"charger": 1.12,
+	})
+	var role_hp := float(role_hp_mods.get(role, 1.0))
+	var role_atk := float(role_atk_mods.get(role, 1.0))
 
-	max_hp = hp_base * level_mul * diff
+	max_hp = hp_base * hp_mul * diff * role_hp
 	hp = max_hp
-	attack_damage = atk_base * level_mul * diff
+	attack_damage = atk_base * atk_mul * diff * role_atk
 	gold_reward = int(round(float(def.get("gold", 5)) * (1.4 if is_boss else 1.0)))
 	xp_reward = int(round(float(def.get("xp", 8)) * (1.5 if is_boss else 1.0)))
 
@@ -44,7 +66,7 @@ func apply_type_def(type_id: String, player_level: int, difficulty_mul: float = 
 	elif is_boss:
 		name = "%s BOSS" % type_id.capitalize()
 	else:
-		name = _pick_name(level)
+		name = StageDataScript.enemy_name(type_id)
 
 
 func tick_status() -> float:
@@ -68,18 +90,3 @@ func is_frozen() -> bool:
 func apply_status(new_status: Status, duration: int = 4) -> void:
 	status = new_status
 	status_ticks = duration
-
-
-static func _pick_name(enemy_level: int) -> String:
-	var pool := [
-		"Excel Imp",
-		"Slack Ghoul",
-		"Standup Specter",
-		"Jira Wraith",
-		"Teams Phantom",
-	]
-	if enemy_level >= 5:
-		pool.append("Patron Lich")
-	if enemy_level >= 8:
-		pool.append("OKR Dragon")
-	return pool[randi() % pool.size()]

@@ -17,7 +17,15 @@ const BOSS_WARN := Color(0.95, 0.42, 0.32)
 const BOSS_GOLD := Color(1.0, 0.78, 0.28)
 
 
-static func draw_top_strip(canvas: CanvasItem, viewport: Vector2, level: int, gold: int, xp: int, xp_to_next: int) -> void:
+static func draw_top_strip(
+	canvas: CanvasItem,
+	viewport: Vector2,
+	level: int,
+	gold: int,
+	xp: int,
+	xp_to_next: int,
+	player_name: String = ""
+) -> void:
 	var margin := UIScaleScript.px(6.0)
 	var h := UIScaleScript.px(24.0)
 	var bounds := Rect2(margin, margin, viewport.x - margin * 2.0, h)
@@ -37,9 +45,9 @@ static func draw_top_strip(canvas: CanvasItem, viewport: Vector2, level: int, go
 
 	var font: Font = UiFont.get_font()
 	var pad := UIScaleScript.px(8.0)
-	var lv_fs := UIScaleScript.font(8)
-	var gold_fs := UIScaleScript.font(8)
-	var xp_label_fs := UIScaleScript.font(6)
+	var lv_fs := UIScaleScript.font_caption()
+	var gold_fs := UIScaleScript.font_caption()
+	var xp_label_fs := UIScaleScript.font_caption()
 
 	var lv_w := UIScaleScript.px(34.0)
 	var lv_rect := Rect2(bounds.position.x + pad, bounds.position.y + UIScaleScript.px(4.0), lv_w, bounds.size.y - UIScaleScript.px(8.0))
@@ -60,7 +68,7 @@ static func draw_top_strip(canvas: CanvasItem, viewport: Vector2, level: int, go
 	canvas.draw_string(
 		font,
 		Vector2(xp_left, bounds.position.y + UIScaleScript.px(7.0)),
-		"XP",
+		"XP" if player_name.is_empty() else player_name.substr(0, 10),
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1,
 		xp_label_fs,
@@ -145,7 +153,7 @@ static func draw_banner_card(
 	var font: Font = UiFont.get_font()
 	var title_fs := int(round(UIScaleScript.font(26) * scale))
 	var sub_fs := int(round(UIScaleScript.font(13) * scale))
-	var biome_fs := int(round(UIScaleScript.font(10) * scale))
+	var biome_fs := int(round(UIScaleScript.font_ui() * scale))
 	var title_col := Color(1.0, 0.92, 0.65, a)
 	var sub_col := Color(0.92, 0.88, 0.8, a * 0.95)
 	var biome_col := Color(accent.r, accent.g, accent.b, a * 0.92)
@@ -213,9 +221,9 @@ static func draw_boss_card(
 	_draw_card_frame(canvas, card, accent, accent_dark, a)
 
 	var font: Font = UiFont.get_font()
-	var tag_fs := int(round(UIScaleScript.font(11) * scale))
+	var tag_fs := int(round(UIScaleScript.font_heading() * scale))
 	var name_fs := int(round(UIScaleScript.font(22) * scale))
-	var sub_fs := int(round(UIScaleScript.font(10) * scale))
+	var sub_fs := int(round(UIScaleScript.font_ui() * scale))
 
 	var tag_w := UIScaleScript.px(52.0) * scale
 	var tag_h := UIScaleScript.px(16.0) * scale

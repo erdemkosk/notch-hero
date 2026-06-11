@@ -4,6 +4,7 @@ class_name ItemData
 const CATALOG_PATH := "res://data/items.json"
 const WEAPONS_CATALOG_PATH := "res://data/weapons.json"
 const EQUIPMENT_CATALOG_PATH := "res://data/equipment.json"
+const MODIFIERS_PATH := "res://data/modifiers.json"
 
 const EQUIP_SLOTS := [
 	"helmet",
@@ -53,6 +54,11 @@ const STAT_LABELS := {
 	"max_hp": "Health",
 	"max_mana": "Mana",
 	"spell_power": "Spell Power",
+	"attack_speed_pct": "Attack Speed",
+	"move_speed_pct": "Move Speed",
+	"mana_regen_pct": "Mana Regen",
+	"life_regen": "Life Regen",
+	"bag_slots": "Bag Slots",
 }
 
 const STAT_SHORT := {
@@ -61,7 +67,31 @@ const STAT_SHORT := {
 	"max_hp": "HP",
 	"max_mana": "MP",
 	"spell_power": "SP",
+	"attack_speed_pct": "AS",
+	"move_speed_pct": "MS",
+	"mana_regen_pct": "MR",
+	"life_regen": "LR",
+	"bag_slots": "BAG",
 }
+
+const PCT_STATS := {
+	"attack_speed_pct": true,
+	"move_speed_pct": true,
+	"mana_regen_pct": true,
+}
+
+const COMPARE_STAT_KEYS := [
+	"attack",
+	"armor",
+	"max_hp",
+	"max_mana",
+	"spell_power",
+	"attack_speed_pct",
+	"move_speed_pct",
+	"mana_regen_pct",
+	"life_regen",
+	"bag_slots",
+]
 
 const RARITY_POWER := {
 	"basic": 1,
@@ -90,6 +120,8 @@ const SLOT_STATS := {
 }
 
 static var _defs: Dictionary = {}
+static var _modifiers: Dictionary = {}
+static var _modifier_pool_by_slot: Dictionary = {}
 static var _textures: Dictionary = {}
 static var _textures_by_path: Dictionary = {}
 static var _content_rects: Dictionary = {}
@@ -103,6 +135,7 @@ static func load_catalog() -> void:
 	_merge_catalog_entries(CATALOG_PATH, "items")
 	_merge_catalog_entries(WEAPONS_CATALOG_PATH, "weapons")
 	_merge_catalog_entries(EQUIPMENT_CATALOG_PATH, "equipment")
+	_load_modifiers()
 
 
 static func _merge_catalog_entries(path: String, array_key: String) -> void:
@@ -131,13 +164,51 @@ static func get_def(id: String) -> Dictionary:
 	return _defs.get(id, {})
 
 
-static func make_instance(id: String) -> Dictionary:
-	return {"id": id}
+static func make_instance(id: String, ilvl: int = 1) -> Dictionary:
+	var item := {"id": id}
+	var def := get_def(id)
+	if def.is_empty():
+		return item
+
+	var rarity := str(def.get("rarity", "common"))
+	var unique_mods: Variant = def.get("unique_mods", [])
+	if rarity == "unique" and typeof(unique_mods) == TYPE_ARRAY and not unique_mods.is_empty():
+		item["mods"] = _resolve_unique_mods(unique_mods)
+	else:
+		var count := _mod_count_for_rarity(rarity)
+		item["mods"] = _roll_mods_for(str(def.get("slot", "")), count, ilvl)
+	return item
 
 
 static func display_name(item: Dictionary) -> String:
 	var def := get_def(str(item.get("id", "")))
-	return str(def.get("name", item.get("id", "?")))
+	var base := str(def.get("name", item.get("id", "?")))
+
+	var prefix := ""
+	var suffix := ""
+	var mods: Array = item.get("mods", [])
+	if typeof(mods) == TYPE_ARRAY:
+		for entry in mods:
+			if typeof(entry) != TYPE_DICTIONARY:
+				continue
+			var mod_def := get_modifier_def(str(entry.get("mod", "")))
+			if mod_def.is_empty():
+				continue
+			var kind := str(mod_def.get("kind", ""))
+			var label := str(mod_def.get("label", ""))
+			if label.is_empty():
+				continue
+			if kind == "prefix" and prefix.is_empty():
+				prefix = label
+			elif kind == "suffix" and suffix.is_empty():
+				suffix = label
+
+	var name := base
+	if not prefix.is_empty():
+		name = "%s %s" % [prefix, name]
+	if not suffix.is_empty():
+		name = "%s %s" % [name, suffix]
+	return name
 
 
 static func item_slot(item: Dictionary) -> String:
@@ -198,7 +269,7 @@ static func comparison_line(
 		return ""
 
 	var equipped_id := str(equipped.get("id", ""))
-	if equipped_id == id:
+	if equipped_id.is_empty():
 		return ""
 
 	var new_def := get_def(id)
@@ -206,12 +277,12 @@ static func comparison_line(
 	if new_def.is_empty() or old_def.is_empty():
 		return ""
 
-	var new_stats := compute_stats(new_def)
-	var old_stats := compute_stats(old_def)
+	var new_stats := compute_instance_stats(item)
+	var old_stats := compute_instance_stats(equipped)
 
 	var best_key := ""
 	var best_delta := 0.0
-	for key in ["attack", "armor", "max_hp", "spell_power", "max_mana"]:
+	for key in COMPARE_STAT_KEYS:
 		var delta := float(new_stats.get(key, 0.0)) - float(old_stats.get(key, 0.0))
 		if best_key.is_empty() or absf(delta) > absf(best_delta):
 			best_delta = delta
@@ -224,6 +295,14 @@ static func comparison_line(
 	var stat_label := str(STAT_SHORT.get(best_key, best_key))
 	var old_v := float(old_stats.get(best_key, 0.0))
 	var new_v := float(new_stats.get(best_key, 0.0))
+	if PCT_STATS.get(best_key, false):
+		return "Current %s: +%.0f%% %s → This: +%.0f%% (%+.0f%%)" % [
+			slot_label, old_v, stat_label, new_v, best_delta
+		]
+	if best_key == "life_regen":
+		return "Current %s: +%.1f %s → This: +%.1f (%+.1f)" % [
+			slot_label, old_v, stat_label, new_v, best_delta
+		]
 	return "Current %s: +%.0f %s → This: +%.0f (%+.0f)" % [
 		slot_label, old_v, stat_label, new_v, best_delta
 	]
@@ -249,14 +328,14 @@ static func comparison_delta(
 		return 0.0
 
 	var equipped_id := str(equipped.get("id", ""))
-	if equipped_id == id:
+	if equipped_id.is_empty():
 		return 0.0
 
-	var new_stats := compute_stats(get_def(id))
-	var old_stats := compute_stats(get_def(equipped_id))
+	var new_stats := compute_instance_stats(item)
+	var old_stats := compute_instance_stats(equipped)
 
 	var best_delta := 0.0
-	for key in ["attack", "armor", "max_hp", "spell_power", "max_mana"]:
+	for key in COMPARE_STAT_KEYS:
 		var delta := float(new_stats.get(key, 0.0)) - float(old_stats.get(key, 0.0))
 		if absf(delta) > absf(best_delta):
 			best_delta = delta
@@ -267,9 +346,8 @@ static func sell_value(item: Dictionary) -> int:
 	var id := str(item.get("id", ""))
 	if id.is_empty():
 		return 8 + int(item.get("power", 1)) * 6
-	var def := get_def(id)
-	var stats := compute_stats(def)
-	return 8 + int(stats.get("power", item.get("power", 1))) * 6
+	var stats := compute_instance_stats(item)
+	return 8 + int(stats.get("power", 1)) * 6
 
 
 static func tooltip_lines(item: Dictionary, footer_hint: String = "") -> PackedStringArray:
@@ -295,11 +373,22 @@ static func tooltip_lines(item: Dictionary, footer_hint: String = "") -> PackedS
 	lines.append(display_name(item))
 	lines.append("%s — %s" % [rarity_name(rarity), slot_name(str(def.get("slot", "")))])
 
-	var stats := compute_stats(def)
+	var base_stats := compute_stats(def)
 	for key in ["attack", "armor", "max_hp", "max_mana", "spell_power"]:
-		var amount := float(stats.get(key, 0.0))
+		var amount := float(base_stats.get(key, 0.0))
 		if amount > 0.0:
-			lines.append("%s +%.0f" % [STAT_LABELS.get(key, key), amount])
+			var line := format_stat_line(key, amount)
+			if not line.is_empty():
+				lines.append(line)
+
+	var mods: Array = item.get("mods", [])
+	if typeof(mods) == TYPE_ARRAY:
+		for entry in mods:
+			if typeof(entry) != TYPE_DICTIONARY:
+				continue
+			var mod_line := mod_tooltip_line(entry)
+			if not mod_line.is_empty():
+				lines.append(mod_line)
 
 	lines.append("Sell: %d gold" % sell_value(item))
 	if not footer_hint.is_empty():
@@ -487,6 +576,227 @@ static func compute_stats(def: Dictionary) -> Dictionary:
 	return stats
 
 
+static func compute_instance_stats(item: Dictionary) -> Dictionary:
+	var id := str(item.get("id", ""))
+	if id.is_empty():
+		return {}
+	var def := get_def(id)
+	if def.is_empty():
+		return {}
+	var stats := compute_stats(def)
+	var mods: Array = item.get("mods", [])
+	if typeof(mods) != TYPE_ARRAY:
+		return stats
+
+	var mod_power := 0
+	for entry in mods:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var mod_id := str(entry.get("mod", ""))
+		var mod_def := get_modifier_def(mod_id)
+		if mod_def.is_empty():
+			continue
+		var stat_key := str(mod_def.get("stat", ""))
+		if stat_key.is_empty():
+			continue
+		var value := float(entry.get("value", 0.0))
+		stats[stat_key] = stats.get(stat_key, 0.0) + value
+		mod_power += int(entry.get("tier", 1))
+
+	stats["power"] = int(stats.get("power", 1)) + mod_power
+	return stats
+
+
+static func format_stat_line(stat_key: String, value: float) -> String:
+	if absf(value) < 0.001:
+		return ""
+	var label := str(STAT_LABELS.get(stat_key, stat_key))
+	if PCT_STATS.get(stat_key, false):
+		return "+%.0f%% %s" % [value, label]
+	if stat_key == "life_regen":
+		return "+%.1f %s" % [value, label]
+	if stat_key == "bag_slots":
+		return "+%.0f %s" % [value, label]
+	return "+%.0f %s" % [value, label]
+
+
+static func mod_tooltip_line(entry: Dictionary) -> String:
+	var mod_id := str(entry.get("mod", ""))
+	var mod_def := get_modifier_def(mod_id)
+	if mod_def.is_empty():
+		return ""
+	var stat_key := str(mod_def.get("stat", ""))
+	var value := float(entry.get("value", 0.0))
+	return format_stat_line(stat_key, value)
+
+
+static func get_modifier_def(mod_id: String) -> Dictionary:
+	if _modifiers.is_empty():
+		_load_modifiers()
+	return _modifiers.get(mod_id, {})
+
+
+static func current_ilvl() -> int:
+	if typeof(GameState) != TYPE_NIL and GameState.stage_runner != null:
+		return maxi(1, GameState.stage_runner.stage_index + 1)
+	return 1
+
+
+static func _load_modifiers() -> void:
+	_modifiers.clear()
+	_modifier_pool_by_slot.clear()
+	if not FileAccess.file_exists(MODIFIERS_PATH):
+		push_warning("Modifier catalog not found: %s" % MODIFIERS_PATH)
+		return
+
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(MODIFIERS_PATH))
+	if parsed == null or typeof(parsed) != TYPE_DICTIONARY:
+		push_error("Failed to parse modifiers: %s" % MODIFIERS_PATH)
+		return
+
+	for entry in parsed.get("modifiers", []):
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var mod_id: String = str(entry.get("id", ""))
+		if mod_id.is_empty():
+			continue
+		_modifiers[mod_id] = entry
+		if not bool(entry.get("enabled", true)):
+			continue
+		for tag in entry.get("tags", []):
+			var slot_tag := str(tag)
+			if not _modifier_pool_by_slot.has(slot_tag):
+				_modifier_pool_by_slot[slot_tag] = []
+			(_modifier_pool_by_slot[slot_tag] as Array).append(mod_id)
+
+
+static func _mod_count_for_rarity(rarity: String) -> int:
+	match rarity:
+		"basic":
+			return 0
+		"common":
+			return 1
+		"rare":
+			return randi_range(2, 3)
+		"unique":
+			return randi_range(3, 5)
+		_:
+			return 0
+
+
+static func _modifier_pool_for_slot(slot_type: String) -> Array[String]:
+	if _modifiers.is_empty():
+		_load_modifiers()
+	var pool: Array[String] = []
+	if _modifier_pool_by_slot.has(slot_type):
+		for mod_id in _modifier_pool_by_slot[slot_type]:
+			pool.append(str(mod_id))
+	return pool
+
+
+static func _roll_modifier_value(mod_def: Dictionary, ilvl: int) -> Dictionary:
+	var tiers: Array = mod_def.get("tiers", [])
+	if tiers.is_empty():
+		return {}
+
+	var chosen: Dictionary = {}
+	for tier_entry in tiers:
+		if typeof(tier_entry) != TYPE_DICTIONARY:
+			continue
+		if ilvl >= int(tier_entry.get("ilvl", 1)):
+			chosen = tier_entry
+
+	if chosen.is_empty():
+		var first: Variant = tiers[0]
+		if typeof(first) == TYPE_DICTIONARY:
+			chosen = first
+		else:
+			return {}
+
+	var min_v := float(chosen.get("min", 0.0))
+	var max_v := float(chosen.get("max", min_v))
+	var value := randf_range(min_v, max_v)
+	if not PCT_STATS.get(str(mod_def.get("stat", "")), false) and str(mod_def.get("stat", "")) != "life_regen":
+		value = float(snapped(value, 1.0))
+	else:
+		value = snapped(value, 0.05)
+
+	return {
+		"mod": str(mod_def.get("id", "")),
+		"tier": int(chosen.get("tier", 1)),
+		"value": value,
+	}
+
+
+static func _roll_mods_for(slot_type: String, count: int, ilvl: int) -> Array:
+	if count <= 0 or slot_type.is_empty():
+		return []
+
+	var pool := _modifier_pool_for_slot(slot_type)
+	if pool.is_empty():
+		return []
+
+	var picked: Array = []
+	var used_stats: Array[String] = []
+	var used_mods: Array[String] = []
+
+	for _i in count:
+		var candidates: Array[String] = []
+		for mod_id in pool:
+			if used_mods.has(mod_id):
+				continue
+			var mod_def := get_modifier_def(mod_id)
+			var stat_key := str(mod_def.get("stat", ""))
+			if stat_key.is_empty() or used_stats.has(stat_key):
+				continue
+			candidates.append(mod_id)
+		if candidates.is_empty():
+			break
+
+		var chosen_id: String = candidates[randi() % candidates.size()]
+		var mod_def := get_modifier_def(chosen_id)
+		var rolled := _roll_modifier_value(mod_def, ilvl)
+		if rolled.is_empty():
+			continue
+		picked.append(rolled)
+		used_mods.append(chosen_id)
+		used_stats.append(str(mod_def.get("stat", "")))
+
+	return picked
+
+
+static func _resolve_unique_mods(entries: Array) -> Array:
+	var resolved: Array = []
+	for entry in entries:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var mod_id := str(entry.get("mod", ""))
+		var mod_def := get_modifier_def(mod_id)
+		if mod_def.is_empty():
+			continue
+
+		var value := float(entry.get("value", 0.0))
+		var roll_range: Variant = entry.get("roll", null)
+		if typeof(roll_range) == TYPE_ARRAY and roll_range.size() >= 2:
+			value = randf_range(float(roll_range[0]), float(roll_range[1]))
+		elif value == 0.0:
+			var rolled := _roll_modifier_value(mod_def, current_ilvl())
+			value = float(rolled.get("value", 0.0))
+
+		var stat_key := str(mod_def.get("stat", ""))
+		if PCT_STATS.get(stat_key, false) or stat_key == "life_regen":
+			value = snapped(value, 0.05)
+		else:
+			value = float(snapped(value, 1.0))
+
+		resolved.append({
+			"mod": mod_id,
+			"tier": int(entry.get("tier", 1)),
+			"value": value,
+		})
+	return resolved
+
+
 static func aggregate_stats(items: Array) -> Dictionary:
 	var totals := {
 		"attack": 0.0,
@@ -494,15 +804,19 @@ static func aggregate_stats(items: Array) -> Dictionary:
 		"max_hp": 0.0,
 		"max_mana": 0.0,
 		"spell_power": 0.0,
+		"attack_speed_pct": 0.0,
+		"move_speed_pct": 0.0,
+		"mana_regen_pct": 0.0,
+		"life_regen": 0.0,
+		"bag_slots": 0.0,
 		"power": 0,
 	}
 	for item in items:
 		if typeof(item) != TYPE_DICTIONARY:
 			continue
-		var def := get_def(str(item.get("id", "")))
-		if def.is_empty():
+		var stats := compute_instance_stats(item)
+		if stats.is_empty():
 			continue
-		var stats := compute_stats(def)
 		for key in stats.keys():
 			totals[key] = totals.get(key, 0.0) + float(stats[key])
 	return totals
@@ -532,9 +846,9 @@ static func roll_rarity() -> String:
 	return GameBalanceScript.roll_rarity()
 
 
-static func roll_loot_instance() -> Dictionary:
+static func roll_loot_instance(ilvl: int = 1) -> Dictionary:
 	var rarity := roll_rarity()
 	var pool := ids_by_rarity(rarity)
 	if pool.is_empty():
-		return make_instance(random_id())
-	return make_instance(pool[randi() % pool.size()])
+		return make_instance(random_id(), ilvl)
+	return make_instance(pool[randi() % pool.size()], ilvl)

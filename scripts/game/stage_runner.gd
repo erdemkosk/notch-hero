@@ -19,7 +19,19 @@ func load(path: String = StageDataScript.DEFAULT_PATH) -> void:
 
 func start_run(hero: Hero) -> void:
 	stage_index = 0
+	wave_index = 0
 	_begin_current_stage(hero)
+
+
+func restore_from_save(hero: Hero, stage_idx: int, wave_idx: int) -> void:
+	if stages.is_empty():
+		return
+	stage_index = clampi(stage_idx, 0, maxi(0, stages.size() - 1))
+	wave_index = maxi(0, wave_idx)
+	wave_index = mini(wave_index, maxi(0, wave_count() - 1))
+	_checkpoint = _snapshot_hero(hero)
+	_refill_hero(hero)
+	_emit_wave(hero, "wave")
 
 
 func current_stage() -> Dictionary:
@@ -58,7 +70,7 @@ func current_wave_enemies() -> Array:
 
 
 func enemy_difficulty_for(type_id: String) -> float:
-	var mul := GameBalanceScript.enemy_difficulty_mul(stage_index)
+	var mul := GameBalanceScript.enemy_difficulty_mul(stage_index, wave_index)
 	if StageDataScript.is_boss_type(type_id):
 		mul *= GameBalanceScript.boss_difficulty_factor(stage_index)
 	return mul

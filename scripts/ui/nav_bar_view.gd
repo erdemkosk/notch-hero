@@ -1,12 +1,15 @@
 extends Control
 
 signal tab_pressed(tab: int)
+signal menu_pressed
 
 const UIScaleScript = preload("res://scripts/ui/ui_scale.gd")
 const UiFont = preload("res://scripts/ui/ui_font.gd")
 const NavIconsScript = preload("res://scripts/ui/nav_icons.gd")
 
 enum Tab { COMBAT, INVENTORY, FORGE, MARKET }
+
+const MENU_BTN_WIDTH := 46.0
 
 const TAB_LABELS := {
 	Tab.COMBAT: "Fight",
@@ -18,12 +21,11 @@ const TAB_LABELS := {
 const GOLD := Color(0.92, 0.74, 0.38)
 const TEXT_IDLE := Color(0.82, 0.76, 0.66)
 const TEXT_ACTIVE := Color(0.98, 0.94, 0.84)
-const LABEL_FONT := 12
-const BADGE_FONT := 9
 const ICON_SCALE := 17.0
 
 var _active := Tab.COMBAT
 var _hover := -1
+var _menu_hover := false
 var _alert_pulse := 0.0
 
 
@@ -60,19 +62,33 @@ func _process(delta: float) -> void:
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
+		_menu_hover = _menu_rect().has_point(event.position)
 		_hover = _tab_at(event.position)
 		queue_redraw()
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if _menu_rect().has_point(event.position):
+			menu_pressed.emit()
+			return
 		var tab := _tab_at(event.position)
 		if tab >= 0:
 			tab_pressed.emit(tab)
 
 
+func _tab_area_width() -> float:
+	return maxf(0.0, size.x - UIScaleScript.px(MENU_BTN_WIDTH))
+
+
+func _menu_rect() -> Rect2:
+	var menu_w := UIScaleScript.px(MENU_BTN_WIDTH)
+	return Rect2(size.x - menu_w, 0.0, menu_w, size.y)
+
+
 func _tab_at(pos: Vector2) -> int:
-	if size.x < 4.0:
+	var tab_area_w := _tab_area_width()
+	if tab_area_w < 4.0:
 		return -1
 	var count := Tab.values().size()
-	var tab_w := size.x / float(count)
+	var tab_w := tab_area_w / float(count)
 	var idx := int(floor(pos.x / tab_w))
 	if idx < 0 or idx >= count:
 		return -1
@@ -85,7 +101,7 @@ func _tab_at(pos: Vector2) -> int:
 func _inventory_badge() -> String:
 	if GameState.inventory_unseen > 0:
 		return str(mini(GameState.inventory_unseen, 9))
-	if GameState.hero.inventory.size() >= 12:
+	if GameState.hero.inventory.size() >= GameState.hero.bag_slot_capacity():
 		return "!"
 	return ""
 
@@ -95,7 +111,7 @@ func _draw() -> void:
 		return
 
 	var font: Font = UiFont.get_font()
-	var tab_w := size.x / float(Tab.values().size())
+	var tab_w := _tab_area_width() / float(Tab.values().size())
 	var gap := UIScaleScript.px(2.0)
 	var tab_h := size.y - gap
 
@@ -145,7 +161,7 @@ func _draw() -> void:
 		NavIconsScript.draw(self, icon_center, tab, icon_col, UIScaleScript.px(ICON_SCALE))
 
 		var label: String = TAB_LABELS.get(tab, "?")
-		var label_sz := UIScaleScript.font(LABEL_FONT)
+		var label_sz := UIScaleScript.font_ui()
 		var tw: float = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, label_sz).x
 		var tx: float = lifted_rect.position.x + (lifted_rect.size.x - tw) * 0.5
 		var ty := lifted_rect.position.y + lifted_rect.size.y - UIScaleScript.px(4.0)
@@ -162,7 +178,7 @@ func _draw() -> void:
 				if _inventory_has_alert():
 					draw_circle(badge_center, badge_sz * 0.72, Color(1.0, 0.55, 0.22, 0.12 + pulse * 0.22))
 				draw_circle(badge_center, badge_sz * 0.55, Color(0.82, 0.22, 0.18).lerp(Color(1.0, 0.45, 0.2), pulse * 0.45))
-				var bsz := UIScaleScript.font(BADGE_FONT)
+				var bsz := UIScaleScript.font_caption()
 				var bw: float = font.get_string_size(badge, HORIZONTAL_ALIGNMENT_LEFT, -1, bsz).x
 				draw_string(
 					font,
@@ -173,6 +189,25 @@ func _draw() -> void:
 					bsz,
 					Color(1.0, 0.95, 0.9)
 				)
+
+	var menu_rect := _menu_rect().grow(-gap * 0.5)
+	if menu_rect.size.x > 4.0 and menu_rect.size.y > 4.0:
+		var menu_bg := Color(0.28, 0.2, 0.14) if _menu_hover else Color(0.18, 0.14, 0.11)
+		_draw_rounded_fill(menu_rect, UIScaleScript.px(4.0), menu_bg)
+		_draw_rounded_stroke(menu_rect, UIScaleScript.px(4.0), GOLD.darkened(0.15), 1.0)
+		var menu_label := "Menu"
+		var menu_fs := UIScaleScript.font_ui()
+		var menu_tw := font.get_string_size(menu_label, HORIZONTAL_ALIGNMENT_LEFT, -1, menu_fs).x
+		var menu_col := TEXT_ACTIVE if _menu_hover else TEXT_IDLE
+		draw_string(
+			font,
+			Vector2(menu_rect.position.x + (menu_rect.size.x - menu_tw) * 0.5, menu_rect.position.y + menu_rect.size.y * 0.68),
+			menu_label,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1,
+			menu_fs,
+			menu_col
+		)
 
 
 func _draw_rounded_fill(rect: Rect2, radius: float, color: Color) -> void:

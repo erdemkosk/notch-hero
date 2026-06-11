@@ -88,7 +88,7 @@ static func _draw_content(
 	_draw_stage_code(canvas, font, Vector2(code_x, text_cy), stage_label)
 
 	var name_x := code_x + UIScaleScript.px(38.0)
-	var name_sz := UIScaleScript.font(11)
+	var name_sz := UIScaleScript.font_heading()
 	if not stage_name.is_empty():
 		canvas.draw_string(
 			font,
@@ -109,7 +109,7 @@ static func _draw_content(
 			Color(0.97, 0.94, 0.88)
 		)
 
-	var wave_sz := UIScaleScript.font(8)
+	var wave_sz := UIScaleScript.font_caption()
 	var wave_text := "Wave %d / %d" % [wave_index + 1, wave_count]
 	var wave_w := font.get_string_size(wave_text, HORIZONTAL_ALIGNMENT_LEFT, -1, wave_sz).x
 	var right := bounds.position.x + bounds.size.x - pad_r
@@ -131,7 +131,7 @@ static func _draw_content(
 
 static func _draw_world_pill(canvas: CanvasItem, font: Font, center: Vector2, world: int, accent: Color) -> void:
 	var label := "D%d" % world
-	var sz := UIScaleScript.font(8)
+	var sz := UIScaleScript.font_caption()
 	var tw := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x
 	var pw := tw + UIScaleScript.px(10.0)
 	var ph := UIScaleScript.px(14.0)
@@ -150,7 +150,7 @@ static func _draw_world_pill(canvas: CanvasItem, font: Font, center: Vector2, wo
 
 
 static func _draw_stage_code(canvas: CanvasItem, font: Font, center: Vector2, code: String) -> void:
-	var sz := UIScaleScript.font(10)
+	var sz := UIScaleScript.font_ui()
 	var tw := font.get_string_size(code, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x
 	var pw := tw + UIScaleScript.px(10.0)
 	var ph := UIScaleScript.px(15.0)

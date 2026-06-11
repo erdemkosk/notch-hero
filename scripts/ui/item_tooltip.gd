@@ -11,6 +11,58 @@ const BODY := Color(0.82, 0.78, 0.72)
 const HINT := Color(0.68, 0.64, 0.58)
 const COMPARE_UP := Color(0.45, 0.92, 0.55)
 const COMPARE_DOWN := Color(0.92, 0.42, 0.38)
+const MAX_TEXT_W := 240.0
+
+
+static func _wrap_text(font: Font, text: String, font_size: int, max_w: float) -> PackedStringArray:
+	if text.is_empty():
+		return PackedStringArray()
+
+	var words := text.split(" ", false)
+	if words.is_empty():
+		return PackedStringArray([text])
+
+	var result: PackedStringArray = []
+	var line := ""
+	for word in words:
+		var candidate := word if line.is_empty() else "%s %s" % [line, word]
+		if font.get_string_size(candidate, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x <= max_w:
+			line = candidate
+			continue
+		if not line.is_empty():
+			result.append(line)
+		if font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x <= max_w:
+			line = word
+		else:
+			result.append(word)
+			line = ""
+	if not line.is_empty():
+		result.append(line)
+	return result
+
+
+static func _expand_wrapped_lines(
+	font: Font,
+	lines: PackedStringArray,
+	sizes: Array,
+	colors: Array,
+	max_w: float
+) -> Dictionary:
+	var out_lines: Array[String] = []
+	var out_sizes: Array[int] = []
+	var out_colors: Array[Color] = []
+	for i in lines.size():
+		var sz: int = sizes[i]
+		var col: Color = colors[i]
+		for wrapped in _wrap_text(font, str(lines[i]), sz, max_w):
+			out_lines.append(wrapped)
+			out_sizes.append(sz)
+			out_colors.append(col)
+	return {
+		"lines": out_lines,
+		"sizes": out_sizes,
+		"colors": out_colors,
+	}
 
 
 static func draw_for_slot(
@@ -49,17 +101,20 @@ static func draw_at(
 	var compare_delta := ItemDataScript.comparison_delta(item, equipment, equip_slot_hint)
 
 	var font := ThemeDB.fallback_font
-	var title_size := UIScaleScript.font(12)
-	var body_size := UIScaleScript.font(10)
-	var hint_size := UIScaleScript.font(9)
-	var compare_size := UIScaleScript.font(9)
+	var title_size := UIScaleScript.font_emphasis()
+	var body_size := UIScaleScript.font_ui()
+	var hint_size := UIScaleScript.font_caption()
+	var compare_size := UIScaleScript.font_caption()
 	var pad := UIScaleScript.px(6.0)
 	var line_gap := UIScaleScript.px(3.0)
-	var max_w := UIScaleScript.px(150.0)
+	var max_w := UIScaleScript.px(MAX_TEXT_W)
 	var bar_h := UIScaleScript.px(5.0)
 	var icon_side := UIScaleScript.px(34.0)
 	var icon_gap := UIScaleScript.px(5.0)
 	var has_icon := not str(item.get("id", "")).is_empty()
+	var text_max_w := max_w
+	if has_icon:
+		text_max_w = maxf(UIScaleScript.px(120.0), max_w - icon_side - icon_gap)
 
 	var rarity := ItemDataScript.item_rarity(item)
 	var rarity_color: Color = ItemDataScript.RARITY_COLORS.get(rarity, ItemDataScript.RARITY_COLORS["common"])
@@ -82,16 +137,20 @@ static func draw_at(
 		text_sizes.append(compare_size)
 		text_colors.append(COMPARE_UP if compare_delta >= 0.0 else COMPARE_DOWN)
 
+	var wrapped := _expand_wrapped_lines(font, PackedStringArray(text_lines), text_sizes, text_colors, text_max_w)
+	text_lines = wrapped["lines"]
+	text_sizes = wrapped["sizes"]
+	text_colors = wrapped["colors"]
+
 	var text_col_w := 0.0
 	for i in text_lines.size():
 		var w := font.get_string_size(text_lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, text_sizes[i]).x
 		text_col_w = maxf(text_col_w, w)
 
-	var text_block_w := text_col_w
+	var content_w := text_col_w
 	if has_icon:
-		text_block_w = maxf(text_col_w, icon_side + icon_gap + text_col_w)
-
-	var box_w := minf(text_block_w + pad * 2.0, max_w + pad * 2.0)
+		content_w = icon_side + icon_gap + text_col_w
+	var box_w := minf(content_w + pad * 2.0, max_w + pad * 2.0)
 	var text_block_h := 0.0
 	for i in text_lines.size():
 		text_block_h += float(text_sizes[i]) + line_gap
@@ -129,6 +188,7 @@ static func draw_at(
 		text_x = icon_rect.end.x + icon_gap
 
 	var y := content_y + float(title_size)
+	var draw_w := int(box.end.x - text_x - pad)
 	for i in text_lines.size():
 		var sz: int = text_sizes[i]
 		var col: Color = text_colors[i]
@@ -137,7 +197,7 @@ static func draw_at(
 			Vector2(text_x, y),
 			text_lines[i],
 			HORIZONTAL_ALIGNMENT_LEFT,
-			int(box.end.x - text_x - pad),
+			draw_w,
 			sz,
 			col
 		)

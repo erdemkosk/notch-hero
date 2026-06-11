@@ -5,7 +5,12 @@ const UiFont = preload("res://scripts/ui/ui_font.gd")
 
 enum Tab { COMBAT, INVENTORY, FORGE, MARKET }
 
+enum GamePhase { MENU, NAME_INTRO, PLAYING }
+
 const NAV_HEIGHT := UIScaleScript.NAV_HEIGHT
+const MainMenuViewScript = preload("res://scripts/ui/main_menu_view.gd")
+const NameIntroViewScript = preload("res://scripts/ui/name_intro_view.gd")
+const SaveServiceScript = preload("res://scripts/game/save_service.gd")
 
 @onready var content_host: Control = $VBox/ContentHost
 @onready var combat_strip: Control = $VBox/ContentHost/CombatStrip
@@ -20,15 +25,33 @@ const NAV_HEIGHT := UIScaleScript.NAV_HEIGHT
 @onready var market_list: ItemList = $VBox/ContentHost/MarketView/MarketList
 
 var _tab := Tab.COMBAT
+var _phase := GamePhase.MENU
+var _menu_view: Control
+var _name_intro: Control
 
 
 func _ready() -> void:
 	UiFont.setup()
 	nav_bar.tab_pressed.connect(_select_tab)
+	if nav_bar.has_signal("menu_pressed"):
+		nav_bar.menu_pressed.connect(_return_to_main_menu)
 	forge_button.pressed.connect(func() -> void: GameState.forge_enchant())
 	market_list.item_activated.connect(_on_market_buy)
 	GameState.state_changed.connect(_refresh_tabs)
-	_select_tab(Tab.COMBAT)
+
+	_menu_view = MainMenuViewScript.new()
+	_menu_view.continue_pressed.connect(_on_continue_pressed)
+	_menu_view.new_game_pressed.connect(_on_new_game_pressed)
+	_menu_view.quit_pressed.connect(_on_quit_pressed)
+	add_child(_menu_view)
+
+	_name_intro = NameIntroViewScript.new()
+	_name_intro.visible = false
+	_name_intro.confirm_pressed.connect(_on_name_confirmed)
+	_name_intro.back_pressed.connect(_on_name_back_pressed)
+	add_child(_name_intro)
+
+	_set_phase(GamePhase.MENU)
 
 
 func fit_to(panel_size: Vector2) -> void:
@@ -47,8 +70,76 @@ func fit_to(panel_size: Vector2) -> void:
 	content_host.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	nav_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
+	if is_instance_valid(_menu_view):
+		_menu_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	if is_instance_valid(_name_intro):
+		_name_intro.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		if _name_intro.has_method("on_shown"):
+			_name_intro.call_deferred("_layout")
+
+
+func _set_phase(phase: GamePhase) -> void:
+	_phase = phase
+	var playing := phase == GamePhase.PLAYING
+
+	_update_keyboard_focus(phase == GamePhase.NAME_INTRO)
+
+	$VBox.visible = playing
+	if is_instance_valid(_menu_view):
+		_menu_view.visible = phase == GamePhase.MENU
+		if phase == GamePhase.MENU:
+			_menu_view.set_continue_enabled(SaveServiceScript.has_save())
+	if is_instance_valid(_name_intro):
+		_name_intro.visible = phase == GamePhase.NAME_INTRO
+		if phase == GamePhase.NAME_INTRO and _name_intro.has_method("on_shown"):
+			_name_intro.call_deferred("on_shown")
+
+	if playing:
+		_select_tab(Tab.COMBAT)
+
+
+func _on_continue_pressed() -> void:
+	if GameState.session_paused:
+		GameState.resume_session()
+		_set_phase(GamePhase.PLAYING)
+		return
+	if GameState.continue_game():
+		_set_phase(GamePhase.PLAYING)
+
+
+func _on_new_game_pressed() -> void:
+	_set_phase(GamePhase.NAME_INTRO)
+
+
+func _on_quit_pressed() -> void:
+	get_tree().quit()
+
+
+func _update_keyboard_focus(enabled: bool) -> void:
+	var win := get_tree().get_first_node_in_group("notch_window")
+	if win != null and win.has_method("set_keyboard_input_enabled"):
+		win.set_keyboard_input_enabled(enabled)
+
+
+func _on_name_confirmed(player_name: String) -> void:
+	GameState.start_new_game(player_name)
+	_set_phase(GamePhase.PLAYING)
+
+
+func _on_name_back_pressed() -> void:
+	_set_phase(GamePhase.MENU)
+
+
+func _return_to_main_menu() -> void:
+	if _phase != GamePhase.PLAYING:
+		return
+	GameState.pause_session()
+	_set_phase(GamePhase.MENU)
+
 
 func _select_tab(tab: Tab) -> void:
+	if _phase != GamePhase.PLAYING:
+		return
 	_tab = tab
 	combat_strip.visible = tab == Tab.COMBAT
 	inventory_view.visible = tab == Tab.INVENTORY
@@ -64,7 +155,7 @@ func _select_tab(tab: Tab) -> void:
 
 
 func _refresh_tabs() -> void:
-	if not is_inside_tree():
+	if not is_inside_tree() or _phase != GamePhase.PLAYING:
 		return
 
 	if inventory_bag.has_method("queue_redraw"):
@@ -86,9 +177,9 @@ func _refresh_tabs() -> void:
 		var price: int = int(round(GameState.market_prices[key]))
 		market_list.add_item("%s  %d gold" % [key, price])
 
-	forge_label.add_theme_font_size_override("font_size", UIScaleScript.font(14))
-	forge_button.add_theme_font_size_override("font_size", UIScaleScript.font(16))
-	market_list.add_theme_font_size_override("font_size", UIScaleScript.font(14))
+	forge_label.add_theme_font_size_override("font_size", UIScaleScript.font_ui())
+	forge_button.add_theme_font_size_override("font_size", UIScaleScript.font_ui())
+	market_list.add_theme_font_size_override("font_size", UIScaleScript.font_ui())
 
 
 func _on_market_buy(index: int) -> void:

@@ -20,16 +20,35 @@ const DEFAULTS := {
 	"stages": {
 		"enemy_scale_base": 0.58,
 		"enemy_scale_per_stage": 0.11,
+		"enemy_scale_per_wave": 0.04,
+		"enemy_level_hp_mul": 0.08,
+		"enemy_level_atk_mul": 0.08,
+		"enemy_boss_level_hp_mul": 0.12,
+		"enemy_boss_level_atk_mul": 0.12,
+		"enemy_role_hp_mod": {
+			"melee": 1.0,
+			"ranged": 0.85,
+			"charger": 1.28,
+		},
+		"enemy_role_atk_mod": {
+			"melee": 1.0,
+			"ranged": 1.18,
+			"charger": 1.12,
+		},
+		"multi_enemy_hp_mul": 0.88,
 		"first_stage_boss_factor": 0.48,
 		"early_boss_factor": 0.72,
 	},
 	"loot": {
-		"drop_chance": 0.08,
-		"boss_drop_chance": 0.22,
+		"drop_chance": 0.015,
+		"boss_drop_chance": 0.06,
 		"rarity_unique": 0.012,
 		"rarity_rare": 0.08,
 		"rarity_common": 0.30,
-		"pity_kills": 18,
+		"pity_kills": 50,
+	},
+	"inventory": {
+		"base_bag_slots": 9,
 	},
 }
 
@@ -54,6 +73,7 @@ static func load_config() -> void:
 	_merge_section("combat", parsed)
 	_merge_section("stages", parsed)
 	_merge_section("loot", parsed)
+	_merge_section("inventory", parsed)
 	_loaded = true
 
 
@@ -84,11 +104,12 @@ static func stage_cfg() -> Dictionary:
 	return _config.get("stages", DEFAULTS["stages"]) as Dictionary
 
 
-static func enemy_difficulty_mul(stage_index: int) -> float:
+static func enemy_difficulty_mul(stage_index: int, wave_index: int = 0) -> float:
 	var cfg := stage_cfg()
 	var base := float(cfg.get("enemy_scale_base", 0.58))
-	var per := float(cfg.get("enemy_scale_per_stage", 0.11))
-	return maxf(0.35, base + stage_index * per)
+	var per_stage := float(cfg.get("enemy_scale_per_stage", 0.11))
+	var per_wave := float(cfg.get("enemy_scale_per_wave", 0.04))
+	return maxf(0.35, base + stage_index * per_stage + wave_index * per_wave)
 
 
 static func boss_difficulty_factor(stage_index: int) -> float:
@@ -104,6 +125,16 @@ static func loot_cfg() -> Dictionary:
 	if not _loaded:
 		load_config()
 	return _config.get("loot", DEFAULTS["loot"]) as Dictionary
+
+
+static func inventory_cfg() -> Dictionary:
+	if not _loaded:
+		load_config()
+	return _config.get("inventory", DEFAULTS["inventory"]) as Dictionary
+
+
+static func base_bag_slots() -> int:
+	return maxi(1, int(inventory_cfg().get("base_bag_slots", 9)))
 
 
 static func _normalize_chance(value: float) -> float:

@@ -33,6 +33,7 @@ var _top_glow: Control
 
 
 func _ready() -> void:
+	add_to_group("notch_window")
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_game_window = get_window()
 	_window_id = _game_window.get_window_id()
@@ -113,7 +114,18 @@ func _setup_window_flags() -> void:
 	get_viewport().transparent_bg = false
 
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true, _window_id)
-	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, _window_id)
+	set_keyboard_input_enabled(false)
+
+
+func set_keyboard_input_enabled(enabled: bool) -> void:
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, not enabled, _window_id)
+	if enabled:
+		call_deferred("_grab_window_focus")
+
+
+func _grab_window_focus() -> void:
+	if is_instance_valid(_game_window):
+		_game_window.grab_focus()
 
 
 func _on_mouse_poll() -> void:

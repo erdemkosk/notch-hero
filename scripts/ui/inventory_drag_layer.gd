@@ -55,7 +55,9 @@ func _drop_feedback() -> int:
 	if InventoryDragScript.source == InventoryDragScript.Source.EQUIPMENT \
 			and _inventory_bag != null \
 			and _inventory_bag.get_global_rect().has_point(global_mouse):
-		return 1
+		if GameState.hero.has_inventory_room():
+			return 1
+		return -1
 
 	return 0
 

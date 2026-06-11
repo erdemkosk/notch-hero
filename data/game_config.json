@@ -4,6 +4,7 @@
     "base_max_hp": 10,
     "base_max_mana": 40,
     "base_spell_power": 0,
+    "base_mana_regen": 3.0,
     "level_hp_gain": 2,
     "level_spell_power_gain": 1,
     "staff_enchant_attack": 1.0,
@@ -15,15 +16,33 @@
   "stages": {
     "enemy_scale_base": 0.58,
     "enemy_scale_per_stage": 0.11,
-    "first_stage_boss_factor": 0.48,
+    "enemy_scale_per_wave": 0.04,
+    "enemy_level_hp_mul": 0.08,
+    "enemy_level_atk_mul": 0.08,
+    "enemy_boss_level_hp_mul": 0.12,
+    "enemy_boss_level_atk_mul": 0.12,
+    "enemy_role_hp_mod": {
+      "melee": 1.0,
+      "ranged": 0.85,
+      "charger": 1.28
+    },
+    "enemy_role_atk_mod": {
+      "melee": 1.0,
+      "ranged": 1.18,
+      "charger": 1.12
+    },
+    "multi_enemy_hp_mul": 0.88,
     "early_boss_factor": 0.72
   },
   "loot": {
-    "drop_chance": 0.08,
-    "boss_drop_chance": 0.22,
+    "drop_chance": 0.015,
+    "boss_drop_chance": 0.06,
     "rarity_unique": 0.012,
     "rarity_rare": 0.08,
     "rarity_common": 0.30,
-    "pity_kills": 18
+    "pity_kills": 50
+  },
+  "inventory": {
+    "base_bag_slots": 9
   }
 }

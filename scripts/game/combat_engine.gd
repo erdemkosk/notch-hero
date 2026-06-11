@@ -59,7 +59,8 @@ func spawn_wave_with_types(types: PackedStringArray) -> void:
 			difficulty = GameState.stage_runner.enemy_difficulty_for(enemy_type)
 		foe.apply_type_def(enemy_type, hero.level, difficulty)
 		if types.size() > 1 and not foe.is_boss:
-			foe.max_hp *= 0.72
+			var pack_hp_mul := float(GameBalanceScript.stage_cfg().get("multi_enemy_hp_mul", 0.88))
+			foe.max_hp *= pack_hp_mul
 			foe.hp = foe.max_hp
 		enemies.append(foe)
 		enemy_types.append(enemy_type)
@@ -287,25 +288,28 @@ func _collect_rewards(foe: Enemy) -> Dictionary:
 	var rolled_drop := GameBalanceScript.roll_kill_loot(foe.is_boss)
 	if rolled_drop or pity_drop:
 		dropped_item = _roll_loot()
-		hero.add_loot(dropped_item)
-		item_dropped = true
+		if hero.add_loot(dropped_item):
+			item_dropped = true
+		else:
+			dropped_item = {}
 	else:
 		GameState.record_kill_without_loot()
 
-	return {"gold": gold, "xp": xp, "leveled": leveled, "item_dropped": item_dropped, "item": dropped_item}
+	return {
+		"gold": gold,
+		"xp": xp,
+		"leveled": leveled,
+		"item_dropped": item_dropped,
+		"bag_full": (rolled_drop or pity_drop) and not item_dropped,
+		"item": dropped_item,
+	}
 
 
-func _enemy_strike_damage(foe: Enemy, enemy_type: String) -> float:
+func _enemy_strike_damage(foe: Enemy, _enemy_type: String) -> float:
 	var dmg := foe.attack_damage
 	if dmg <= 0.0:
 		dmg = 2.0 + foe.level * 1.0
-	match EnemySpriteScript.combat_role_for(enemy_type):
-		"ranged":
-			return dmg * 0.95
-		"charger":
-			return dmg * 1.15
-		_:
-			return dmg
+	return dmg
 
 
 func _cast_next_spell() -> Dictionary:
@@ -364,4 +368,4 @@ func _damage_enemy_at(foe: Enemy, amount: float, source: String, _combo: bool) -
 
 func _roll_loot() -> Dictionary:
 	const ItemDataScript = preload("res://scripts/game/item_data.gd")
-	return ItemDataScript.roll_loot_instance()
+	return ItemDataScript.roll_loot_instance(ItemDataScript.current_ilvl())

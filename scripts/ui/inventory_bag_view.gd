@@ -10,7 +10,7 @@ const InventoryHoverScript = preload("res://scripts/ui/inventory_hover.gd")
 const InventoryPanelChromeScript = preload("res://scripts/ui/inventory_panel_chrome.gd")
 const InventoryIconDrawScript = preload("res://scripts/ui/inventory_icon_draw.gd")
 
-enum Category { WEAPON, FOOD, ARMOR, ACCESSORY, POTION, MATERIAL }
+enum Category { ALL, WEAPON, FOOD, ARMOR, ACCESSORY, POTION, MATERIAL }
 
 const ROWS := 3
 const MIN_COLS := 5
@@ -26,8 +26,11 @@ const FILTER_ON := Color(0.52, 0.38, 0.22)
 const FILTER_OFF := Color(0.28, 0.18, 0.12)
 const MENU_BG := Color(0.1, 0.07, 0.05, 0.97)
 const MENU_BORDER := Color(0.58, 0.44, 0.26, 0.95)
+const LOCKED_SLOT_BG := Color(0.1, 0.07, 0.05, 0.88)
+const LOCKED_SLOT_INSET := Color(0.08, 0.05, 0.04, 0.95)
 
 const TAB_NAMES := {
+	Category.ALL: "All",
 	Category.WEAPON: "Weapon",
 	Category.ARMOR: "Armor",
 	Category.ACCESSORY: "Acc",
@@ -38,9 +41,7 @@ const TAB_NAMES := {
 
 const CONTEXT_ACTIONS := ["Equip", "Sell", "Info"]
 
-var _tab := Category.WEAPON
-var _prev_tab := Category.WEAPON
-var _tab_blend := 1.0
+var _tab := Category.ALL
 var _hover_slot := -1
 var _last_click_slot := -1
 var _last_click_ms := 0
@@ -63,7 +64,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_search_field = LineEdit.new()
 	_search_field.placeholder_text = "Search..."
-	_search_field.add_theme_font_size_override("font_size", UIScaleScript.font(9))
+	_search_field.add_theme_font_size_override("font_size", UIScaleScript.font_ui())
 	_search_field.text_changed.connect(_on_search_changed)
 	add_child(_search_field)
 	resized.connect(_on_resized)
@@ -93,12 +94,6 @@ func _layout_search_field() -> void:
 
 
 func _process(delta: float) -> void:
-	if _tab_blend < 1.0:
-		_tab_blend = minf(1.0, _tab_blend + delta * 5.0)
-		if _tab_blend >= 1.0:
-			_prev_tab = _tab
-		queue_redraw()
-
 	if _needs_pulse_redraw():
 		_pulse_phase += delta * 5.0
 		queue_redraw()
@@ -115,7 +110,11 @@ func _needs_pulse_redraw() -> bool:
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
-		_hover_slot = _slot_at(get_local_mouse_position())
+		var slot := _slot_at(get_local_mouse_position())
+		var layout := _compute_layout()
+		if slot >= _usable_slots(layout):
+			slot = -1
+		_hover_slot = slot
 		queue_redraw()
 	elif event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:
@@ -144,12 +143,14 @@ func _on_right_press(local_pos: Vector2) -> void:
 
 	var slot := _slot_at(local_pos)
 	if slot >= 0:
-		_context_slot = slot
-		_context_pos = local_pos
-		queue_redraw()
-	else:
-		_context_slot = -1
-		queue_redraw()
+		var layout := _compute_layout()
+		if slot < _usable_slots(layout):
+			_context_slot = slot
+			_context_pos = local_pos
+			queue_redraw()
+			return
+	_context_slot = -1
+	queue_redraw()
 
 
 func _on_left_press(local_pos: Vector2) -> void:
@@ -172,6 +173,9 @@ func _on_left_press(local_pos: Vector2) -> void:
 	var slot := _slot_at(local_pos)
 	if slot < 0:
 		return
+	var layout := _compute_layout()
+	if slot >= _usable_slots(layout):
+		return
 
 	if Input.is_key_pressed(KEY_SHIFT):
 		_quick_equip_slot(slot)
@@ -188,18 +192,12 @@ func _on_left_press(local_pos: Vector2) -> void:
 	_last_click_slot = slot
 	_last_click_ms = now
 
-	var items := _filtered_items()
-	if slot >= items.size():
+	if not _slot_has_visible_item(slot):
 		return
 
-	var global_index := _global_index_for_filtered(slot)
-	if global_index < 0:
-		return
-
-	var layout := _compute_layout()
 	InventoryDragScript.start_inventory(
-		global_index,
-		items[slot],
+		slot,
+		GameState.hero.inventory[slot],
 		layout["slot_size"].x
 	)
 	queue_redraw()
@@ -208,9 +206,9 @@ func _on_left_press(local_pos: Vector2) -> void:
 func _set_tab(new_tab: Category) -> void:
 	if new_tab == _tab:
 		return
-	_prev_tab = _tab
 	_tab = new_tab
-	_tab_blend = 0.0
+	_hover_slot = -1
+	_context_slot = -1
 	queue_redraw()
 
 
@@ -221,24 +219,20 @@ func _toggle_filter(index: int) -> void:
 		_filter_sellable = not _filter_sellable
 
 
-func _quick_equip_slot(filtered_index: int) -> void:
-	var items := _filtered_items()
-	if filtered_index < 0 or filtered_index >= items.size():
+func _quick_equip_slot(slot_index: int) -> void:
+	if not _slot_has_visible_item(slot_index):
 		return
-	var item: Dictionary = items[filtered_index]
+	var item: Dictionary = GameState.hero.inventory[slot_index]
 	var equip_slot := ItemDataScript.prefer_equip_slot(item, GameState.hero.equipment)
 	if equip_slot.is_empty():
 		return
-	var global_index := _global_index_for_filtered(filtered_index)
-	if global_index < 0:
+	GameState.equip_from_inventory(slot_index, equip_slot)
+
+
+func _sell_slot(slot_index: int) -> void:
+	if not _slot_has_visible_item(slot_index):
 		return
-	GameState.equip_from_inventory(global_index, equip_slot)
-
-
-func _sell_slot(filtered_index: int) -> void:
-	var global_index := _global_index_for_filtered(filtered_index)
-	if global_index >= 0:
-		GameState.sell_item(global_index)
+	GameState.sell_item(slot_index)
 
 
 func _run_context_action(action_index: int) -> void:
@@ -273,9 +267,7 @@ func _draw() -> void:
 	_draw_filter_bar(layout)
 	_draw_grid_panel(layout)
 	_draw_slots(layout)
-	_draw_tab_items(layout, _prev_tab, 1.0 - _tab_blend, -UIScaleScript.px(6.0))
-	if _tab_blend > 0.0:
-		_draw_tab_items(layout, _tab, _tab_blend, UIScaleScript.px(6.0) * (1.0 - _tab_blend))
+	_draw_items(layout)
 	_draw_footer(layout)
 	_draw_context_menu()
 	_draw_hover_tooltip(layout)
@@ -368,20 +360,20 @@ func _draw_header(layout: Dictionary) -> void:
 		"Inventory",
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1,
-		UIScaleScript.font(12),
+		UIScaleScript.font_emphasis(),
 		Color(0.96, 0.9, 0.72)
 	)
 
-	var items := _filtered_items()
-	var count_text := "%d esya" % items.size()
-	var count_w := font.get_string_size(count_text, HORIZONTAL_ALIGNMENT_LEFT, -1, UIScaleScript.font(10)).x
+	var usable := _usable_slots(layout)
+	var count_text := "%d/%d" % [GameState.hero.inventory.size(), usable]
+	var count_w := font.get_string_size(count_text, HORIZONTAL_ALIGNMENT_LEFT, -1, UIScaleScript.font_ui()).x
 	draw_string(
 		font,
 		Vector2(bag.end.x - UIScaleScript.px(8.0) - count_w, title_y),
 		count_text,
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1,
-		UIScaleScript.font(10),
+		UIScaleScript.font_ui(),
 		LABEL_COLOR
 	)
 
@@ -407,7 +399,7 @@ func _draw_tab_bar(layout: Dictionary) -> void:
 
 		var label: String = TAB_NAMES.get(cat, "?")
 		var font := ThemeDB.fallback_font
-		var sz := UIScaleScript.font(9)
+		var sz := UIScaleScript.font_ui()
 		var tw := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x
 		var tc := TAB_TEXT_ACTIVE if active else TAB_TEXT
 		draw_string(
@@ -423,7 +415,7 @@ func _draw_tab_bar(layout: Dictionary) -> void:
 		var cat_count := _items_for_category(cat as Category).size()
 		if cat_count > 0:
 			var badge := "%d" % cat_count
-			var badge_sz := UIScaleScript.font(7)
+			var badge_sz := UIScaleScript.font_caption()
 			draw_string(
 				font,
 				Vector2(rect.end.x - UIScaleScript.px(6.0), rect.position.y + UIScaleScript.px(9.0)),
@@ -457,7 +449,7 @@ func _draw_filter_bar(layout: Dictionary) -> void:
 	var labels := ["Rare", "Sellable"]
 	var states := [_filter_rare, _filter_sellable]
 	var font := ThemeDB.fallback_font
-	var sz := UIScaleScript.font(8)
+	var sz := UIScaleScript.font_caption()
 
 	for i in rects.size():
 		var rect: Rect2 = rects[i]
@@ -494,6 +486,11 @@ func _draw_grid_panel(layout: Dictionary) -> void:
 	InventorySlotDrawScript._draw_rounded_stroke(self, inner, r, Color(0.28, 0.18, 0.1), 1.0)
 
 
+func _usable_slots(layout: Dictionary) -> int:
+	var cap := GameState.hero.bag_slot_capacity()
+	return mini(cap, int(layout.get("slot_count", 0)))
+
+
 func _draw_slots(layout: Dictionary) -> void:
 	var slot_size: Vector2 = layout["slot_size"]
 	var gap_x: float = layout["gap_x"]
@@ -501,41 +498,53 @@ func _draw_slots(layout: Dictionary) -> void:
 	var origin: Vector2 = layout["grid_origin"]
 	var cols: int = layout["cols"]
 	var slot_count: int = layout["slot_count"]
+	var usable := _usable_slots(layout)
 
 	for i in slot_count:
 		var rect := _slot_rect(origin, slot_size, gap_x, gap_y, cols, i)
-		var hovered: bool = i == _hover_slot and _tab_blend >= 0.99
+		if i >= usable:
+			_draw_locked_slot(rect)
+			continue
+		var hovered: bool = i == _hover_slot and _slot_has_visible_item(i)
 		if hovered:
 			InventoryHoverScript.draw_slot(self, rect)
 		InventorySlotDrawScript.draw_square(self, rect, hovered)
 
 
-func _draw_tab_items(layout: Dictionary, category: Category, alpha: float, offset_x: float) -> void:
-	if alpha <= 0.01:
-		return
+func _draw_locked_slot(rect: Rect2) -> void:
+	var r := InventorySlotDrawScript.corner_radius(rect)
+	InventorySlotDrawScript._draw_rounded_fill(self, rect, r, LOCKED_SLOT_BG)
+	var inner := rect.grow(-2.0)
+	InventorySlotDrawScript._draw_rounded_fill(self, inner, r - 1.0, LOCKED_SLOT_INSET)
+	InventorySlotDrawScript._draw_rounded_stroke(self, rect, r, Color(0.2, 0.14, 0.1, 0.9), 1.0)
+	var cx := rect.position.x + rect.size.x * 0.5
+	var cy := rect.position.y + rect.size.y * 0.52
+	var lock_w := rect.size.x * 0.22
+	draw_rect(Rect2(cx - lock_w * 0.5, cy - lock_w * 0.15, lock_w, lock_w * 0.72), Color(0.34, 0.26, 0.2, 0.55), true)
+	draw_arc(Vector2(cx, cy - lock_w * 0.55), lock_w * 0.42, PI, TAU, 10, Color(0.34, 0.26, 0.2, 0.55), 1.2)
 
-	var items := _items_for_category(category)
+
+func _draw_items(layout: Dictionary) -> void:
 	var slot_size: Vector2 = layout["slot_size"]
 	var gap_x: float = layout["gap_x"]
 	var gap_y: float = layout["gap_y"]
-	var origin: Vector2 = layout["grid_origin"] + Vector2(offset_x, 0.0)
+	var origin: Vector2 = layout["grid_origin"]
 	var cols: int = layout["cols"]
-	var slot_count: int = layout["slot_count"]
+	var usable := _usable_slots(layout)
 
-	for i in slot_count:
-		if i >= items.size():
+	for i in usable:
+		if i >= GameState.hero.inventory.size():
 			break
-		if not _passes_extra_filters(items[i]):
+		var item: Dictionary = GameState.hero.inventory[i]
+		if not _item_visible_in_view(item):
 			continue
-		var global_index := _global_index_in_inventory(items[i])
 		if InventoryDragScript.active \
 				and InventoryDragScript.source == InventoryDragScript.Source.INVENTORY \
-				and global_index == InventoryDragScript.inventory_index:
+				and i == InventoryDragScript.inventory_index:
 			continue
-		var item: Dictionary = items[i]
 		var rect := _slot_rect(origin, slot_size, gap_x, gap_y, cols, i)
-		_draw_item_icon(rect, item, alpha)
-		_draw_rarity_frame(rect, item, alpha)
+		_draw_item_icon(rect, item)
+		_draw_rarity_frame(rect, item)
 
 
 func _draw_rarity_frame(rect: Rect2, item: Dictionary, alpha: float = 1.0) -> void:
@@ -570,7 +579,7 @@ func _draw_footer(layout: Dictionary) -> void:
 		hint,
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1,
-		UIScaleScript.font(8),
+		UIScaleScript.font_caption(),
 		LABEL_COLOR.darkened(0.15)
 	)
 
@@ -593,7 +602,7 @@ func _draw_context_menu() -> void:
 	InventorySlotDrawScript._draw_rounded_stroke(self, box, r, MENU_BORDER, 1.0)
 
 	var font := ThemeDB.fallback_font
-	var sz := UIScaleScript.font(10)
+	var sz := UIScaleScript.font_ui()
 	var y := box.position.y + UIScaleScript.px(12.0)
 	var local_mouse := get_local_mouse_position()
 
@@ -619,7 +628,7 @@ func _context_hit(local_pos: Vector2) -> int:
 	var box := _context_menu_rect()
 	if not box.has_point(local_pos):
 		return -1
-	var sz := UIScaleScript.font(10)
+	var sz := UIScaleScript.font_ui()
 	var y := box.position.y + UIScaleScript.px(12.0)
 	for i in CONTEXT_ACTIONS.size():
 		var row := Rect2(box.position.x, y - float(sz), box.size.x, float(sz) + UIScaleScript.px(4.0))
@@ -632,9 +641,9 @@ func _context_hit(local_pos: Vector2) -> int:
 func _draw_hover_tooltip(layout: Dictionary) -> void:
 	if _hover_slot < 0 or _context_slot >= 0:
 		return
-
-	var items := _filtered_items()
-	if _hover_slot >= items.size():
+	if _hover_slot >= _usable_slots(layout):
+		return
+	if not _slot_has_visible_item(_hover_slot):
 		return
 
 	var slot_size: Vector2 = layout["slot_size"]
@@ -647,7 +656,7 @@ func _draw_hover_tooltip(layout: Dictionary) -> void:
 	ItemTooltipScript.draw_for_slot(
 		self,
 		rect,
-		items[_hover_slot],
+		GameState.hero.inventory[_hover_slot],
 		Rect2(Vector2.ZERO, size),
 		"Double-click: Sell | Shift: Equip",
 		GameState.hero.equipment
@@ -727,10 +736,28 @@ func _passes_search(item: Dictionary) -> bool:
 	return ItemDataScript.display_name(item).to_lower().contains(q)
 
 
+func _passes_category_filter(item: Dictionary) -> bool:
+	if _tab == Category.ALL:
+		return true
+	return _item_category(item) == _tab
+
+
+func _item_visible_in_view(item: Dictionary) -> bool:
+	return _passes_category_filter(item) \
+		and _passes_search(item) \
+		and _passes_extra_filters(item)
+
+
+func _slot_has_visible_item(slot_index: int) -> bool:
+	if slot_index < 0 or slot_index >= GameState.hero.inventory.size():
+		return false
+	return _item_visible_in_view(GameState.hero.inventory[slot_index])
+
+
 func _items_for_category(category: Category) -> Array:
 	var result: Array = []
 	for item in GameState.hero.inventory:
-		if _item_category(item) != category:
+		if category != Category.ALL and _item_category(item) != category:
 			continue
 		if not _passes_search(item):
 			continue
@@ -738,24 +765,6 @@ func _items_for_category(category: Category) -> Array:
 			continue
 		result.append(item)
 	return result
-
-
-func _filtered_items() -> Array:
-	return _items_for_category(_tab)
-
-
-func _global_index_in_inventory(item: Dictionary) -> int:
-	for i in GameState.hero.inventory.size():
-		if GameState.hero.inventory[i] == item:
-			return i
-	return -1
-
-
-func _global_index_for_filtered(filtered_index: int) -> int:
-	var items := _filtered_items()
-	if filtered_index < 0 or filtered_index >= items.size():
-		return -1
-	return _global_index_in_inventory(items[filtered_index])
 
 
 func _item_category(item: Dictionary) -> Category:

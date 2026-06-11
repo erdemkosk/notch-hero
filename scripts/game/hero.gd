@@ -25,6 +25,7 @@ var equipment: Dictionary = {}
 
 var level_hp_bonus: float = 0.0
 var level_spell_power_bonus: int = 0
+var player_name := ""
 
 signal loot_added(item: Dictionary)
 
@@ -79,6 +80,7 @@ func refresh_combat_stats() -> void:
 	max_hp = float(cfg.get("base_max_hp", 5.0)) + float(eq.get("max_hp", 0.0)) + level_hp_bonus
 	max_mana = float(cfg.get("base_max_mana", 40.0)) + float(eq.get("max_mana", 0.0))
 	spell_power = int(cfg.get("base_spell_power", 0)) + int(eq.get("spell_power", 0.0)) + level_spell_power_bonus
+	mana_regen = float(cfg.get("base_mana_regen", 3.0)) * (1.0 + float(eq.get("mana_regen_pct", 0.0)) / 100.0)
 
 	if max_hp > prev_max_hp:
 		hp += max_hp - prev_max_hp
@@ -89,6 +91,18 @@ func refresh_combat_stats() -> void:
 		mana += max_mana - prev_max_mana
 	else:
 		mana = minf(mana, max_mana)
+
+
+func attack_speed_multiplier() -> float:
+	return 1.0 + float(equipment_stats().get("attack_speed_pct", 0.0)) / 100.0
+
+
+func move_speed_multiplier() -> float:
+	return 1.0 + float(equipment_stats().get("move_speed_pct", 0.0)) / 100.0
+
+
+func life_regen_per_tick() -> float:
+	return float(equipment_stats().get("life_regen", 0.0))
 
 
 func regen_mana(delta_scale: float = 1.0) -> void:
@@ -127,9 +141,12 @@ func school_bonus_for(element: String) -> float:
 	return 1.0
 
 
-func add_loot(item: Dictionary) -> void:
+func add_loot(item: Dictionary) -> bool:
+	if not has_inventory_room():
+		return false
 	inventory.append(item)
 	loot_added.emit(item)
+	return true
 
 
 func weapon_damage() -> float:
@@ -147,3 +164,107 @@ func equipped_items() -> Array:
 
 func equipment_stats() -> Dictionary:
 	return ItemDataScript.aggregate_stats(equipped_items())
+
+
+func bag_slot_capacity() -> int:
+	var bonus := int(equipment_stats().get("bag_slots", 0.0))
+	return GameBalanceScript.base_bag_slots() + bonus
+
+
+func bag_slot_capacity_for_equipped(items: Array) -> int:
+	var bonus := int(ItemDataScript.aggregate_stats(items).get("bag_slots", 0.0))
+	return GameBalanceScript.base_bag_slots() + bonus
+
+
+func has_inventory_room() -> bool:
+	return inventory.size() < bag_slot_capacity()
+
+
+func reset_for_new_game(name: String) -> void:
+	player_name = name.strip_edges()
+	if player_name.is_empty():
+		player_name = "Hero"
+	school = MagicSchoolScript.School.PYROMANCY
+	level = 1
+	xp = 0
+	xp_to_next = 40
+	gold = 0
+	intelligence = 0
+	spell_power = 0
+	staff_enchant = 0
+	level_hp_bonus = 0.0
+	level_spell_power_bonus = 0
+	inventory.clear()
+	_reset_equipment()
+	refresh_combat_stats()
+	hp = max_hp
+	mana = max_mana
+
+
+func to_dict() -> Dictionary:
+	var eq := {}
+	for slot in ItemDataScript.EQUIP_SLOTS:
+		var item: Variant = equipment.get(slot)
+		if item != null and typeof(item) == TYPE_DICTIONARY:
+			eq[slot] = (item as Dictionary).duplicate(true)
+		else:
+			eq[slot] = null
+
+	var inv: Array = []
+	for item in inventory:
+		if typeof(item) == TYPE_DICTIONARY:
+			inv.append((item as Dictionary).duplicate(true))
+
+	return {
+		"player_name": player_name,
+		"school": int(school),
+		"level": level,
+		"xp": xp,
+		"xp_to_next": xp_to_next,
+		"gold": gold,
+		"hp": hp,
+		"max_hp": max_hp,
+		"mana": mana,
+		"max_mana": max_mana,
+		"intelligence": intelligence,
+		"spell_power": spell_power,
+		"mana_regen": mana_regen,
+		"staff_enchant": staff_enchant,
+		"level_hp_bonus": level_hp_bonus,
+		"level_spell_power_bonus": level_spell_power_bonus,
+		"inventory": inv,
+		"equipment": eq,
+	}
+
+
+func apply_dict(data: Dictionary) -> void:
+	player_name = str(data.get("player_name", player_name))
+	school = int(data.get("school", school)) as MagicSchoolScript.School
+	level = int(data.get("level", level))
+	xp = int(data.get("xp", xp))
+	xp_to_next = int(data.get("xp_to_next", xp_to_next))
+	gold = int(data.get("gold", gold))
+	intelligence = int(data.get("intelligence", intelligence))
+	spell_power = int(data.get("spell_power", spell_power))
+	mana_regen = float(data.get("mana_regen", mana_regen))
+	staff_enchant = int(data.get("staff_enchant", staff_enchant))
+	level_hp_bonus = float(data.get("level_hp_bonus", level_hp_bonus))
+	level_spell_power_bonus = int(data.get("level_spell_power_bonus", level_spell_power_bonus))
+
+	inventory.clear()
+	for item in data.get("inventory", []):
+		if typeof(item) == TYPE_DICTIONARY:
+			inventory.append((item as Dictionary).duplicate(true))
+
+	_reset_equipment()
+	var eq_data: Dictionary = data.get("equipment", {})
+	for slot in ItemDataScript.EQUIP_SLOTS:
+		var item: Variant = eq_data.get(slot)
+		if item != null and typeof(item) == TYPE_DICTIONARY:
+			equipment[slot] = (item as Dictionary).duplicate(true)
+		else:
+			equipment[slot] = null
+
+	refresh_combat_stats()
+	hp = clampf(float(data.get("hp", max_hp)), 0.0, max_hp)
+	mana = clampf(float(data.get("mana", max_mana)), 0.0, max_mana)

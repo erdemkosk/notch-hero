@@ -61,6 +61,7 @@ static func get_enemy_def(type_id: String) -> Dictionary:
 		"xp": 8,
 		"scale": 1.0,
 		"boss": false,
+		"role": "melee",
 	}
 
 
@@ -87,6 +88,7 @@ static func _parse_enemy_defs(raw: Variant) -> Dictionary:
 			continue
 		defs[str(type_id)] = {
 			"name": str(entry.get("name", str(type_id).capitalize())),
+			"role": str(entry.get("role", "melee")),
 			"hp": float(entry.get("hp", 28.0)),
 			"attack": float(entry.get("attack", 3.0)),
 			"gold": int(entry.get("gold", 5)),

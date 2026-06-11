@@ -29,6 +29,6 @@ func _draw() -> void:
 			_label,
 			HORIZONTAL_ALIGNMENT_LEFT,
 			int(size.x - UIScaleScript.px(8.0)),
-			max(UIScaleScript.font(8), int(size.y) - UIScaleScript.font(2)),
+			max(UIScaleScript.font_caption(), int(size.y) - UIScaleScript.font_caption()),
 			Color(0.95, 0.95, 1.0)
 		)

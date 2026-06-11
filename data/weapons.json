@@ -1649,6 +1649,666 @@
       "stats": {
         "attack": 50
       }
+    },
+    {
+      "id": "knives/rusty-knife",
+      "name": "Rusty Knife",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/knives/basic-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 2
+      }
+    },
+    {
+      "id": "knives/camp-knife",
+      "name": "Camp Knife",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/knives/basic-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 3
+      }
+    },
+    {
+      "id": "knives/skinning-knife",
+      "name": "Skinning Knife",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/knives/basic-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 3
+      }
+    },
+    {
+      "id": "knives/scout-dagger",
+      "name": "Scout Dagger",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/knives/basic-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 4
+      }
+    },
+    {
+      "id": "knives/hunter-knife",
+      "name": "Hunter Knife",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/knives/basic-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 4
+      }
+    },
+    {
+      "id": "knives/serrated-blade",
+      "name": "Serrated Blade",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/knives/basic-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 5
+      }
+    },
+    {
+      "id": "knives/iron-dagger",
+      "name": "Iron Dagger",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/knives/common-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 6
+      }
+    },
+    {
+      "id": "knives/steel-knife",
+      "name": "Steel Knife",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/knives/common-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 7
+      }
+    },
+    {
+      "id": "knives/twin-fangs",
+      "name": "Twin Fangs",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/knives/common-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 8
+      }
+    },
+    {
+      "id": "knives/skirmisher-blade",
+      "name": "Skirmisher Blade",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/knives/common-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 8
+      }
+    },
+    {
+      "id": "knives/raiders-knife",
+      "name": "Raider's Knife",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/knives/common-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 9
+      }
+    },
+    {
+      "id": "knives/guard-dagger",
+      "name": "Guard Dagger",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/knives/common-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 10
+      }
+    },
+    {
+      "id": "knives/crystal-dagger",
+      "name": "Crystal Dagger",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/knives/rare-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 7
+      }
+    },
+    {
+      "id": "knives/storm-knife",
+      "name": "Storm Knife",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/knives/rare-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 14
+      }
+    },
+    {
+      "id": "knives/venom-blade",
+      "name": "Venom Blade",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/knives/rare-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 15
+      }
+    },
+    {
+      "id": "knives/moonfang",
+      "name": "Moonfang",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/knives/rare-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 16
+      }
+    },
+    {
+      "id": "knives/sunspike",
+      "name": "Sunspike",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/knives/rare-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 17
+      }
+    },
+    {
+      "id": "knives/frost-knife",
+      "name": "Frost Knife",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/knives/rare-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 20
+      }
+    },
+    {
+      "id": "knives/ember-dagger",
+      "name": "Ember Dagger",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/knives/unique-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 14
+      }
+    },
+    {
+      "id": "knives/wardens-knife",
+      "name": "Warden's Knife",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/knives/unique-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 16
+      }
+    },
+    {
+      "id": "knives/nightmare-blade",
+      "name": "Nightmare Blade",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/knives/unique-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 32
+      }
+    },
+    {
+      "id": "knives/soul-carver",
+      "name": "Soul Carver",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/knives/unique-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 36
+      }
+    },
+    {
+      "id": "knives/exile-dagger",
+      "name": "Exile Dagger",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/knives/unique-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 38
+      }
+    },
+    {
+      "id": "knives/void-knife",
+      "name": "Void Knife",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/knives/unique-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 42
+      }
+    },
+    {
+      "id": "knives/dragon-tooth",
+      "name": "Dragon Tooth",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/knives/unique-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 46
+      }
+    },
+    {
+      "id": "knives/starfall-dagger",
+      "name": "Starfall Dagger",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/knives/unique-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 50
+      }
+    },
+    {
+      "id": "knives/shadow-stiletto",
+      "name": "Shadow Stiletto",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/knives/unique-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 32
+      }
+    },
+    {
+      "id": "knives/bloodletter",
+      "name": "Bloodletter",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/knives/unique-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 36
+      }
+    },
+    {
+      "id": "knives/kings-edge",
+      "name": "King's Edge",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/knives/unique-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 38
+      }
+    },
+    {
+      "id": "knives/world-cutter",
+      "name": "World Cutter",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/knives/unique-knife.png",
+      "folder": "knives",
+      "stats": {
+        "attack": 50
+      }
+    },
+    {
+      "id": "spears/wooden-spear",
+      "name": "Wooden Spear",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/spears/basic-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 2
+      }
+    },
+    {
+      "id": "spears/hunting-spear",
+      "name": "Hunting Spear",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/spears/basic-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 3
+      }
+    },
+    {
+      "id": "spears/militia-pike",
+      "name": "Militia Pike",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/spears/basic-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 3
+      }
+    },
+    {
+      "id": "spears/scout-spear",
+      "name": "Scout Spear",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/spears/basic-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 4
+      }
+    },
+    {
+      "id": "spears/river-pike",
+      "name": "River Pike",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/spears/basic-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 4
+      }
+    },
+    {
+      "id": "spears/iron-tipped-spear",
+      "name": "Iron-Tipped Spear",
+      "slot": "weapon",
+      "rarity": "basic",
+      "sprite": "res://assets/items/spears/basic-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 5
+      }
+    },
+    {
+      "id": "spears/iron-spear",
+      "name": "Iron Spear",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/spears/common-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 6
+      }
+    },
+    {
+      "id": "spears/steel-pike",
+      "name": "Steel Pike",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/spears/common-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 7
+      }
+    },
+    {
+      "id": "spears/guard-spear",
+      "name": "Guard Spear",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/spears/common-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 8
+      }
+    },
+    {
+      "id": "spears/vanguard-pike",
+      "name": "Vanguard Pike",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/spears/common-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 8
+      }
+    },
+    {
+      "id": "spears/raiders-spear",
+      "name": "Raider's Spear",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/spears/common-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 9
+      }
+    },
+    {
+      "id": "spears/halberd-spear",
+      "name": "Halberd Spear",
+      "slot": "weapon",
+      "rarity": "common",
+      "sprite": "res://assets/items/spears/common-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 10
+      }
+    },
+    {
+      "id": "spears/crystal-spear",
+      "name": "Crystal Spear",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/spears/rare-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 7
+      }
+    },
+    {
+      "id": "spears/storm-pike",
+      "name": "Storm Pike",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/spears/rare-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 14
+      }
+    },
+    {
+      "id": "spears/thunder-lance",
+      "name": "Thunder Lance",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/spears/rare-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 15
+      }
+    },
+    {
+      "id": "spears/moon-pike",
+      "name": "Moon Pike",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/spears/rare-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 16
+      }
+    },
+    {
+      "id": "spears/sun-lance",
+      "name": "Sun Lance",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/spears/rare-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 17
+      }
+    },
+    {
+      "id": "spears/frost-spear",
+      "name": "Frost Spear",
+      "slot": "weapon",
+      "rarity": "rare",
+      "sprite": "res://assets/items/spears/rare-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 20
+      }
+    },
+    {
+      "id": "spears/ember-lance",
+      "name": "Ember Lance",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/spears/unique-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 14
+      }
+    },
+    {
+      "id": "spears/wardens-pike",
+      "name": "Warden's Pike",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/spears/unique-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 16
+      }
+    },
+    {
+      "id": "spears/nightmare-spear",
+      "name": "Nightmare Spear",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/spears/unique-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 32
+      }
+    },
+    {
+      "id": "spears/soul-piercer",
+      "name": "Soul Piercer",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/spears/unique-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 36
+      }
+    },
+    {
+      "id": "spears/exile-lance",
+      "name": "Exile Lance",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/spears/unique-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 38
+      }
+    },
+    {
+      "id": "spears/void-spear",
+      "name": "Void Spear",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/spears/unique-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 42
+      }
+    },
+    {
+      "id": "spears/dragon-spike",
+      "name": "Dragon Spike",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/spears/unique-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 46
+      }
+    },
+    {
+      "id": "spears/starfall-lance",
+      "name": "Starfall Lance",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/spears/unique-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 50
+      }
+    },
+    {
+      "id": "spears/shadow-pike",
+      "name": "Shadow Pike",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/spears/unique-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 32
+      }
+    },
+    {
+      "id": "spears/sky-piercer",
+      "name": "Sky Piercer",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/spears/unique-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 36
+      }
+    },
+    {
+      "id": "spears/kings-lance",
+      "name": "King's Lance",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/spears/unique-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 38
+      }
+    },
+    {
+      "id": "spears/world-spear",
+      "name": "World Spear",
+      "slot": "weapon",
+      "rarity": "unique",
+      "sprite": "res://assets/items/spears/unique-spear.png",
+      "folder": "spears",
+      "stats": {
+        "attack": 50
+      }
     }
   ]
 }
