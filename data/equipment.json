@@ -121,6 +121,54 @@
       }
     },
     {
+      "id": "chest/traveler-vest",
+      "name": "Traveler Vest",
+      "slot": "chest",
+      "rarity": "basic",
+      "sprite": "res://assets/items/chest/basic-chest3.png",
+      "folder": "chest",
+      "stats": {
+        "armor": 2,
+        "max_hp": 6
+      }
+    },
+    {
+      "id": "chest/hunter-jerkin",
+      "name": "Hunter Jerkin",
+      "slot": "chest",
+      "rarity": "common",
+      "sprite": "res://assets/items/chest/common-chest3.png",
+      "folder": "chest",
+      "stats": {
+        "armor": 4,
+        "max_hp": 11
+      }
+    },
+    {
+      "id": "chest/royal-cuirass",
+      "name": "Royal Cuirass",
+      "slot": "chest",
+      "rarity": "rare",
+      "sprite": "res://assets/items/chest/rare-chest3.png",
+      "folder": "chest",
+      "stats": {
+        "armor": 6,
+        "max_hp": 19
+      }
+    },
+    {
+      "id": "chest/golden-aegis",
+      "name": "Golden Aegis",
+      "slot": "chest",
+      "rarity": "unique",
+      "sprite": "res://assets/items/chest/unique-chest3.png",
+      "folder": "chest",
+      "stats": {
+        "armor": 10,
+        "max_hp": 33
+      }
+    },
+    {
       "id": "leggings/cloth-pants",
       "name": "Cloth Pants",
       "slot": "legs",
@@ -225,6 +273,39 @@
       "slot": "legs",
       "rarity": "unique",
       "sprite": "res://assets/items/leggings/unique-leggings2.png",
+      "folder": "leggings",
+      "stats": {
+        "armor": 7
+      }
+    },
+    {
+      "id": "leggings/rope-trousers",
+      "name": "Rope Trousers",
+      "slot": "legs",
+      "rarity": "basic",
+      "sprite": "res://assets/items/leggings/basic-leggings3.png",
+      "folder": "leggings",
+      "stats": {
+        "armor": 2
+      }
+    },
+    {
+      "id": "leggings/royal-greaves",
+      "name": "Royal Greaves",
+      "slot": "legs",
+      "rarity": "rare",
+      "sprite": "res://assets/items/leggings/rare-leggings3.png",
+      "folder": "leggings",
+      "stats": {
+        "armor": 5
+      }
+    },
+    {
+      "id": "leggings/golden-striders",
+      "name": "Golden Striders",
+      "slot": "legs",
+      "rarity": "unique",
+      "sprite": "res://assets/items/leggings/unique-leggings3.png",
       "folder": "leggings",
       "stats": {
         "armor": 7
@@ -574,6 +655,61 @@
       "folder": "gloves",
       "stats": {
         "attack": 7
+      }
+    },
+    {
+      "id": "gloves/scout-wraps",
+      "name": "Scout Wraps",
+      "slot": "gloves",
+      "rarity": "basic",
+      "sprite": "res://assets/items/gloves/basic-glove2.png",
+      "folder": "gloves",
+      "stats": {
+        "attack": 2
+      }
+    },
+    {
+      "id": "gloves/hunter-grips",
+      "name": "Hunter Grips",
+      "slot": "gloves",
+      "rarity": "common",
+      "sprite": "res://assets/items/gloves/common-glove2.png",
+      "folder": "gloves",
+      "stats": {
+        "attack": 3
+      }
+    },
+    {
+      "id": "gloves/ranger-gauntlets",
+      "name": "Ranger Gauntlets",
+      "slot": "gloves",
+      "rarity": "common",
+      "sprite": "res://assets/items/gloves/common-glove3.png",
+      "folder": "gloves",
+      "stats": {
+        "attack": 2
+      }
+    },
+    {
+      "id": "gloves/royal-grips",
+      "name": "Royal Grips",
+      "slot": "gloves",
+      "rarity": "rare",
+      "sprite": "res://assets/items/gloves/rare-glove2.png",
+      "folder": "gloves",
+      "stats": {
+        "attack": 5
+      }
+    },
+    {
+      "id": "gloves/golden-grasp",
+      "name": "Golden Grasp",
+      "slot": "gloves",
+      "rarity": "unique",
+      "sprite": "res://assets/items/gloves/unique-glove2.png",
+      "folder": "gloves",
+      "stats": {
+        "attack": 8
       }
     },
     {

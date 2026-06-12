@@ -123,15 +123,18 @@ func _draw() -> void:
 
 	var rarity := ItemDataScript.item_rarity(InventoryDragScript.item)
 	var rc: Color = ItemDataScript.RARITY_COLORS.get(rarity, ItemDataScript.RARITY_COLORS["common"])
-	var glow_expand := UIScaleScript.px(2.0) + (sin(_pulse) + 1.0) * UIScaleScript.px(2.0)
+	var rank := ItemDataScript.rarity_rank(rarity)
+	var pulse_mul := 1.0 + float(rank) * 0.55
+	var glow_expand := UIScaleScript.px(2.0) + (sin(_pulse * pulse_mul) + 1.0) * UIScaleScript.px(1.5 + float(rank) * 1.2)
+	var glow_alpha := 0.28 + float(rank) * 0.08 + (sin(_pulse * pulse_mul) + 1.0) * 0.12
 	var glow_rect := rect.grow(glow_expand)
 	var r := InventorySlotDrawScript.corner_radius(rect) + 2.0
 	InventorySlotDrawScript._draw_rounded_stroke(
 		self,
 		glow_rect,
 		r,
-		Color(rc.r, rc.g, rc.b, ghost_alpha * 0.45),
-		2.0
+		Color(rc.r, rc.g, rc.b, ghost_alpha * glow_alpha),
+		2.0 + float(rank) * 0.5
 	)
 
 	var frame := rect.grow(UIScaleScript.px(1.0))

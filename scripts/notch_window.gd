@@ -181,11 +181,11 @@ func _request_open() -> void:
 
 	if _state == PanelState.HIDDEN:
 		_place_panel(true)
-		_game_window.mouse_passthrough = false
 		visual_root.visible = true
 		_anim_progress = 0.0
 		_apply_panel_visual(0.0)
 
+	_game_window.mouse_passthrough = false
 	_state = PanelState.OPENING
 	_anim_target = 1.0
 

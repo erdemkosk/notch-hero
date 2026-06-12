@@ -313,8 +313,8 @@ func _collect_rewards(foe: Enemy) -> Dictionary:
 			"potion": {},
 		}
 
-	var gold := foe.gold_reward
-	var xp := foe.xp_reward
+	var gold := int(round(float(foe.gold_reward) * (1.0 + hero.get_talent_gold_modifier())))
+	var xp := int(round(float(foe.xp_reward) * (1.0 + hero.get_talent_xp_modifier())))
 	hero.gold += gold
 	var leveled := hero.add_xp(xp)
 	var dropped_item: Dictionary = {}
@@ -323,7 +323,16 @@ func _collect_rewards(foe: Enemy) -> Dictionary:
 	var pity_drop := GameState.should_pity_loot()
 	var rolled_drop := GameBalanceScript.roll_kill_loot(foe.is_boss)
 	if rolled_drop or pity_drop:
-		dropped_item = _roll_loot()
+		var scroll_rng := randf()
+		var std_chance := 0.15 if foe.is_boss else 0.04
+		var bls_chance := 0.05 if foe.is_boss else 0.008
+		
+		if scroll_rng < bls_chance:
+			dropped_item = ItemDataScript.make_consumable_stack("scrolls/upgrade-blessed", 1)
+		elif scroll_rng < bls_chance + std_chance:
+			dropped_item = ItemDataScript.make_consumable_stack("scrolls/upgrade-standard", 1)
+		else:
+			dropped_item = _roll_loot()
 	else:
 		GameState.record_kill_without_loot()
 

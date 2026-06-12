@@ -3,7 +3,7 @@ extends Control
 const UIScaleScript = preload("res://scripts/ui/ui_scale.gd")
 const UiFont = preload("res://scripts/ui/ui_font.gd")
 
-enum Tab { COMBAT, INVENTORY, FORGE, MARKET }
+enum Tab { COMBAT, INVENTORY, FORGE, MARKET, TALENTS }
 
 enum GamePhase { MENU, NAME_INTRO, PLAYING }
 
@@ -29,6 +29,7 @@ var _tab := Tab.COMBAT
 var _phase := GamePhase.MENU
 var _menu_view: Control
 var _name_intro: Control
+var talents_view: Control
 
 
 func _ready() -> void:
@@ -36,7 +37,16 @@ func _ready() -> void:
 	nav_bar.tab_pressed.connect(_select_tab)
 	if nav_bar.has_signal("menu_pressed"):
 		nav_bar.menu_pressed.connect(_return_to_main_menu)
-	forge_button.pressed.connect(func() -> void: GameState.forge_enchant())
+	
+	# Replace old ForgeView container with the correct script attached at runtime
+	var old_forge := forge_view
+	forge_view = Control.new()
+	forge_view.name = "ForgeView"
+	forge_view.set_script(load("res://scripts/ui/forge_view.gd"))
+	forge_view.visible = false
+	content_host.add_child(forge_view)
+	old_forge.queue_free()
+	
 	market_list.item_activated.connect(_on_market_buy)
 	GameState.state_changed.connect(_refresh_tabs)
 
@@ -51,6 +61,12 @@ func _ready() -> void:
 	_name_intro.confirm_pressed.connect(_on_name_confirmed)
 	_name_intro.back_pressed.connect(_on_name_back_pressed)
 	add_child(_name_intro)
+
+	talents_view = Control.new()
+	talents_view.name = "TalentsView"
+	talents_view.set_script(load("res://scripts/ui/talents_view.gd"))
+	talents_view.visible = false
+	content_host.add_child(talents_view)
 
 	_set_phase(GamePhase.MENU)
 
@@ -77,6 +93,16 @@ func fit_to(panel_size: Vector2) -> void:
 		_name_intro.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		if _name_intro.has_method("on_shown"):
 			_name_intro.call_deferred("_layout")
+
+	if is_instance_valid(talents_view):
+		talents_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		if talents_view.has_method("fit_to"):
+			talents_view.fit_to(panel_size)
+
+	if is_instance_valid(forge_view):
+		forge_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		if forge_view.has_method("fit_to"):
+			forge_view.fit_to(panel_size)
 
 
 func _set_phase(phase: GamePhase) -> void:
@@ -146,6 +172,8 @@ func _select_tab(tab: Tab) -> void:
 	inventory_view.visible = tab == Tab.INVENTORY
 	forge_view.visible = tab == Tab.FORGE
 	market_view.visible = tab == Tab.MARKET
+	if is_instance_valid(talents_view):
+		talents_view.visible = tab == Tab.TALENTS
 	if nav_bar.has_method("set_active_tab"):
 		nav_bar.set_active_tab(tab)
 	if tab == Tab.INVENTORY:
@@ -169,23 +197,25 @@ func _refresh_tabs() -> void:
 		inventory_view.queue_redraw()
 	if nav_bar.has_method("queue_redraw"):
 		nav_bar.queue_redraw()
+	if is_instance_valid(talents_view) and talents_view.has_method("queue_redraw"):
+		talents_view.queue_redraw()
+	if is_instance_valid(forge_view) and forge_view.has_method("queue_redraw"):
+		forge_view.queue_redraw()
 
 	var hero := GameState.hero
-	var cost: int = 25 + hero.staff_enchant * 18
-	var risk := 0.0 if hero.staff_enchant < 5 else (18.0 + hero.staff_enchant * 3.0)
-	forge_label.text = "Staff +%d | %d gold | risk %.0f%%" % [hero.staff_enchant, cost, risk]
 
 	market_list.clear()
 	for key in GameState.market_prices.keys():
-		var price: int = int(round(GameState.market_prices[key]))
+		var discount := 0.0
+		if hero != null and hero.has_method("get_talent_shop_discount_modifier"):
+			discount = hero.get_talent_shop_discount_modifier()
+		var price: int = int(round(GameState.market_prices[key] * (1.0 - discount)))
 		var label := str(key)
 		var item_id: String = str(GameState.MARKET_ITEM_IDS.get(key, ""))
 		if not item_id.is_empty():
 			label = str(ItemDataScript.get_def(item_id).get("name", key))
 		market_list.add_item("%s  %d gold" % [label, price])
 
-	forge_label.add_theme_font_size_override("font_size", UIScaleScript.font_ui())
-	forge_button.add_theme_font_size_override("font_size", UIScaleScript.font_ui())
 	market_list.add_theme_font_size_override("font_size", UIScaleScript.font_ui())
 
 

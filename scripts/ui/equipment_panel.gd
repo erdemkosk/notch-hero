@@ -87,7 +87,7 @@ func _needs_pulse_redraw() -> bool:
 	for slot in ItemDataScript.EQUIP_SLOTS:
 		var equipped: Variant = GameState.hero.equipment.get(slot)
 		if equipped != null and typeof(equipped) == TYPE_DICTIONARY:
-			if ItemDataScript.item_rarity(equipped) == "unique":
+			if ItemDataScript.should_rarity_pulse(ItemDataScript.item_rarity(equipped)):
 				return true
 	return false
 

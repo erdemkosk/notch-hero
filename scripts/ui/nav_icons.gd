@@ -13,6 +13,22 @@ static func draw(canvas: CanvasItem, center: Vector2, tab: int, color: Color, sc
 			_draw_hammer(canvas, center, s, color)
 		3:
 			_draw_coin(canvas, center, s, color)
+		4:
+			_draw_star(canvas, center, s, color)
+
+
+static func _draw_star(canvas: CanvasItem, c: Vector2, s: float, col: Color) -> void:
+	var w := maxf(1.0, s * 0.12)
+	canvas.draw_line(c + Vector2(0, -s * 0.35), c + Vector2(0, s * 0.35), col, w)
+	canvas.draw_line(c + Vector2(-s * 0.35, 0), c + Vector2(s * 0.35, 0), col, w)
+	var pts := PackedVector2Array([
+		c + Vector2(0, -s * 0.18),
+		c + Vector2(s * 0.18, 0),
+		c + Vector2(0, s * 0.18),
+		c + Vector2(-s * 0.18, 0),
+		c + Vector2(0, -s * 0.18)
+	])
+	canvas.draw_polyline(pts, col, w)
 
 
 static func _draw_sword(canvas: CanvasItem, c: Vector2, s: float, col: Color) -> void:

@@ -7,7 +7,7 @@ const UIScaleScript = preload("res://scripts/ui/ui_scale.gd")
 const UiFont = preload("res://scripts/ui/ui_font.gd")
 const NavIconsScript = preload("res://scripts/ui/nav_icons.gd")
 
-enum Tab { COMBAT, INVENTORY, FORGE, MARKET }
+enum Tab { COMBAT, INVENTORY, FORGE, MARKET, TALENTS }
 
 const MENU_BTN_WIDTH := 46.0
 
@@ -16,6 +16,7 @@ const TAB_LABELS := {
 	Tab.INVENTORY: "Bag",
 	Tab.FORGE: "Forge",
 	Tab.MARKET: "Market",
+	Tab.TALENTS: "Perks",
 }
 
 const GOLD := Color(0.92, 0.74, 0.38)

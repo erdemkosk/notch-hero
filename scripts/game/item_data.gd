@@ -38,6 +38,68 @@ const RARITY_NAMES := {
 	"epic": "Epic",
 }
 
+const RARITY_RANK := {
+	"basic": 0,
+	"trade": 1,
+	"common": 1,
+	"rare": 2,
+	"epic": 3,
+	"unique": 3,
+}
+
+const RARITY_VFX := {
+	"basic": {
+		"rank": 0,
+		"border_alpha": 0.42,
+		"border_width": 1.2,
+	},
+	"common": {
+		"rank": 1,
+		"pulse_speed": 3.8,
+		"glow_min": 0.4,
+		"glow_max": 1.2,
+		"glow_alpha_min": 0.08,
+		"glow_alpha_max": 0.16,
+		"glow_stroke": 1.2,
+		"border_alpha": 0.62,
+		"border_width": 1.5,
+	},
+	"rare": {
+		"rank": 2,
+		"pulse_speed": 5.2,
+		"glow_min": 0.8,
+		"glow_max": 2.4,
+		"glow_alpha_min": 0.14,
+		"glow_alpha_max": 0.32,
+		"glow_stroke": 1.8,
+		"glow_stroke_pulse": 0.8,
+		"lighten_min": 0.05,
+		"lighten_max": 0.14,
+		"border_alpha": 0.78,
+		"border_width": 1.6,
+		"border_pulse": 0.35,
+		"shimmer_alpha_min": 0.07,
+		"shimmer_alpha_max": 0.16,
+	},
+	"unique": {
+		"rank": 3,
+		"pulse_speed": 6.8,
+		"glow_min": 1.0,
+		"glow_max": 3.8,
+		"glow_alpha_min": 0.18,
+		"glow_alpha_max": 0.42,
+		"glow_stroke": 2.2,
+		"glow_stroke_pulse": 1.4,
+		"lighten_min": 0.08,
+		"lighten_max": 0.24,
+		"border_alpha": 0.88,
+		"border_width": 1.8,
+		"border_pulse": 0.55,
+		"shimmer_alpha_min": 0.1,
+		"shimmer_alpha_max": 0.22,
+	},
+}
+
 const SLOT_NAMES := {
 	"weapon": "Weapon",
 	"chest": "Chest",
@@ -200,7 +262,27 @@ static func make_instance(id: String, ilvl: int = 1) -> Dictionary:
 	else:
 		var count := _mod_count_for_rarity(rarity)
 		item["mods"] = _roll_mods_for(str(def.get("slot", "")), count, ilvl)
+
+	# Roll starting upgrade level (0 to 5) for gear
+	item["upgrade"] = _roll_random_upgrade()
+
 	return item
+
+
+static func _roll_random_upgrade() -> int:
+	var rng := randf()
+	if rng < 0.70:
+		return 0
+	elif rng < 0.88:
+		return 1
+	elif rng < 0.95:
+		return 2
+	elif rng < 0.98:
+		return 3
+	elif rng < 0.995:
+		return 4
+	else:
+		return 5
 
 
 static func make_consumable_stack(id: String, count: int = 1) -> Dictionary:
@@ -278,12 +360,16 @@ static func apply_consumable_effects(hero: Variant, item: Dictionary) -> Diction
 
 	var heal := float(use.get("heal_hp", 0.0))
 	if heal > 0.0:
+		if hero.has_method("get_talent_potion_potency_modifier"):
+			heal *= (1.0 + hero.get_talent_potion_potency_modifier())
 		var before: float = float(hero.hp)
 		hero.hp = minf(float(hero.max_hp), float(hero.hp) + heal)
 		result["heal_hp"] = float(hero.hp) - before
 
 	var mana := float(use.get("restore_mana", 0.0))
 	if mana > 0.0:
+		if hero.has_method("get_talent_potion_potency_modifier"):
+			mana *= (1.0 + hero.get_talent_potion_potency_modifier())
 		var before_m: float = float(hero.mana)
 		hero.mana = minf(float(hero.max_mana), float(hero.mana) + mana)
 		result["restore_mana"] = float(hero.mana) - before_m
@@ -329,6 +415,11 @@ static func display_name(item: Dictionary) -> String:
 		name = "%s %s" % [prefix, name]
 	if not suffix.is_empty():
 		name = "%s %s" % [name, suffix]
+
+	var upgrade := int(item.get("upgrade", 0))
+	if upgrade > 0:
+		name = "%s +%d" % [name, upgrade]
+
 	return name
 
 
@@ -367,6 +458,28 @@ static func item_rarity(item: Dictionary) -> String:
 
 static func rarity_name(rarity: String) -> String:
 	return str(RARITY_NAMES.get(rarity, rarity.capitalize()))
+
+
+static func rarity_rank(rarity: String) -> int:
+	return int(RARITY_RANK.get(rarity, 0))
+
+
+static func item_rarity_rank(item: Dictionary) -> int:
+	return rarity_rank(item_rarity(item))
+
+
+static func rarity_vfx(rarity: String) -> Dictionary:
+	if RARITY_VFX.has(rarity):
+		return (RARITY_VFX[rarity] as Dictionary).duplicate(true)
+	if rarity == "trade":
+		return (RARITY_VFX["common"] as Dictionary).duplicate(true)
+	if rarity == "epic":
+		return (RARITY_VFX["unique"] as Dictionary).duplicate(true)
+	return (RARITY_VFX["basic"] as Dictionary).duplicate(true)
+
+
+static func should_rarity_pulse(rarity: String) -> bool:
+	return rarity_rank(rarity) >= 1
 
 
 static func slot_name(slot_type: String) -> String:
@@ -809,6 +922,12 @@ static func compute_instance_stats(item: Dictionary) -> Dictionary:
 	var stats := compute_stats(def)
 	var mods: Array = item.get("mods", [])
 	if typeof(mods) != TYPE_ARRAY:
+		var upgrade := int(item.get("upgrade", 0))
+		if upgrade > 0:
+			var multiplier := 1.0 + upgrade * 0.12
+			for key in stats.keys():
+				if key != "bag_slots" and key != "power":
+					stats[key] = stats[key] * multiplier
 		return stats
 
 	var mod_power := 0
@@ -825,6 +944,13 @@ static func compute_instance_stats(item: Dictionary) -> Dictionary:
 		var value := float(entry.get("value", 0.0))
 		stats[stat_key] = stats.get(stat_key, 0.0) + value
 		mod_power += int(entry.get("tier", 1))
+
+	var upgrade := int(item.get("upgrade", 0))
+	if upgrade > 0:
+		var multiplier := 1.0 + upgrade * 0.12
+		for key in stats.keys():
+			if key != "bag_slots" and key != "power":
+				stats[key] = stats[key] * multiplier
 
 	stats["power"] = int(stats.get("power", 1)) + mod_power
 	return stats

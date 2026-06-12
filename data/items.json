@@ -10,6 +10,7 @@
       "stackable": true,
       "max_stack": 5,
       "sell_gold": 4,
+      "sprite": "res://assets/items/potions/health_potion.png",
       "use": { "heal_hp": 10 }
     },
     {
@@ -22,6 +23,7 @@
       "stackable": true,
       "max_stack": 5,
       "sell_gold": 9,
+      "sprite": "res://assets/items/potions/health_potion.png",
       "use": { "heal_hp": 22 }
     },
     {
@@ -34,6 +36,7 @@
       "stackable": true,
       "max_stack": 5,
       "sell_gold": 4,
+      "sprite": "res://assets/items/potions/mana_potion.png",
       "use": { "restore_mana": 15 }
     },
     {
@@ -46,6 +49,7 @@
       "stackable": true,
       "max_stack": 5,
       "sell_gold": 9,
+      "sprite": "res://assets/items/potions/mana_potion.png",
       "use": { "restore_mana": 30 }
     },
     {
@@ -77,6 +81,28 @@
       "stackable": true,
       "max_stack": 20,
       "sell_gold": 7
+    },
+    {
+      "id": "scrolls/upgrade-standard",
+      "name": "Upgrade Scroll",
+      "slot": "consumable",
+      "category": "scroll",
+      "rarity": "uncommon",
+      "stackable": true,
+      "max_stack": 99,
+      "sell_gold": 25,
+      "sprite": "res://assets/items/scrolls/standard_scroll.png"
+    },
+    {
+      "id": "scrolls/upgrade-blessed",
+      "name": "Blessed Upgrade Scroll",
+      "slot": "consumable",
+      "category": "scroll",
+      "rarity": "rare",
+      "stackable": true,
+      "max_stack": 99,
+      "sell_gold": 120,
+      "sprite": "res://assets/items/scrolls/blessed_scroll.png"
     }
   ]
 }

@@ -324,25 +324,82 @@ func move_potion_bar_to_inventory(kind: String, prefer_index: int = -1) -> bool:
 	return true
 
 
-func forge_enchant() -> bool:
-	var cost: int = 25 + hero.staff_enchant * 18
-	if hero.gold < cost:
-		_log("Forge: not enough gold (%d)" % cost)
-		return false
+func attempt_forge_upgrade(item_source: String, item_key: Variant, scroll_id: String) -> Dictionary:
+	var item: Variant = null
+	if item_source == "inventory":
+		var idx := int(item_key)
+		if idx >= 0 and idx < hero.inventory.size():
+			item = hero.inventory[idx]
+	elif item_source == "equipment":
+		var slot := str(item_key)
+		item = hero.equipment.get(slot)
 
-	hero.gold -= cost
-	if hero.staff_enchant >= 5 and randf() < 0.18 + hero.staff_enchant * 0.03:
-		hero.staff_enchant = 0
-		_log("Forge: staff BURNED! +0")
-		request_save()
-		state_changed.emit()
-		return false
+	if item == null or typeof(item) != TYPE_DICTIONARY:
+		return {"success": false, "reason": "Item not found"}
 
-	hero.staff_enchant += 1
-	_log("Forge: staff is now +%d" % hero.staff_enchant)
+	# Find scroll
+	var scroll_idx := -1
+	for i in range(hero.inventory.size()):
+		var inv_item := hero.inventory[i]
+		if inv_item.get("id", "") == scroll_id and ItemDataScript.stack_count(inv_item) > 0:
+			scroll_idx = i
+			break
+
+	if scroll_idx == -1:
+		return {"success": false, "reason": "Scroll not found"}
+
+	var current_upg := int(item.get("upgrade", 0))
+	if current_upg >= 10:
+		return {"success": false, "reason": "Item is already +10"}
+
+	var chance := 0.0
+	if scroll_id == "scrolls/upgrade-standard":
+		var rates := [1.0, 0.95, 0.85, 0.65, 0.50, 0.35, 0.20, 0.10, 0.04, 0.01]
+		chance = rates[current_upg]
+	elif scroll_id == "scrolls/upgrade-blessed":
+		var rates := [1.0, 1.0, 1.0, 0.90, 0.75, 0.60, 0.40, 0.25, 0.12, 0.05]
+		chance = rates[current_upg]
+
+	var roll := randf()
+	var is_success := roll <= chance
+
+	# Deletion / upgrades
+	if is_success:
+		item["upgrade"] = current_upg + 1
+		_log("Forge Success: %s is now +%d!" % [ItemDataScript.display_name(item), current_upg + 1])
+	else:
+		# Burn the item!
+		if item_source == "inventory":
+			var idx := int(item_key)
+			hero.inventory.remove_at(idx)
+		elif item_source == "equipment":
+			var slot := str(item_key)
+			hero.equipment[slot] = null
+		_log("Forge FAIL: %s burned!" % ItemDataScript.display_name(item))
+
+	# Deduct scroll (find it again since indices might have changed if item was in inventory and removed)
+	var final_scroll_idx := -1
+	for i in range(hero.inventory.size()):
+		var inv_item := hero.inventory[i]
+		if inv_item.get("id", "") == scroll_id and ItemDataScript.stack_count(inv_item) > 0:
+			final_scroll_idx = i
+			break
+
+	if final_scroll_idx != -1:
+		var scroll_item := hero.inventory[final_scroll_idx]
+		var new_count := ItemDataScript.stack_count(scroll_item) - 1
+		if new_count <= 0:
+			hero.inventory.remove_at(final_scroll_idx)
+		else:
+			scroll_item["count"] = new_count
+			hero.inventory[final_scroll_idx] = scroll_item
+
+	hero.refresh_combat_stats()
+	refresh_combat_pacing()
 	request_save()
 	state_changed.emit()
-	return true
+
+	return {"success": true, "upgraded": is_success, "new_level": current_upg + 1 if is_success else 0}
 
 
 func mark_inventory_seen() -> void:
@@ -503,7 +560,10 @@ func buy_crystal(key: String) -> bool:
 	if not market_prices.has(key):
 		return false
 	var price: float = market_prices[key]
-	var cost := int(round(price))
+	var discount := 0.0
+	if hero != null and hero.has_method("get_talent_shop_discount_modifier"):
+		discount = hero.get_talent_shop_discount_modifier()
+	var cost := int(round(price * (1.0 - discount)))
 	if hero.gold < cost:
 		_log("Market: not enough gold")
 		return false

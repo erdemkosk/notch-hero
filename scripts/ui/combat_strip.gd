@@ -107,6 +107,8 @@ func _apply_shake_visuals() -> void:
 
 var _scroll_x := 0.0
 var _flash := 0.0
+var _loot_flash := 0.0
+var _loot_flash_color := Color(1.0, 0.85, 0.35)
 var _screen_shake := 0.0
 var _shake_phase := 0.0
 var _ground_y := 0.0
@@ -147,7 +149,7 @@ var _boss_display_name := ""
 var _boss_intro_alpha := 0.0
 var _boss_enter := 0.0
 var _boss_shake := 0.0
-var _boss_sting_player: AudioStreamPlayer
+
 var _queue_breath_time := 0.0
 var _awaiting_enemy_strike := false
 var _awaiting_hero_strike := false
@@ -193,9 +195,6 @@ func _ready() -> void:
 	add_child(_overlay_layer)
 	_overlay_layer.draw.connect(_draw_combat_overlay)
 
-	_boss_sting_player = AudioStreamPlayer.new()
-	_boss_sting_player.name = "BossSting"
-	add_child(_boss_sting_player)
 
 	resized.connect(_layout_hero)
 	call_deferred("_connect_game_state")
@@ -394,32 +393,9 @@ func _start_boss_intro(boss_name: String) -> void:
 	_combat_locked = true
 	_scroll_frozen = true
 	_mark_intro_finish_generation()
-	_play_boss_sting()
 	_queue_overlay_redraw()
 
 
-func _play_boss_sting() -> void:
-	if not is_instance_valid(_boss_sting_player):
-		return
-	var sample := AudioStreamWAV.new()
-	sample.format = AudioStreamWAV.FORMAT_16_BITS
-	sample.mix_rate = 22050
-	sample.stereo = false
-	var duration := BOSS_STING_SEC
-	var count: int = int(22050.0 * duration)
-	var data := PackedByteArray()
-	data.resize(count * 2)
-	for i in count:
-		var t := float(i) / 22050.0
-		var env := 1.0 - (t / duration)
-		var freq := 92.0 + 48.0 * (1.0 - t / duration)
-		var s := int(clampf(sin(t * freq * TAU) * env * 9000.0, -32768.0, 32767.0))
-		data[i * 2] = s & 0xFF
-		data[i * 2 + 1] = (s >> 8) & 0xFF
-	sample.data = data
-	_boss_sting_player.stream = sample
-	_boss_sting_player.volume_db = -8.0
-	_boss_sting_player.play()
 
 
 func _start_portal_intro(hold_sec: float, fade_sec: float) -> void:
@@ -605,6 +581,10 @@ func _process(delta: float) -> void:
 	elif size.x >= 10.0:
 		if _flash > 0.0:
 			_flash -= delta
+		if _loot_flash > 0.0:
+			_loot_flash = maxf(0.0, _loot_flash - delta * (1.8 + _loot_flash * 0.6))
+			_queue_bars_redraw()
+			queue_redraw()
 
 		if _combat_locked:
 			if not _scroll_frozen:
@@ -1058,6 +1038,14 @@ func _damage_color(kind: String, alpha: float) -> Color:
 			return Color(0.45, 0.78, 1.0, alpha)
 		"potion_gain":
 			return Color(0.98, 0.86, 0.42, alpha)
+		"loot_basic":
+			return Color(0.72, 0.74, 0.7, alpha)
+		"loot_common":
+			return Color(0.78, 0.92, 0.62, alpha)
+		"loot_rare":
+			return Color(0.45, 0.82, 1.0, alpha)
+		"loot_unique":
+			return Color(1.0, 0.82, 0.28, alpha)
 		_:
 			return Color(1.0, 0.92, 0.45, alpha)
 
@@ -1074,6 +1062,12 @@ func _draw_damage_numbers(canvas: CanvasItem) -> void:
 		var font_size := UIScaleScript.font(15)
 		if kind == "dot":
 			font_size = UIScaleScript.font(11)
+		elif kind.begins_with("loot_unique"):
+			font_size = UIScaleScript.font(13)
+		elif kind.begins_with("loot_rare"):
+			font_size = UIScaleScript.font(12)
+		elif kind.begins_with("loot_"):
+			font_size = UIScaleScript.font(10)
 		elif kind.begins_with("buff"):
 			font_size = UIScaleScript.font(9)
 		var text: String = str(pop["text"])
@@ -1109,15 +1103,16 @@ func _on_enemy_defeated(rewards: Dictionary) -> void:
 	if _sprites.size() > 0:
 		freed_sprite = _sprites[0]
 		_sprites.remove_at(0)
-		if is_instance_valid(freed_sprite):
-			get_tree().create_timer(0.45).timeout.connect(func() -> void:
-				if is_instance_valid(freed_sprite):
-					freed_sprite.queue_free()
-			)
 
 	if has_loot:
 		_schedule_loot_after_death(freed_sprite, rewards)
 		return
+
+	if is_instance_valid(freed_sprite):
+		get_tree().create_timer(0.45).timeout.connect(func() -> void:
+			if is_instance_valid(freed_sprite):
+				freed_sprite.queue_free()
+		)
 
 	if _actors.size() > 0:
 		_actors.remove_at(0)
@@ -1140,6 +1135,51 @@ func _advance_wave_after_pause() -> void:
 	)
 
 
+func _celebrate_loot_drop(item: Dictionary) -> void:
+	if item.is_empty():
+		return
+
+	var rarity := ItemDataScript.item_rarity(item)
+	var rank := ItemDataScript.rarity_rank(rarity)
+	var name := ItemDataScript.display_name(item)
+	var label := ItemDataScript.rarity_name(rarity)
+	var col: Color = ItemDataScript.RARITY_COLORS.get(rarity, ItemDataScript.RARITY_COLORS["common"])
+	var kind := "loot_%s" % rarity
+	var pos := _popup_pos_for_hero() + Vector2(0.0, -UIScaleScript.px(22.0))
+	var life := 0.95 + float(rank) * 0.35
+
+	_loot_flash_color = col
+	_loot_flash = 0.12 + float(rank) * 0.14
+	_trigger_screen_shake(0.06 + float(rank) * 0.11)
+
+	match rank:
+		0:
+			_spawn_floating_text(pos, name, kind, 0.85)
+		1:
+			_spawn_floating_text(pos, name, kind, life)
+		2:
+			_spawn_floating_text(pos, "%s!" % label, kind, life)
+			_spawn_floating_text(
+				pos + Vector2(0.0, -UIScaleScript.px(16.0)),
+				name,
+				kind,
+				life * 1.08
+			)
+		_:
+			_spawn_floating_text(pos, "%s DROP!" % label.to_upper(), kind, life * 1.15)
+			_spawn_floating_text(
+				pos + Vector2(0.0, -UIScaleScript.px(18.0)),
+				name,
+				kind,
+				life * 1.2
+			)
+			_loot_flash = maxf(_loot_flash, 0.38)
+			_trigger_screen_shake(0.42)
+
+	_queue_bars_redraw()
+	queue_redraw()
+
+
 func _schedule_loot_after_death(sprite: AnimatedSprite2D, rewards: Dictionary) -> void:
 	var pending := (rewards as Dictionary).duplicate(true)
 	var flow_token := _wave_advance_token
@@ -1147,14 +1187,14 @@ func _schedule_loot_after_death(sprite: AnimatedSprite2D, rewards: Dictionary) -
 	var grant := func() -> void:
 		if not is_inside_tree():
 			return
+		if flow_token != _wave_advance_token:
+			if is_instance_valid(sprite):
+				sprite.queue_free()
+			return
 		var granted := GameState.grant_kill_loot(pending)
 		if granted.get("item_dropped", false):
-			_spawn_floating_text(
-				_popup_pos_for_hero() + Vector2(0.0, -UIScaleScript.px(18.0)),
-				"Loot!",
-				"buff_atk",
-				1.05
-			)
+			var dropped: Dictionary = pending.get("item", {}) as Dictionary
+			_celebrate_loot_drop(dropped)
 		if granted.get("potion_dropped", false):
 			_spawn_floating_text(
 				_popup_pos_for_hero() + Vector2(0.0, -UIScaleScript.px(10.0)),
@@ -1165,9 +1205,8 @@ func _schedule_loot_after_death(sprite: AnimatedSprite2D, rewards: Dictionary) -
 			_queue_bars_redraw()
 		if _actors.size() > 0:
 			_actors.remove_at(0)
-		# Death/retry may have invalidated this kill's wave flow.
-		if flow_token != _wave_advance_token:
-			return
+		if is_instance_valid(sprite):
+			sprite.queue_free()
 		if GameState.combat.living_count() > 0:
 			return
 		_advance_wave_after_pause()
@@ -1341,6 +1380,19 @@ func _draw() -> void:
 
 	if _flash > 0.0:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(0.95, 0.35, 0.3, _flash * 0.28), true)
+
+	if _loot_flash > 0.0:
+		var lc := _loot_flash_color
+		draw_rect(
+			Rect2(Vector2.ZERO, size),
+			Color(lc.r, lc.g, lc.b, _loot_flash * 0.24),
+			true
+		)
+		draw_rect(
+			Rect2(Vector2.ZERO, size),
+			Color(1.0, 1.0, 1.0, _loot_flash * 0.06),
+			true
+		)
 
 	if shake_off != Vector2.ZERO:
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

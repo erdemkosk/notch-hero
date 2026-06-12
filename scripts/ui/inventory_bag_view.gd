@@ -107,7 +107,7 @@ func _needs_pulse_redraw() -> bool:
 	if InventoryDragScript.active:
 		return true
 	for item in GameState.hero.inventory:
-		if ItemDataScript.item_rarity(item) == "unique":
+		if ItemDataScript.should_rarity_pulse(ItemDataScript.item_rarity(item)):
 			return true
 	return false
 
@@ -565,12 +565,18 @@ func _draw_rarity_frame(rect: Rect2, item: Dictionary, alpha: float = 1.0) -> vo
 
 
 func _draw_item_icon(rect: Rect2, item: Dictionary, alpha: float = 1.0) -> void:
+	var inner := InventorySlotDrawScript.inner_content_rect(rect)
 	if alpha < 0.99:
-		var inner := InventorySlotDrawScript.inner_content_rect(rect)
 		draw_rect(inner, Color(0.2, 0.16, 0.12, alpha * 0.5))
 	if InventoryIconDrawScript.draw_in_slot(self, rect, item):
+		if alpha >= 0.99:
+			ItemRarityFrameScript.draw_icon_shimmer(
+				self,
+				inner,
+				ItemDataScript.item_rarity(item),
+				_pulse_phase
+			)
 		return
-	var inner := ItemDataScript.icon_inner_rect(rect)
 	draw_rect(inner, Color(0.28, 0.22, 0.16, 0.85 * alpha))
 	draw_rect(inner, Color(0.42, 0.34, 0.26, alpha), false, 1.0)
 
