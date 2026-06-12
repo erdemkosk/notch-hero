@@ -133,6 +133,8 @@ var _hud_stage_name := ""
 var _hud_wave_text := ""
 var _hud_world := 1
 var _biome: Dictionary = CombatBiomeScript.resolve("desert")
+var _biome_id := "desert"
+var _biome_particles: Array[Dictionary] = []
 var _actors: Array[CombatEnemyActorScript] = []
 var _sprites: Array[AnimatedSprite2D] = []
 
@@ -316,9 +318,11 @@ func _on_stage_entered(info: Dictionary) -> void:
 	var wave_count: int = int(info.get("wave_count", 1))
 	var biome_id: String = str(info.get("biome", "desert"))
 
-	if transition == "stage" or transition == "retry":
+	if transition == "stage" or transition == "retry" or _biome_id != biome_id:
 		GameState.combat.clear_wave()
+		_biome_id = biome_id
 		_biome = CombatBiomeScript.resolve(biome_id)
+		_init_biome_particles()
 
 	_banner_title = label
 	_banner_biome = CombatBiomeScript.label_for(biome_id)
@@ -574,6 +578,7 @@ func _process(delta: float) -> void:
 	_update_damage_numbers(delta)
 	_update_potion_flash(delta)
 	_update_overlay_anim(delta)
+	_update_biome_particles(delta)
 	_queue_breath_time += delta
 
 	if _intro_phase != "":
@@ -978,10 +983,14 @@ func _spawn_damage_number(at: Vector2, amount: float, kind: String, prefix_minus
 func _spawn_floating_text(at: Vector2, text: String, kind: String, life: float = 1.05) -> void:
 	if text.is_empty():
 		return
+	var vx := randf_range(-38.0, 38.0)
+	var vy := randf_range(-105.0, -135.0)
 	_damage_numbers.append({
 		"text": text,
 		"x": at.x,
 		"y": at.y,
+		"vx": vx,
+		"vy": vy,
 		"life": life,
 		"max_life": life,
 		"kind": kind,
@@ -995,7 +1004,12 @@ func _update_damage_numbers(delta: float) -> void:
 	while i < _damage_numbers.size():
 		var pop: Dictionary = _damage_numbers[i]
 		pop["life"] = float(pop["life"]) - delta
-		pop["y"] = float(pop["y"]) - 34.0 * delta
+		
+		var gravity := 320.0
+		pop["vy"] = float(pop["vy"]) + gravity * delta
+		pop["x"] = float(pop["x"]) + float(pop["vx"]) * delta
+		pop["y"] = float(pop["y"]) + float(pop["vy"]) * delta
+		
 		if float(pop["life"]) <= 0.0:
 			_damage_numbers.remove_at(i)
 		else:
@@ -1059,17 +1073,28 @@ func _draw_damage_numbers(canvas: CanvasItem) -> void:
 		var max_life := float(pop["max_life"])
 		var alpha := clampf(life / max_life, 0.0, 1.0)
 		var kind: String = str(pop["kind"])
-		var font_size := UIScaleScript.font(15)
+		
+		# Dynamic scale multiplier based on progress (pop-up scale animation)
+		var progress := 1.0 - (life / max_life)
+		var scale_f := 1.0
+		if progress < 0.22:
+			scale_f = lerpf(1.38, 1.0, progress / 0.22)
+		else:
+			scale_f = lerpf(1.0, 0.8, (progress - 0.22) / 0.78)
+		
+		var base_sz := 15
 		if kind == "dot":
-			font_size = UIScaleScript.font(11)
+			base_sz = 11
 		elif kind.begins_with("loot_unique"):
-			font_size = UIScaleScript.font(13)
+			base_sz = 13
 		elif kind.begins_with("loot_rare"):
-			font_size = UIScaleScript.font(12)
+			base_sz = 12
 		elif kind.begins_with("loot_"):
-			font_size = UIScaleScript.font(10)
+			base_sz = 10
 		elif kind.begins_with("buff"):
-			font_size = UIScaleScript.font(9)
+			base_sz = 9
+			
+		var font_size := int(round(UIScaleScript.font(base_sz) * scale_f))
 		var text: String = str(pop["text"])
 		var x := float(pop["x"])
 		var y := float(pop["y"])
@@ -1375,6 +1400,7 @@ func _draw() -> void:
 	_draw_scrolling_ground(horizon)
 
 	_draw_biome_decor(horizon)
+	_draw_biome_particles()
 	_draw_top_status_strip()
 	_draw_stage_hud()
 
@@ -1776,3 +1802,140 @@ func _draw_hp_bar(canvas: CanvasItem, x: float, y: float, width: float, ratio: f
 			true
 		)
 	InventorySlotDrawScript._draw_rounded_stroke(canvas, rect, r, Color(0.22, 0.18, 0.14, 0.85), UIScaleScript.px(0.75))
+
+
+func _init_biome_particles() -> void:
+	_biome_particles.clear()
+	var max_particles := 0
+	match _biome_id:
+		"lava": max_particles = 45
+		"snow": max_particles = 65
+		"void": max_particles = 40
+		"forest": max_particles = 30
+	
+	if max_particles > 0:
+		for i in range(max_particles / 2):
+			_spawn_biome_particle(true)
+
+
+func _spawn_biome_particle(random_y: bool) -> void:
+	var w := size.x if size.x > 10.0 else 400.0
+	var h := size.y if size.y > 10.0 else 144.0
+	
+	var px := randf_range(0.0, w)
+	var py := 0.0
+	var vx := 0.0
+	var vy := 0.0
+	var color := Color.WHITE
+	var size_px := 2.0
+	var life := randf_range(2.0, 5.0)
+	var p_seed := randf() * 100.0
+	
+	match _biome_id:
+		"lava":
+			py = h if not random_y else randf_range(0.0, h)
+			vx = randf_range(-15.0, 15.0)
+			vy = randf_range(-40.0, -85.0)
+			var r := randf()
+			if r < 0.33:
+				color = Color(1.0, 0.82, 0.15, randf_range(0.6, 0.95))
+			elif r < 0.66:
+				color = Color(1.0, 0.45, 0.05, randf_range(0.6, 0.9))
+			else:
+				color = Color(0.92, 0.15, 0.05, randf_range(0.5, 0.85))
+			size_px = randf_range(1.0, 2.5)
+			life = randf_range(1.5, 3.0)
+		"snow":
+			py = 0.0 if not random_y else randf_range(0.0, h)
+			vx = randf_range(-8.0, 8.0)
+			vy = randf_range(18.0, 38.0)
+			color = Color(0.92, 0.96, 1.0, randf_range(0.5, 0.9))
+			size_px = randf_range(1.5, 3.0)
+			life = randf_range(3.5, 6.0)
+		"void":
+			px = randf_range(0.0, w)
+			py = randf_range(0.0, h)
+			vx = randf_range(-8.0, 8.0)
+			vy = randf_range(-8.0, 8.0)
+			var r := randf()
+			if r < 0.5:
+				color = Color(0.62, 0.28, 0.88, randf_range(0.35, 0.75))
+			else:
+				color = Color(0.32, 0.58, 0.95, randf_range(0.35, 0.75))
+			size_px = randf_range(1.2, 3.0)
+			life = randf_range(2.5, 5.0)
+		"forest":
+			py = 0.0 if not random_y else randf_range(0.0, h)
+			vx = randf_range(-12.0, 20.0)
+			vy = randf_range(15.0, 32.0)
+			var r := randf()
+			if r < 0.4:
+				color = Color(0.38, 0.65, 0.22, randf_range(0.5, 0.85))
+			elif r < 0.8:
+				color = Color(0.52, 0.58, 0.15, randf_range(0.5, 0.8))
+			else:
+				color = Color(0.68, 0.45, 0.18, randf_range(0.4, 0.75))
+			size_px = randf_range(1.5, 3.0)
+			life = randf_range(3.0, 5.5)
+
+	_biome_particles.append({
+		"pos": Vector2(px, py),
+		"vel": Vector2(vx, vy),
+		"color": color,
+		"size": size_px,
+		"life": life,
+		"max_life": life,
+		"seed": p_seed
+	})
+
+
+func _update_biome_particles(delta: float) -> void:
+	var max_particles := 0
+	match _biome_id:
+		"lava": max_particles = 45
+		"snow": max_particles = 65
+		"void": max_particles = 40
+		"forest": max_particles = 30
+
+	var i := 0
+	while i < _biome_particles.size():
+		var p: Dictionary = _biome_particles[i]
+		p["life"] = float(p["life"]) - delta
+		if float(p["life"]) <= 0.0:
+			_biome_particles.remove_at(i)
+		else:
+			p["pos"] = (p["pos"] as Vector2) + (p["vel"] as Vector2) * delta
+			if _biome_id == "snow":
+				p["pos"].x += sin((p["life"] as float) * 2.0 + (p["seed"] as float)) * 12.0 * delta
+			elif _biome_id == "forest":
+				p["pos"].x += cos((p["life"] as float) * 1.5 + (p["seed"] as float)) * 8.0 * delta
+			i += 1
+
+	if _biome_particles.size() < max_particles:
+		var spawn_count := randi() % 3 + 1
+		for j in spawn_count:
+			if _biome_particles.size() >= max_particles:
+				break
+			_spawn_biome_particle(false)
+
+
+func _draw_biome_particles() -> void:
+	for p in _biome_particles:
+		var pos: Vector2 = p["pos"]
+		var size_px: float = p["size"]
+		var color: Color = p["color"]
+		var life: float = p["life"]
+		var max_life: float = p["max_life"]
+		
+		var alpha_mult := 1.0
+		if life < 0.5:
+			alpha_mult = life / 0.5
+		elif (max_life - life) < 0.5:
+			alpha_mult = (max_life - life) / 0.5
+		
+		var draw_color := Color(color.r, color.g, color.b, color.a * alpha_mult)
+		
+		if _biome_id == "void":
+			draw_circle(pos, size_px * 1.5, Color(draw_color.r, draw_color.g, draw_color.b, draw_color.a * 0.35))
+		
+		draw_circle(pos, size_px, draw_color)

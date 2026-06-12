@@ -209,12 +209,149 @@ func _draw_canvas() -> void:
 	var layout := _compute_layout()
 	var font := UiFont.get_font()
 
-	# Draw grid connections
+	# 1. Draw runic magic circles and guidelines
+	_draw_runic_background(layout)
+
+	# 2. Draw grid connections
 	_draw_connections(layout, hero)
 
-	# Draw talent nodes
+	# 3. Draw talent nodes
 	for id in hero.TALENT_DEFS.keys():
 		_draw_talent_node(layout, hero, id, font)
+
+
+func _draw_runic_background(layout: Dictionary) -> void:
+	var canvas_sz := canvas.size
+	var center := canvas_sz * 0.5
+	var nexus_center := center + _pan_offset
+
+	# Spacing for the grid of runic constellations
+	var grid_w := UIScaleScript.px(420.0)
+	var grid_h := UIScaleScript.px(360.0)
+
+	var color_circle := Color(0.24, 0.2, 0.16, 0.32)
+	var color_lines := Color(0.18, 0.15, 0.12, 0.24)
+
+	# Draw in a 5x5 grid covering the entire possible scroll range (-2 to 2)
+	for dx in range(-2, 3):
+		for dy in range(-2, 3):
+			var circle_center := nexus_center + Vector2(dx * grid_w, dy * grid_h)
+			
+			# Viewport frustum culling: skip drawing if the circle is completely off-screen
+			var max_r := UIScaleScript.px(220.0)
+			if circle_center.x + max_r < 0.0 or circle_center.x - max_r > canvas_sz.x:
+				continue
+			if circle_center.y + max_r < 0.0 or circle_center.y - max_r > canvas_sz.y:
+				continue
+
+			var is_center := dx == 0 and dy == 0
+			if is_center:
+				# Nexus Center Circle (Full elaborate drawing)
+				var r1 := UIScaleScript.px(72.0)
+				var r2 := UIScaleScript.px(144.0)
+				var r3 := UIScaleScript.px(216.0)
+
+				canvas.draw_circle(nexus_center, r1, Color.TRANSPARENT)
+				canvas.draw_arc(nexus_center, r1, 0.0, TAU, 64, color_circle, UIScaleScript.px(1.0))
+				canvas.draw_arc(nexus_center, r2, 0.0, TAU, 80, color_circle, UIScaleScript.px(1.2))
+				canvas.draw_arc(nexus_center, r3, 0.0, TAU, 96, color_circle, UIScaleScript.px(0.8))
+
+				var line_len := UIScaleScript.px(260.0)
+				var angles := [0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0]
+				for deg in angles:
+					var rad := deg_to_rad(deg)
+					var end_pos := nexus_center + Vector2(cos(rad), sin(rad)) * line_len
+					canvas.draw_line(nexus_center, end_pos, color_lines, UIScaleScript.px(1.0))
+
+				for i in range(angles.size()):
+					var deg: float = angles[i]
+					var rad := deg_to_rad(deg)
+					var rune_pos := nexus_center + Vector2(cos(rad), sin(rad)) * r2
+
+					# Might=Red (Right), Wealth=Gold (Left), Wisdom=Blue (Top), Vitality=Green (Bottom)
+					var rune_color := Color(0.32, 0.28, 0.25, 0.38)
+					if deg == 0.0 or deg == 45.0 or deg == 315.0:
+						rune_color = Color(0.58, 0.18, 0.18, 0.44) # Red tint (Might)
+					elif deg == 180.0 or deg == 135.0 or deg == 225.0:
+						rune_color = Color(0.52, 0.42, 0.15, 0.44) # Gold/Orange tint (Wealth)
+					elif deg == 270.0:
+						rune_color = Color(0.18, 0.28, 0.48, 0.44) # Blue tint (Wisdom)
+					elif deg == 90.0:
+						rune_color = Color(0.18, 0.42, 0.22, 0.44) # Green tint (Vitality)
+
+					_draw_rune_symbol(rune_pos, UIScaleScript.px(12.0), rune_color, i)
+			else:
+				# Secondary/Orbital Runic Circles (Simpler, faint style)
+				var r_sub := UIScaleScript.px(80.0)
+				var sub_circle_color := Color(color_circle.r, color_circle.g, color_circle.b, color_circle.a * 0.45)
+				canvas.draw_arc(circle_center, r_sub, 0.0, TAU, 48, sub_circle_color, UIScaleScript.px(0.8))
+				canvas.draw_arc(circle_center, r_sub * 0.4, 0.0, TAU, 32, sub_circle_color, UIScaleScript.px(0.5))
+				
+				# Place 4 runes at cardinal directions in the sub-circles
+				var sub_angles := [0.0, 90.0, 180.0, 270.0]
+				for i in range(sub_angles.size()):
+					var deg: float = sub_angles[i]
+					var rad := deg_to_rad(deg)
+					var rune_pos := circle_center + Vector2(cos(rad), sin(rad)) * r_sub
+					var seed_val := int(abs(dx) * 3 + abs(dy) * 7 + i)
+					_draw_rune_symbol(rune_pos, UIScaleScript.px(8.0), sub_circle_color, seed_val)
+
+
+func _draw_rune_symbol(pos: Vector2, rune_size: float, color: Color, type: int) -> void:
+	var half := rune_size * 0.5
+	var line_w := UIScaleScript.px(1.5)
+	match type % 8:
+		0:
+			# Ingwaz (Diamond shape)
+			var pts := PackedVector2Array([
+				pos + Vector2(0.0, -half),
+				pos + Vector2(half, 0.0),
+				pos + Vector2(0.0, half),
+				pos + Vector2(-half, 0.0),
+				pos + Vector2(0.0, -half)
+			])
+			canvas.draw_polyline(pts, color, line_w)
+		1:
+			# Gebo (Cross)
+			canvas.draw_line(pos + Vector2(-half, -half), pos + Vector2(half, half), color, line_w)
+			canvas.draw_line(pos + Vector2(half, -half), pos + Vector2(-half, half), color, line_w)
+		2:
+			# Algiz (Tree branch)
+			canvas.draw_line(pos + Vector2(0.0, half), pos + Vector2(0.0, -half), color, line_w)
+			canvas.draw_line(pos + Vector2(-half, -half), pos + Vector2(0.0, 0.0), color, line_w)
+			canvas.draw_line(pos + Vector2(half, -half), pos + Vector2(0.0, 0.0), color, line_w)
+		3:
+			# Kenaz (Wedge)
+			canvas.draw_line(pos + Vector2(half, -half), pos + Vector2(-half, 0.0), color, line_w)
+			canvas.draw_line(pos + Vector2(-half, 0.0), pos + Vector2(half, half), color, line_w)
+		4:
+			# Teiwaz (Up Arrow)
+			canvas.draw_line(pos + Vector2(0.0, half), pos + Vector2(0.0, -half), color, line_w)
+			canvas.draw_line(pos + Vector2(-half, -half + half * 0.5), pos + Vector2(0.0, -half), color, line_w)
+			canvas.draw_line(pos + Vector2(half, -half + half * 0.5), pos + Vector2(0.0, -half), color, line_w)
+		5:
+			# Laguz (Hook)
+			canvas.draw_line(pos + Vector2(0.0, half), pos + Vector2(0.0, -half), color, line_w)
+			canvas.draw_line(pos + Vector2(0.0, -half), pos + Vector2(half, -half + half * 0.5), color, line_w)
+		6:
+			# Dagaz (Hourglass)
+			var pts := PackedVector2Array([
+				pos + Vector2(-half, -half),
+				pos + Vector2(half, -half),
+				pos + Vector2(-half, half),
+				pos + Vector2(half, half),
+				pos + Vector2(-half, -half)
+			])
+			canvas.draw_polyline(pts, color, line_w)
+		7:
+			# Sowilo (Lightning)
+			var pts := PackedVector2Array([
+				pos + Vector2(half, -half),
+				pos + Vector2(-half, -half + half * 0.5),
+				pos + Vector2(half, half - half * 0.5),
+				pos + Vector2(-half, half)
+			])
+			canvas.draw_polyline(pts, color, line_w)
 
 
 func _draw_connections(layout: Dictionary, hero: HeroScript) -> void:

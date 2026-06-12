@@ -83,3 +83,22 @@ static func get_mouse_local_on_notch_screen() -> Vector2:
 	if bridge == null or not bridge.is_available():
 		return Vector2.ZERO
 	return bridge.get_mouse_local_on_notch_screen()
+
+
+static func set_dock_icon_visible(visible: bool) -> bool:
+	var bridge := get_bridge()
+	if bridge == null or not bridge.is_available():
+		return false
+	if bridge.has_method("set_dock_icon_visible"):
+		return bridge.set_dock_icon_visible(visible)
+	return false
+
+
+static func create_tray_menu() -> bool:
+	var bridge := get_bridge()
+	if bridge == null or not bridge.is_available():
+		return false
+	if bridge.has_method("create_tray_menu"):
+		return bridge.create_tray_menu()
+	return false
+

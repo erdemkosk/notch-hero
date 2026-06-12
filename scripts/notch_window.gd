@@ -30,6 +30,9 @@ var _startup_done := false
 var _anim_progress := 0.0
 var _anim_target := 0.0
 var _top_glow: Control
+var _approaching := false
+var _approach_proximity := 0.0
+var _pulse_time := 0.0
 
 
 func _ready() -> void:
@@ -48,6 +51,12 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if not _startup_done:
 		return
+
+	_pulse_time += delta
+	if _approaching:
+		if is_instance_valid(_top_glow):
+			_top_glow.queue_redraw()
+
 	if is_equal_approx(_anim_progress, _anim_target):
 		return
 
@@ -88,12 +97,33 @@ func _startup_sequence() -> void:
 		return
 
 	NotchBridgeService.apply_to_window(_window_id)
+
+	# Connect tray signals if available
+	var bridge := NotchBridgeService.get_bridge()
+	if bridge != null:
+		if bridge.has_signal("tray_open_pressed"):
+			bridge.connect("tray_open_pressed", _on_tray_open_pressed)
+		if bridge.has_signal("tray_quit_pressed"):
+			bridge.connect("tray_quit_pressed", _on_tray_quit_pressed)
+
+	# Hide Dock icon and create system tray menu
+	NotchBridgeService.set_dock_icon_visible(false)
+	NotchBridgeService.create_tray_menu()
+
 	_anchor_panel_hidden()
 
 	print("NotchHero panel=%.0fx%.0f geometri=%s" % [_panel_width, PANEL_HEIGHT, _geometry.source])
 
 	_mouse_timer.start()
 	_startup_done = true
+
+
+func _on_tray_open_pressed() -> void:
+	_request_open()
+
+
+func _on_tray_quit_pressed() -> void:
+	get_tree().quit()
 
 
 func _anchor_panel_hidden() -> void:
@@ -111,10 +141,13 @@ func _setup_window_flags() -> void:
 	_game_window.borderless = true
 	_game_window.unresizable = true
 	_game_window.mouse_passthrough = true
-	get_viewport().transparent_bg = false
+	_game_window.transparent = true
+	get_viewport().transparent_bg = true
 
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true, _window_id)
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_TRANSPARENT, true, _window_id)
 	set_keyboard_input_enabled(false)
+
 
 
 func set_keyboard_input_enabled(enabled: bool) -> void:
@@ -136,9 +169,46 @@ func _on_mouse_poll() -> void:
 
 	if _is_in_hover_zone(local_mouse):
 		_hide_timer.stop()
+		_approaching = false
+		_approach_proximity = 0.0
 		_request_open()
 	elif _is_panel_active() and _hide_timer.is_stopped():
 		_hide_timer.start()
+	elif not _is_panel_active():
+		if _is_in_approach_zone(local_mouse):
+			_hide_timer.stop()
+			_approaching = true
+			var dist := local_mouse.y - _notch_hover_max_y()
+			_approach_proximity = clampf(1.0 - (dist / 80.0), 0.0, 1.0)
+			_request_approach_state()
+		else:
+			_approaching = false
+			_approach_proximity = 0.0
+			if _state == PanelState.HIDDEN and visual_root.visible:
+				_finish_hide()
+
+
+func _is_in_approach_zone(local_mouse: Vector2) -> bool:
+	# Restrict approach zone width to be near the physical notch width (with a small margin)
+	var half_band: float = _geometry.width * 0.5 + 30.0
+	if absf(local_mouse.x - _geometry.center_x) > half_band:
+		return false
+
+	var approach_y_max := _notch_hover_max_y() + 80.0
+	if local_mouse.y > _notch_hover_max_y() and local_mouse.y <= approach_y_max:
+		return true
+
+	return false
+
+
+func _request_approach_state() -> void:
+	if _state == PanelState.HIDDEN and not visual_root.visible:
+		_place_panel(true)
+		visual_root.visible = true
+		_anim_progress = 0.0
+		_apply_panel_visual(0.0)
+	
+	_game_window.mouse_passthrough = true
 
 
 func _panel_top_y() -> float:
@@ -158,7 +228,14 @@ func _is_panel_active() -> bool:
 
 
 func _is_in_hover_zone(local_mouse: Vector2) -> bool:
-	var half_band: float = _panel_width * 0.5
+	# Restrict hover trigger width to the physical notch itself when closed.
+	# When active, allow hover across the entire panel width to keep it open.
+	var half_band: float
+	if _is_panel_active():
+		half_band = _panel_width * 0.5
+	else:
+		half_band = _geometry.width * 0.5 + 12.0
+
 	if absf(local_mouse.x - _geometry.center_x) > half_band:
 		return false
 
@@ -201,9 +278,18 @@ func _request_close() -> void:
 
 func _finish_hide() -> void:
 	_state = PanelState.HIDDEN
-	NotchBridgeService.hide_panel(_window_id)
-	visual_root.visible = false
 	_reset_panel_visual()
+	var local_mouse: Vector2 = NotchBridgeService.get_mouse_local_on_notch_screen()
+	if _is_in_approach_zone(local_mouse):
+		_approaching = true
+		var dist := local_mouse.y - _notch_hover_max_y()
+		_approach_proximity = clampf(1.0 - (dist / 80.0), 0.0, 1.0)
+		_request_approach_state()
+	else:
+		_approaching = false
+		_approach_proximity = 0.0
+		NotchBridgeService.hide_panel(_window_id)
+		visual_root.visible = false
 
 
 func _place_panel(visible: bool) -> void:
@@ -271,7 +357,10 @@ func _setup_top_glow() -> void:
 
 
 func _draw_top_glow() -> void:
-	if _anim_progress <= 0.01 or not is_instance_valid(_top_glow):
+	var active := _anim_progress > 0.01
+	if not active and not _approaching:
+		return
+	if not is_instance_valid(_top_glow):
 		return
 
 	var opening := _anim_target > _anim_progress or _state == PanelState.OPENING
@@ -280,8 +369,14 @@ func _draw_top_glow() -> void:
 	if width < 1.0:
 		return
 
+	var peak := 0.0
+	if active:
+		peak = eased * 0.62
+	else:
+		var pulse := 0.62 + sin(_pulse_time * 6.5) * 0.22
+		peak = _approach_proximity * pulse * 0.55
+
 	var glow_h := UIScaleScript.px(30.0)
-	var peak := eased * 0.62
 	var bands := 7
 	for i in bands:
 		var frac := float(i) / float(bands)

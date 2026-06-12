@@ -13,6 +13,7 @@ const ItemDataScript = preload("res://scripts/game/item_data.gd")
 
 var _altar_panel: Control
 var _upgrade_button: Button
+var _anvil_texture: Texture2D = null
 
 # Clickable slots (hitbox buttons)
 var _equip_slot_btn: Button
@@ -137,6 +138,20 @@ func _ready() -> void:
 	_scroll_popup.add_child(_scroll_popup_list)
 
 	draw.connect(func(): if is_instance_valid(_altar_panel): _altar_panel.queue_redraw())
+
+	# Load anvil texture dynamically with fallback for unimported headless files
+	var path := "res://assets/ui/anvil.png"
+	if ResourceLoader.exists(path):
+		_anvil_texture = load(path) as Texture2D
+	if _anvil_texture == null:
+		var fs_path := ProjectSettings.globalize_path(path)
+		if FileAccess.file_exists(fs_path):
+			var image := Image.new()
+			var err := image.load(fs_path)
+			if err == OK and image.get_width() > 0:
+				_anvil_texture = ImageTexture.create_from_image(image)
+			elif err != OK:
+				push_warning("Anvil texture load failed (%s): %s" % [err, path])
 
 	_refresh_lists()
 	_on_resized()
@@ -406,8 +421,12 @@ func _process(delta: float) -> void:
 		spark["life"] -= delta
 		if spark["life"] > 0.0:
 			spark["pos"] += spark["vel"] * delta
-			spark["vel"].y += 380.0 * delta # Gravity effect
-			spark["vel"] *= 0.98 # Drag deceleration
+			if spark.get("is_ash", false):
+				spark["vel"].y -= 15.0 * delta
+				spark["pos"].x += sin(spark["life"] * 5.0) * 15.0 * delta
+			else:
+				spark["vel"].y += 380.0 * delta # Gravity effect
+				spark["vel"] *= 0.98 # Drag deceleration
 			active_sparks.append(spark)
 	_sparks = active_sparks
 
@@ -490,6 +509,27 @@ func _execute_upgrade() -> void:
 			_forge_state = "failure"
 			_selected_item_source = ""
 			_selected_item_key = null
+			
+			# Spawn crumbling ash particles
+			var cx := _altar_panel.size.x * 0.5
+			var layout := InventorySlotMetricsScript.resolve_layout()
+			var slot_size := float(layout.get("slot_side", UIScaleScript.px(44.0)))
+			var output_y := UIScaleScript.px(95.0)
+			var impact_pos := Vector2(cx, output_y + slot_size * 0.5)
+			
+			for j in range(45):
+				var angle := randf_range(-PI * 0.85, -PI * 0.15)
+				var speed := randf_range(25.0, 95.0)
+				var vel := Vector2(cos(angle), sin(angle)) * speed
+				var life := randf_range(0.9, 1.8)
+				_sparks.append({
+					"pos": impact_pos + Vector2(randf_range(-slot_size * 0.3, slot_size * 0.3), randf_range(-slot_size * 0.3, slot_size * 0.3)),
+					"vel": vel,
+					"color": Color(0.36, 0.36, 0.38, randf_range(0.55, 0.95)) if randf() < 0.65 else Color(0.92, 0.42, 0.15, randf_range(0.55, 0.9)),
+					"life": life,
+					"max_life": life,
+					"is_ash": true
+				})
 		_anim_timer = 1.6 # Show result screen banner for 1.6s
 	else:
 		_forge_state = "idle"
@@ -616,6 +656,30 @@ func _draw_altar() -> void:
 
 	# 4. Draw Result/Output Slot Node using standard inventory slot styling
 	var result_rect := Rect2(cx - slot_size * 0.5, output_y, slot_size, slot_size)
+	var result_center := result_rect.get_center()
+
+	# Draw Runic Ritual Circle
+	var runic_color := Color(0.85, 0.72, 0.45, 0.16)
+	if _forge_state == "flashing":
+		runic_color = Color(1.0, 0.65, 0.15, 0.55 + sin(_pulse_phase * 2.0) * 0.15)
+	
+	var r_runic := slot_size * 1.05
+	_altar_panel.draw_arc(result_center, r_runic, 0.0, TAU, 48, runic_color, UIScaleScript.px(1.0))
+	_altar_panel.draw_arc(result_center, r_runic * 0.82, 0.0, TAU, 40, runic_color, UIScaleScript.px(0.8))
+	
+	var tick_angle_step := TAU / 12.0
+	var rotation_offset := _pulse_phase * (0.45 if _forge_state == "flashing" else 0.08)
+	for i in range(12):
+		var angle := i * tick_angle_step + rotation_offset
+		var dir := Vector2(cos(angle), sin(angle))
+		var p_start := result_center + dir * (r_runic * 0.82)
+		var p_end := result_center + dir * r_runic
+		_altar_panel.draw_line(p_start, p_end, runic_color, UIScaleScript.px(1.0))
+
+	# Draw Vector Anvil Visual
+	_draw_anvil(_altar_panel, result_center, slot_size)
+
+	# Draw main result slot frame
 	InventorySlotDrawScript.draw_square(_altar_panel, result_rect, false)
 
 	if _forge_state == "success":
@@ -753,7 +817,23 @@ func _draw_altar() -> void:
 
 	# 8. Full-screen success/burned banners
 	if _forge_state == "success":
-		_altar_panel.draw_rect(Rect2(Vector2.ZERO, size_r), Color(0.1, 0.35, 0.12, 0.85))
+		# Solid dark green backing
+		_altar_panel.draw_rect(Rect2(Vector2.ZERO, size_r), Color(0.06, 0.22, 0.08, 0.82))
+		
+		# Draw expanding golden shockwave
+		var glow_elapsed := 1.6 - _anim_timer
+		var wave_radius := glow_elapsed * UIScaleScript.px(280.0)
+		if wave_radius < size_r.x:
+			var wave_a := clampf(1.0 - (glow_elapsed / 1.4), 0.0, 1.0)
+			_altar_panel.draw_arc(result_center, wave_radius, 0.0, TAU, 72, Color(1.0, 0.92, 0.65, wave_a * 0.85), UIScaleScript.px(4.0))
+			_altar_panel.draw_arc(result_center, wave_radius - UIScaleScript.px(6.0), 0.0, TAU, 64, Color(1.0, 0.82, 0.35, wave_a * 0.5), UIScaleScript.px(2.0))
+		
+		# Draw holy halo glow
+		for r_i in range(8):
+			var rad := slot_size * (1.1 + float(r_i) * 0.28)
+			var val_a := 0.28 * (1.0 - float(r_i) / 8.0)
+			_altar_panel.draw_circle(result_center, rad, Color(1.0, 0.88, 0.52, val_a * 0.58))
+			
 		var text := "UPGRADE SUCCESS!"
 		var t_sz := UIScaleScript.font_emphasis()
 		var tw := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, t_sz).x
@@ -764,7 +844,17 @@ func _draw_altar() -> void:
 		_altar_panel.draw_string(font, Vector2(cx - b_tw * 0.5, size_r.y * 0.65), bonus, HORIZONTAL_ALIGNMENT_LEFT, -1, font_sz, Color(0.96, 0.9, 0.72))
 
 	elif _forge_state == "failure":
-		_altar_panel.draw_rect(Rect2(Vector2.ZERO, size_r), Color(0.38, 0.08, 0.08, 0.92))
+		# Dark charcoal/ash backing
+		_altar_panel.draw_rect(Rect2(Vector2.ZERO, size_r), Color(0.18, 0.05, 0.05, 0.88))
+		
+		# Draw expanding ash shockwave
+		var fail_elapsed := 1.6 - _anim_timer
+		var wave_radius := fail_elapsed * UIScaleScript.px(220.0)
+		if wave_radius < size_r.x:
+			var wave_a := clampf(1.0 - (fail_elapsed / 1.4), 0.0, 1.0)
+			_altar_panel.draw_arc(result_center, wave_radius, 0.0, TAU, 60, Color(0.42, 0.38, 0.35, wave_a * 0.62), UIScaleScript.px(3.0))
+			_altar_panel.draw_arc(result_center, wave_radius + UIScaleScript.px(4.0), 0.0, TAU, 64, Color(0.85, 0.35, 0.12, wave_a * 0.28), UIScaleScript.px(1.5))
+			
 		var text := "ITEM BURNED!"
 		var t_sz := UIScaleScript.font_emphasis()
 		var tw := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, t_sz).x
@@ -773,3 +863,26 @@ func _draw_altar() -> void:
 		var loss := "Item destroyed completely"
 		var l_tw := font.get_string_size(loss, HORIZONTAL_ALIGNMENT_LEFT, -1, font_sz).x
 		_altar_panel.draw_string(font, Vector2(cx - l_tw * 0.5, size_r.y * 0.65), loss, HORIZONTAL_ALIGNMENT_LEFT, -1, font_sz, Color(0.85, 0.75, 0.72))
+
+
+func _draw_anvil(canvas: Control, result_center: Vector2, slot_size: float) -> void:
+	if _anvil_texture == null:
+		return
+
+	var cy := result_center.y
+	var cx := result_center.x
+
+	# Scale the pixel art anvil relative to the upgrade slot
+	var anvil_w := slot_size * 2.3
+	var anvil_h := slot_size * 2.3
+	
+	# Position the anvil so its top plate aligns right under the result slot
+	var rect := Rect2(cx - anvil_w * 0.5, cy + slot_size * 0.72 - anvil_h * 0.5, anvil_w, anvil_h)
+
+	var modulate_col := Color.WHITE
+	if _forge_state == "flashing":
+		# Pulse reddish-orange to simulate heat glowing through the metal
+		var pulse := sin(_pulse_phase * 4.0) * 0.18 + 0.82
+		modulate_col = Color(1.0, pulse * 0.75, pulse * 0.55)
+
+	canvas.draw_texture_rect(_anvil_texture, rect, false, modulate_col)

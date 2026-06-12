@@ -38,9 +38,30 @@ static func draw(canvas: CanvasItem, bounds: Rect2, params: Dictionary) -> void:
 static func _draw_panel(canvas: CanvasItem, bounds: Rect2, accent: Color, accent_dark: Color) -> void:
 	var r := UIScaleScript.px(6.0)
 	var inset := bounds.grow(-UIScaleScript.px(1.0))
-	InventorySlotDrawScript._draw_rounded_fill(canvas, inset, r, PANEL_DARK)
-	InventorySlotDrawScript._draw_rounded_fill(canvas, inset.grow(-UIScaleScript.px(2.0)), r - 1.0, PANEL_MID)
+	
+	# Blend base panel darks with the biome accent color to give it thematic colors
+	var bg_dark := PANEL_DARK.lerp(accent_dark, 0.15)
+	var bg_mid := PANEL_MID.lerp(accent_dark, 0.12)
+	
+	InventorySlotDrawScript._draw_rounded_fill(canvas, inset, r, bg_dark)
+	InventorySlotDrawScript._draw_rounded_fill(canvas, inset.grow(-UIScaleScript.px(2.0)), r - 1.0, bg_mid)
 	InventorySlotDrawScript._draw_rounded_stroke(canvas, inset, r, GOLD_DIM, UIScaleScript.px(1.0))
+
+	# Sweeping reflection shimmer shine
+	var time_ms := Time.get_ticks_msec()
+	var shimmer_speed := 0.15 # pixels per ms
+	var width_total := bounds.size.x + UIScaleScript.px(300.0)
+	var shimmer_x := fmod(time_ms * shimmer_speed, width_total) - UIScaleScript.px(150.0)
+	
+	if shimmer_x > inset.position.x and shimmer_x < inset.end.x:
+		var sh_w := UIScaleScript.px(14.0)
+		var line_pts := PackedVector2Array([
+			Vector2(shimmer_x, inset.position.y),
+			Vector2(shimmer_x + sh_w, inset.position.y),
+			Vector2(shimmer_x - UIScaleScript.px(12.0) + sh_w, inset.end.y),
+			Vector2(shimmer_x - UIScaleScript.px(12.0), inset.end.y)
+		])
+		canvas.draw_polygon(line_pts, [Color(1.0, 0.94, 0.82, 0.06)])
 
 	var hl := Rect2(
 		inset.position.x + r,
@@ -207,6 +228,10 @@ static func _draw_wave_segments(
 			canvas.draw_rect(hi, Color(1.0, 0.95, 0.85, 0.12 if done else 0.18))
 
 		if current:
-			InventorySlotDrawScript._draw_rounded_stroke(canvas, seg, UIScaleScript.px(1.5), GOLD_BRIGHT, UIScaleScript.px(1.0))
+			var pulse := 0.55 + sin(Time.get_ticks_msec() * 0.007) * 0.35
+			var pulse_color := Color(GOLD_BRIGHT.r, GOLD_BRIGHT.g, GOLD_BRIGHT.b, pulse)
+			InventorySlotDrawScript._draw_rounded_stroke(canvas, seg, UIScaleScript.px(1.5), pulse_color, UIScaleScript.px(1.0))
+			var glow_rect := seg.grow(UIScaleScript.px(1.0))
+			canvas.draw_rect(glow_rect, Color(accent.r, accent.g, accent.b, pulse * 0.16), false, UIScaleScript.px(1.0))
 
 		x += seg_w + gap

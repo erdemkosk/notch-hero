@@ -5,11 +5,38 @@
 #include <godot_cpp/variant/vector2i.hpp>
 #include <godot_cpp/variant/vector2.hpp>
 
+namespace godot {
+class NotchBridge;
+static NotchBridge *notch_bridge_instance = nullptr;
+}
+
 #ifdef __APPLE__
 #import <AppKit/AppKit.h>
 
 using godot::DisplayServer;
 using godot::Dictionary;
+
+@interface NotchBridgeTrayHandler : NSObject
+- (void)statusItemOpenPressed:(id)sender;
+- (void)statusItemQuitPressed:(id)sender;
+@end
+
+static NotchBridgeTrayHandler *tray_handler = nil;
+static NSStatusItem *status_item = nil;
+
+@implementation NotchBridgeTrayHandler
+- (void)statusItemOpenPressed:(id)sender {
+	if (godot::notch_bridge_instance != nullptr) {
+		godot::notch_bridge_instance->emit_signal("tray_open_pressed");
+	}
+}
+
+- (void)statusItemQuitPressed:(id)sender {
+	if (godot::notch_bridge_instance != nullptr) {
+		godot::notch_bridge_instance->emit_signal("tray_quit_pressed");
+	}
+}
+@end
 
 static NSWindow *notch_bridge_get_window(int64_t window_id) {
 	DisplayServer *display_server = DisplayServer::get_singleton();
@@ -223,6 +250,16 @@ static void notch_bridge_apply_overlay(NSWindow *window, bool capture_excluded) 
 
 namespace godot {
 
+NotchBridge::NotchBridge() {
+	notch_bridge_instance = this;
+}
+
+NotchBridge::~NotchBridge() {
+	if (notch_bridge_instance == this) {
+		notch_bridge_instance = nullptr;
+	}
+}
+
 void NotchBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_available"), &NotchBridge::is_available);
 	ClassDB::bind_method(D_METHOD("apply_native_overlay", "window_id"), &NotchBridge::apply_native_overlay);
@@ -232,6 +269,12 @@ void NotchBridge::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_notch_geometry_for_window", "window_id"), &NotchBridge::get_notch_geometry_for_window);
 	ClassDB::bind_method(D_METHOD("get_notch_size"), &NotchBridge::get_notch_size);
 	ClassDB::bind_method(D_METHOD("get_mouse_local_on_notch_screen"), &NotchBridge::get_mouse_local_on_notch_screen);
+
+	ClassDB::bind_method(D_METHOD("set_dock_icon_visible", "visible"), &NotchBridge::set_dock_icon_visible);
+	ClassDB::bind_method(D_METHOD("create_tray_menu"), &NotchBridge::create_tray_menu);
+
+	ADD_SIGNAL(MethodInfo("tray_open_pressed"));
+	ADD_SIGNAL(MethodInfo("tray_quit_pressed"));
 }
 
 bool NotchBridge::is_available() const {
@@ -339,6 +382,53 @@ Vector2 NotchBridge::get_mouse_local_on_notch_screen() const {
 	return notch_bridge_mouse_local(screen);
 #else
 	return Vector2(0.0, 0.0);
+#endif
+}
+
+bool NotchBridge::set_dock_icon_visible(bool visible) {
+#ifdef __APPLE__
+	dispatch_async(dispatch_get_main_queue(), ^{
+		NSApplication *app = [NSApplication sharedApplication];
+		if (visible) {
+			[app setActivationPolicy:NSApplicationActivationPolicyRegular];
+		} else {
+			[app setActivationPolicy:NSApplicationActivationPolicyAccessory];
+		}
+	});
+	return true;
+#else
+	return false;
+#endif
+}
+
+bool NotchBridge::create_tray_menu() {
+#ifdef __APPLE__
+	if (status_item != nil) {
+		return true;
+	}
+
+	dispatch_async(dispatch_get_main_queue(), ^{
+		if (tray_handler == nil) {
+			tray_handler = [[NotchBridgeTrayHandler alloc] init];
+		}
+		status_item = [NSStatusBar.systemStatusBar statusItemWithLength:NSVariableStatusItemLength];
+		status_item.button.title = @"⛰️";
+		status_item.button.toolTip = @"Notch Hero";
+
+		NSMenu *menu = [[NSMenu alloc] init];
+		[menu addItemWithTitle:@"Open Panel" action:@selector(statusItemOpenPressed:) keyEquivalent:@""];
+		[menu addItem:[NSMenuItem separatorItem]];
+		[menu addItemWithTitle:@"Quit" action:@selector(statusItemQuitPressed:) keyEquivalent:@""];
+
+		for (NSMenuItem *item in menu.itemArray) {
+			item.target = tray_handler;
+		}
+
+		status_item.menu = menu;
+	});
+	return true;
+#else
+	return false;
 #endif
 }
 
