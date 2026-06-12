@@ -204,7 +204,7 @@ func _ready() -> void:
 
 
 func _connect_game_state() -> void:
-	if GameState.combat == null:
+	if GameState == null or GameState.combat == null:
 		return
 	GameState.combat.spell_cast.connect(_on_spell_cast)
 	GameState.combat.hero_damaged.connect(_on_hero_damaged)
@@ -572,7 +572,7 @@ func _living_actor_count() -> int:
 
 
 func _process(delta: float) -> void:
-	if not GameState.has_hero() or GameState.session_paused:
+	if GameState == null or not GameState.has_hero() or GameState.session_paused:
 		return
 
 	_update_damage_numbers(delta)
@@ -1385,6 +1385,8 @@ func _draw_combat_bars() -> void:
 
 
 func _draw() -> void:
+	if GameState == null:
+		return
 	if size.x < 10.0 or size.y < 10.0:
 		return
 
@@ -1395,8 +1397,59 @@ func _draw() -> void:
 	var horizon := size.y * 0.42
 	var sky: Color = _biome.get("sky", Color(0.5, 0.5, 0.5))
 	var ground: Color = _biome.get("ground", Color(0.6, 0.6, 0.5))
-	draw_rect(Rect2(Vector2.ZERO, size), sky, true)
-	draw_rect(Rect2(0, horizon, size.x, size.y - horizon), ground, true)
+
+	# 1. Premium Multi-Color Sky Gradient
+	var sky_top := sky.lightened(0.18)
+	var sky_bottom := sky.darkened(0.08)
+	
+	match _biome_id:
+		"desert":
+			sky_top = Color(0.16, 0.1, 0.26) # Twilight Deep Violet
+			sky_bottom = Color(0.85, 0.45, 0.22) # Warm Sunset Orange/Amber
+		"forest":
+			sky_top = Color(0.18, 0.32, 0.46) # Deep Morning Forest Blue
+			sky_bottom = Color(0.48, 0.62, 0.55) # Soft Misty Green/Gold
+		"water":
+			sky_top = Color(0.25, 0.55, 0.78) # Bright Tropical Blue
+			sky_bottom = Color(0.62, 0.82, 0.88) # Oasis Warm Cyan
+		"lava":
+			sky_top = Color(0.06, 0.04, 0.05) # Ash Obsidian Dark
+			sky_bottom = Color(0.72, 0.16, 0.06) # Deep Red Magma Radiance
+		"snow":
+			sky_top = Color(0.12, 0.18, 0.35) # Polar Dusk Navy
+			sky_bottom = Color(0.68, 0.78, 0.92) # Soft Arctic Glare
+		"ruins":
+			sky_top = Color(0.2, 0.18, 0.22) # Gloomy Stone Grey
+			sky_bottom = Color(0.42, 0.38, 0.36) # Dusty Horizon Rose
+		"industrial":
+			sky_top = Color(0.1, 0.08, 0.12) # Smoggy Steel Black
+			sky_bottom = Color(0.42, 0.22, 0.14) # Furnance Orange Glow
+		"void":
+			sky_top = Color(0.02, 0.01, 0.05) # Infinite Space Black
+			sky_bottom = Color(0.22, 0.08, 0.38) # Neon Magenta Nebula
+
+	var sky_poly := PackedVector2Array([
+		Vector2.ZERO,
+		Vector2(size.x, 0.0),
+		Vector2(size.x, horizon),
+		Vector2(0.0, horizon)
+	])
+	var sky_colors := PackedColorArray([sky_top, sky_top, sky_bottom, sky_bottom])
+	draw_polygon(sky_poly, sky_colors)
+
+	# 2. Perspective Depth Ground Gradient
+	var ground_top := ground
+	var ground_bottom := (_biome.get("ground_dark", ground.darkened(0.25)) as Color).darkened(0.15)
+	
+	var ground_poly := PackedVector2Array([
+		Vector2(0.0, horizon),
+		Vector2(size.x, horizon),
+		Vector2(size.x, size.y),
+		Vector2(0.0, size.y)
+	])
+	var ground_colors := PackedColorArray([ground_top, ground_top, ground_bottom, ground_bottom])
+	draw_polygon(ground_poly, ground_colors)
+
 	_draw_scrolling_ground(horizon)
 
 	_draw_biome_decor(horizon)
@@ -1439,6 +1492,8 @@ func _draw_biome_decor(horizon: float) -> void:
 			_draw_scrolling_ruins(horizon)
 		"industrial":
 			_draw_scrolling_industrial(horizon)
+		"void":
+			_draw_void_grid(horizon)
 		_:
 			_draw_scrolling_dunes(horizon)
 			_draw_scrolling_palms(horizon)
@@ -1477,25 +1532,58 @@ func _draw_tree(x: float, horizon: float, scale: float, trunk: Color, leaf: Colo
 	var w := 18.0 * scale
 	var trunk_w := 5.0 * scale
 	var base_y := horizon + 4.0
-	draw_rect(Rect2(x + w * 0.5 - trunk_w * 0.5, base_y - h * 0.35, trunk_w, h * 0.38), trunk)
-	draw_rect(Rect2(x, base_y - h, w, h * 0.55), leaf)
-	draw_rect(Rect2(x + w * 0.15, base_y - h * 0.82, w * 0.7, h * 0.28), leaf_d)
+	
+	# Wind sway animation using global time
+	var time := Time.get_ticks_msec() * 0.0016
+	var sway := sin(time + x * 0.035) * 3.2 * scale
+
+	# Swaying trunk
+	var pts_trunk := PackedVector2Array([
+		Vector2(x + w * 0.5 - trunk_w * 0.5, base_y),
+		Vector2(x + w * 0.5 + trunk_w * 0.5, base_y),
+		Vector2(x + w * 0.5 + trunk_w * 0.5 + sway * 0.3, base_y - h * 0.35),
+		Vector2(x + w * 0.5 - trunk_w * 0.5 + sway * 0.3, base_y - h * 0.35)
+	])
+	draw_polygon(pts_trunk, [trunk])
+
+	# Organic circular layered foliage (overlapping circles with highlight and shadow)
+	var leaf_center := Vector2(x + w * 0.5 + sway, base_y - h * 0.55)
+	# Shadow/back layer
+	draw_circle(leaf_center + Vector2(-1.5 * scale, -1.5 * scale), w * 0.55, leaf_d)
+	# Mid/main foliage
+	draw_circle(leaf_center, w * 0.48, leaf)
+	# Highlight/top layer
+	draw_circle(leaf_center + Vector2(2.0 * scale, -2.5 * scale), w * 0.32, leaf.lightened(0.18))
 
 
 func _draw_scrolling_dunes(horizon: float) -> void:
 	var dune: Color = _biome.get("ground_dark", Color(0.7, 0.6, 0.3))
-	var period := size.x * 0.55
-	for i in range(-1, 3):
-		var base_x := _parallax_band_x(i, 0.35, period)
-		var pts := PackedVector2Array([
-			Vector2(base_x, horizon + 6),
-			Vector2(base_x + size.x * 0.22, horizon - 4),
-			Vector2(base_x + size.x * 0.42, horizon + 8),
-			Vector2(base_x + size.x * 0.58, horizon + 2),
-			Vector2(base_x + size.x * 0.58, size.y),
-			Vector2(base_x, size.y),
-		])
-		draw_colored_polygon(pts, dune)
+	var period := size.x * 0.58
+	
+	# Two layers of scrolling sand dunes with different heights and speeds for parallax depth
+	for layer in range(2):
+		var speed := 0.25 + layer * 0.15
+		var height_offset := 3.0 + layer * 7.0
+		var color := dune if layer == 0 else dune.darkened(0.12)
+		var spacing := size.x * (0.52 - layer * 0.08)
+		
+		var pts := PackedVector2Array()
+		var start_x := -40.0
+		var end_x := size.x + 40.0
+		var step := 15.0
+		
+		var x_off := _parallax_x(speed, spacing)
+		var curr_x := start_x
+		while curr_x <= end_x:
+			var relative_x := curr_x - x_off
+			# Smooth rolling dunes using sine wave
+			var dune_y := horizon + height_offset + sin(relative_x * 0.015) * 6.5
+			pts.append(Vector2(curr_x, dune_y))
+			curr_x += step
+			
+		pts.append(Vector2(end_x, size.y))
+		pts.append(Vector2(start_x, size.y))
+		draw_colored_polygon(pts, color)
 
 
 func _draw_scrolling_palms(horizon: float) -> void:
@@ -1503,31 +1591,100 @@ func _draw_scrolling_palms(horizon: float) -> void:
 	var trunk: Color = _biome.get("trunk", Color(0.45, 0.3, 0.15))
 	var leaf: Color = _biome.get("accent", Color(0.2, 0.55, 0.25))
 	var x: float = _parallax_x(0.85, spacing)
+	
+	var time := Time.get_ticks_msec() * 0.0012
 	while x < size.x + spacing:
-		draw_rect(Rect2(x - 2, horizon - 18, 4, 18), trunk)
-		draw_rect(Rect2(x - 10, horizon - 20, 8, 4), leaf)
-		draw_rect(Rect2(x + 2, horizon - 18, 8, 4), leaf)
+		var sway := sin(time * 2.0 + x * 0.05) * 2.6
+		var base_y := horizon + 2.0
+		var trunk_h := 24.0
+		
+		# Curved/bent palm trunk
+		var pts_trunk := PackedVector2Array([
+			Vector2(x - 1.5, base_y),
+			Vector2(x - 1.0 + sway * 0.4, base_y - trunk_h * 0.5),
+			Vector2(x - 0.8 + sway, base_y - trunk_h),
+			Vector2(x + 0.8 + sway, base_y - trunk_h),
+			Vector2(x + 1.0 + sway * 0.4, base_y - trunk_h * 0.5),
+			Vector2(x + 1.5, base_y)
+		])
+		draw_polygon(pts_trunk, [trunk])
+		
+		# Curved palm leaf stems
+		var leaf_center := Vector2(x + sway, base_y - trunk_h)
+		# Left drooping leaves
+		draw_line(leaf_center, leaf_center + Vector2(-9.0, 3.5 + sway * 0.25), leaf, 1.8)
+		draw_line(leaf_center, leaf_center + Vector2(-6.0, 6.0), leaf.darkened(0.15), 1.2)
+		# Right drooping leaves
+		draw_line(leaf_center, leaf_center + Vector2(9.0, 3.5 - sway * 0.25), leaf, 1.8)
+		draw_line(leaf_center, leaf_center + Vector2(6.0, 6.0), leaf.darkened(0.15), 1.2)
+		# Center top sprout
+		draw_line(leaf_center, leaf_center + Vector2(sway * 0.2, -6.5), leaf.lightened(0.12), 1.5)
+		
 		x += spacing
 
 
 func _draw_scrolling_water(horizon: float) -> void:
 	var water: Color = _biome.get("accent", Color(0.22, 0.62, 0.72))
-	var period := size.x * 0.5
-	for i in range(-1, 3):
-		var base_x := _parallax_band_x(i, 0.5, period)
-		draw_rect(Rect2(base_x, horizon + 2, size.x * 0.48, 10), water.darkened(0.08))
-		draw_rect(Rect2(base_x + 18, horizon + 10, size.x * 0.32, 6), water.lightened(0.08))
+	var time := Time.get_ticks_msec() * 0.001
+	
+	# Ripple layers moving at different parallax speeds to simulate liquid flow
+	for layer in range(2):
+		var color := water.darkened(0.08) if layer == 0 else water.lightened(0.12)
+		color.a = 0.58 if layer == 0 else 0.35
+		var speed := 0.35 + layer * 0.25
+		var height_offset := 5.0 + layer * 7.0
+		var spacing := size.x * 0.38
+		
+		var pts := PackedVector2Array()
+		var start_x := -25.0
+		var end_x := size.x + 25.0
+		var step := 12.0
+		
+		var x_off := _parallax_x(speed, spacing)
+		var curr_x := start_x
+		while curr_x <= end_x:
+			var relative_x := curr_x - x_off
+			# Undulating water ripples
+			var wave_y := horizon + height_offset + sin(relative_x * 0.03 + time * 3.2) * 2.8
+			pts.append(Vector2(curr_x, wave_y))
+			curr_x += step
+			
+		pts.append(Vector2(end_x, horizon + 22.0))
+		pts.append(Vector2(start_x, horizon + 22.0))
+		draw_polygon(pts, [color])
 
 
 func _draw_scrolling_lava(horizon: float) -> void:
 	var glow: Color = _biome.get("accent", Color(0.95, 0.42, 0.12))
 	var crack: Color = _biome.get("ground_dark", Color(0.18, 0.1, 0.08))
-	var period := size.x * 0.45
+	var time := Time.get_ticks_msec() * 0.001
+	
+	# Liquid molten magma base wave
+	var pts := PackedVector2Array()
+	var start_x := -30.0
+	var end_x := size.x + 30.0
+	var step := 10.0
+	
+	var x_off := _parallax_x(0.42, size.x * 0.5)
+	var curr_x := start_x
+	while curr_x <= end_x:
+		var relative_x := curr_x - x_off
+		# Flowing magma waves
+		var wave_y := horizon + 4.0 + sin(relative_x * 0.038 + time * 4.2) * 3.0
+		pts.append(Vector2(curr_x, wave_y))
+		curr_x += step
+		
+	pts.append(Vector2(end_x, horizon + 18.0))
+	pts.append(Vector2(start_x, horizon + 18.0))
+	draw_polygon(pts, [glow])
+	
+	# Floating basalt chunks/rocks moving along the lava
+	var period := size.x * 0.48
 	for i in range(-1, 3):
 		var base_x := _parallax_band_x(i, 0.42, period)
-		draw_rect(Rect2(base_x + 20, horizon + 4, 36, 5), glow)
-		draw_rect(Rect2(base_x + 80, horizon + 8, 48, 4), crack)
-		draw_rect(Rect2(base_x + 140, horizon + 3, 28, 6), glow.darkened(0.15))
+		var float_y := horizon + 6.0 + sin((base_x + time * 35.0) * 0.035) * 1.2
+		draw_rect(Rect2(base_x + 18, float_y, 38, 4), crack)
+		draw_rect(Rect2(base_x + 75, float_y + 1.5, 28, 3.5), crack.darkened(0.18))
 
 
 func _draw_scrolling_snow(horizon: float) -> void:
@@ -1535,35 +1692,144 @@ func _draw_scrolling_snow(horizon: float) -> void:
 	var trunk: Color = _biome.get("trunk", Color(0.32, 0.24, 0.18))
 	var pine: Color = _biome.get("accent_dark", Color(0.28, 0.42, 0.58))
 	var x: float = _parallax_x(0.6, spacing)
+	
+	var time := Time.get_ticks_msec() * 0.001
 	while x < size.x + spacing:
-		draw_rect(Rect2(x + 6, horizon - 16, 4, 16), trunk)
-		draw_rect(Rect2(x, horizon - 24, 16, 10), pine)
-		draw_rect(Rect2(x + 3, horizon - 32, 10, 8), pine.lightened(0.08))
+		var sway := sin(time * 1.4 + x * 0.035) * 2.2
+		var base_y := horizon + 3.0
+		
+		# Trunk
+		draw_rect(Rect2(x + 6 + sway * 0.15, base_y - 12, 4, 12), trunk)
+		
+		# Layered pine branches (triangles) with snow caps
+		# Bottom tier
+		var branch_y1 := base_y - 10
+		var pts_tier1 := PackedVector2Array([
+			Vector2(x - 2 + sway, branch_y1),
+			Vector2(x + 18 + sway, branch_y1),
+			Vector2(x + 8 + sway * 0.8, branch_y1 - 12)
+		])
+		draw_polygon(pts_tier1, [pine])
+		# Snow cap tier 1
+		var pts_snow1 := PackedVector2Array([
+			Vector2(x + 3 + sway, branch_y1 - 6),
+			Vector2(x + 13 + sway, branch_y1 - 6),
+			Vector2(x + 8 + sway * 0.8, branch_y1 - 12)
+		])
+		draw_polygon(pts_snow1, [Color(0.95, 0.96, 1.0)])
+
+		# Top tier
+		var branch_y2 := branch_y1 - 8
+		var pts_tier2 := PackedVector2Array([
+			Vector2(x + 2 + sway * 0.8, branch_y2),
+			Vector2(x + 14 + sway * 0.8, branch_y2),
+			Vector2(x + 8 + sway * 0.5, branch_y2 - 10)
+		])
+		draw_polygon(pts_tier2, [pine.lightened(0.12)])
+		# Snow cap tier 2
+		var pts_snow2 := PackedVector2Array([
+			Vector2(x + 5 + sway * 0.8, branch_y2 - 5),
+			Vector2(x + 11 + sway * 0.8, branch_y2 - 5),
+			Vector2(x + 8 + sway * 0.5, branch_y2 - 10)
+		])
+		draw_polygon(pts_snow2, [Color(0.95, 0.96, 1.0)])
+		
 		x += spacing
 
 
 func _draw_scrolling_ruins(horizon: float) -> void:
 	var stone: Color = _biome.get("accent", Color(0.62, 0.58, 0.52))
 	var shadow: Color = _biome.get("accent_dark", Color(0.42, 0.38, 0.34))
-	var spacing := 72.0
+	var spacing := 96.0
 	var x: float = _parallax_x(0.48, spacing)
-	while x < size.x + 80:
-		draw_rect(Rect2(x, horizon - 28, 14, 28), stone)
-		draw_rect(Rect2(x + 4, horizon - 36, 8, 8), shadow)
-		draw_rect(Rect2(x + 28, horizon - 20, 10, 20), stone.darkened(0.08))
+	while x < size.x + 100:
+		# Draw structured pillars/arches
+		# Main Left Column
+		draw_rect(Rect2(x, horizon - 32, 10, 32), stone)
+		draw_rect(Rect2(x - 2, horizon - 36, 14, 4), stone.lightened(0.1))
+		# Cracked lines on stone columns
+		draw_line(Vector2(x, horizon - 12), Vector2(x + 10, horizon - 12), shadow, 1.0)
+		draw_line(Vector2(x, horizon - 24), Vector2(x + 10, horizon - 24), shadow, 1.0)
+		
+		# Broken right pillar
+		draw_rect(Rect2(x + 36, horizon - 18, 10, 18), stone.darkened(0.08))
+		draw_rect(Rect2(x + 34, horizon - 22, 14, 4), stone.darkened(0.04))
+		draw_line(Vector2(x + 36, horizon - 8), Vector2(x + 46, horizon - 8), shadow.darkened(0.1), 1.0)
+		
+		# Background crumbling archway shadow
+		var arch_pts := PackedVector2Array([
+			Vector2(x - 4, horizon - 36),
+			Vector2(x + 14, horizon - 36),
+			Vector2(x + 24, horizon - 26),
+			Vector2(x - 14, horizon - 26)
+		])
+		draw_polygon(arch_pts, [shadow])
+		
 		x += spacing
 
 
 func _draw_scrolling_industrial(horizon: float) -> void:
 	var pipe: Color = _biome.get("accent_dark", Color(0.48, 0.28, 0.12))
 	var glow: Color = _biome.get("accent", Color(0.78, 0.48, 0.18))
-	var spacing := 86.0
+	var spacing := 110.0
 	var x: float = _parallax_x(0.52, spacing)
-	while x < size.x + 90:
-		draw_rect(Rect2(x, horizon - 34, 12, 34), pipe)
-		draw_rect(Rect2(x - 4, horizon - 38, 20, 6), pipe.darkened(0.12))
-		draw_rect(Rect2(x + 2, horizon - 42, 6, 8), glow)
+	
+	var time := Time.get_ticks_msec() * 0.001
+	while x < size.x + 120:
+		# Main vertical factory pipe
+		draw_rect(Rect2(x, horizon - 36, 14, 36), pipe)
+		# Flanges (bolted ring brackets)
+		draw_rect(Rect2(x - 2, horizon - 26, 18, 4), pipe.darkened(0.16))
+		draw_rect(Rect2(x - 2, horizon - 12, 18, 4), pipe.darkened(0.16))
+		
+		# Tiny rivet details on flanges
+		draw_rect(Rect2(x - 1, horizon - 25, 2, 2), Color.BLACK)
+		draw_rect(Rect2(x + 13, horizon - 25, 2, 2), Color.BLACK)
+		draw_rect(Rect2(x - 1, horizon - 11, 2, 2), Color.BLACK)
+		draw_rect(Rect2(x + 13, horizon - 11, 2, 2), Color.BLACK)
+
+		# Horizontal pipe structure running behind
+		draw_rect(Rect2(x - 40, horizon - 22, 120, 8), pipe.darkened(0.22))
+
+		# Glowing steam pressure release valve
+		var valve_center := Vector2(x + 7, horizon - 36)
+		var pulse_glow := glow.lightened(sin(time * 6.0 + x) * 0.18)
+		draw_circle(valve_center, 4.2, pipe.lightened(0.12))
+		draw_circle(valve_center, 2.2, pulse_glow)
+
 		x += spacing
+
+
+func _draw_void_grid(horizon: float) -> void:
+	var neon_col: Color = _biome.get("accent", Color(0.52, 0.28, 0.72))
+	
+	# Horizontal lines of the grid scrolling forward
+	# Translate _scroll_x to grid movement
+	var time_offset := fmod(_scroll_x * 0.85, 30.0)
+	
+	var y := horizon + 1.0
+	var spacing := 5.0
+	while y < size.y:
+		# Depth ratio from horizon to bottom of screen for perspective fade
+		var depth := (y - horizon) / (size.y - horizon)
+		
+		# Draw horizontal grid line with exponential scaling for 3D depth spacing
+		var line_y := horizon + pow(depth, 1.8) * (size.y - horizon) + time_offset * depth * 0.35
+		if line_y < size.y and line_y > horizon:
+			var line_col := Color(neon_col.r, neon_col.g, neon_col.b, neon_col.a * 0.16 * depth)
+			draw_line(Vector2(0.0, line_y), Vector2(size.x, line_y), line_col, 1.0)
+		y += spacing
+		
+	# Vertical grid lines radiating from the horizon center (Perspective convergence)
+	var cx := size.x * 0.5
+	var line_count := 12
+	var max_spread := size.x * 0.8
+	for i in range(line_count + 1):
+		var ratio := float(i) / float(line_count)
+		var x_bottom := cx + (ratio - 0.5) * max_spread * 2.5
+		
+		var line_col := Color(neon_col.r, neon_col.g, neon_col.b, neon_col.a * 0.14)
+		draw_line(Vector2(cx, horizon + 2.0), Vector2(x_bottom, size.y), line_col, 1.0)
 
 
 func _draw_actor_hp_bars(canvas: CanvasItem, ground_y: float) -> void:

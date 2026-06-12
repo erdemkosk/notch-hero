@@ -28,7 +28,8 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	z_index = 100
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	GameState.state_changed.connect(queue_redraw)
+	if GameState != null:
+		GameState.state_changed.connect(queue_redraw)
 
 
 func _process(delta: float) -> void:
@@ -38,7 +39,7 @@ func _process(delta: float) -> void:
 
 
 func _drop_feedback() -> int:
-	if not InventoryDragScript.active or not GameState.has_hero():
+	if GameState == null or not InventoryDragScript.active or not GameState.has_hero():
 		return 0
 
 	var global_mouse := get_global_mouse_position()

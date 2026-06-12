@@ -48,7 +48,8 @@ func _ready() -> void:
 	old_forge.queue_free()
 	
 	market_list.item_activated.connect(_on_market_buy)
-	GameState.state_changed.connect(_refresh_tabs)
+	if GameState != null:
+		GameState.state_changed.connect(_refresh_tabs)
 
 	_menu_view = MainMenuViewScript.new()
 	_menu_view.continue_pressed.connect(_on_continue_pressed)
@@ -186,7 +187,7 @@ func _select_tab(tab: Tab) -> void:
 func _refresh_tabs() -> void:
 	if not is_inside_tree() or _phase != GamePhase.PLAYING:
 		return
-	if not GameState.has_hero():
+	if GameState == null or not GameState.has_hero():
 		return
 
 	if inventory_bag.has_method("queue_redraw"):

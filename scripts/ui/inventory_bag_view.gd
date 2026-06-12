@@ -68,7 +68,8 @@ func _ready() -> void:
 	_search_field.text_changed.connect(_on_search_changed)
 	add_child(_search_field)
 	resized.connect(_on_resized)
-	GameState.state_changed.connect(_on_state_changed)
+	if GameState != null:
+		GameState.state_changed.connect(_on_state_changed)
 
 
 func _on_resized() -> void:
@@ -94,7 +95,7 @@ func _layout_search_field() -> void:
 
 
 func _process(delta: float) -> void:
-	if not GameState.has_hero():
+	if GameState == null or not GameState.has_hero():
 		return
 	if _needs_pulse_redraw():
 		_pulse_phase += delta * 5.0
@@ -102,7 +103,7 @@ func _process(delta: float) -> void:
 
 
 func _needs_pulse_redraw() -> bool:
-	if not GameState.has_hero():
+	if GameState == null or not GameState.has_hero():
 		return false
 	if InventoryDragScript.active:
 		return true
@@ -262,7 +263,7 @@ func get_slot_side() -> float:
 
 
 func _draw() -> void:
-	if not GameState.has_hero() or size.x < 40.0 or size.y < 40.0:
+	if GameState == null or not GameState.has_hero() or size.x < 40.0 or size.y < 40.0:
 		return
 
 	_layout_search_field()

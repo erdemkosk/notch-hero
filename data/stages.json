@@ -78,7 +78,7 @@
       "accent": [0.52, 0.28, 0.72],
       "accent_dark": [0.32, 0.16, 0.48],
       "trunk": [0.2, 0.16, 0.24],
-      "decor": "ruins"
+      "decor": "void"
     }
   },
   "enemy_defs": {

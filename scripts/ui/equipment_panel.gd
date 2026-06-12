@@ -64,7 +64,8 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_hero_sheet = load(HERO_SHEET)
 	resized.connect(queue_redraw)
-	GameState.state_changed.connect(queue_redraw)
+	if GameState != null:
+		GameState.state_changed.connect(queue_redraw)
 
 
 func _process(delta: float) -> void:
@@ -82,7 +83,7 @@ func _process(delta: float) -> void:
 
 
 func _needs_pulse_redraw() -> bool:
-	if not GameState.has_hero():
+	if GameState == null or not GameState.has_hero():
 		return false
 	for slot in ItemDataScript.EQUIP_SLOTS:
 		var equipped: Variant = GameState.hero.equipment.get(slot)
@@ -140,7 +141,7 @@ func potion_kind_at_global(global_pos: Vector2) -> String:
 
 
 func _draw() -> void:
-	if not GameState.has_hero() or size.x < 40.0 or size.y < 40.0:
+	if GameState == null or not GameState.has_hero() or size.x < 40.0 or size.y < 40.0:
 		return
 
 	var panel_rect := Rect2(2.0, 2.0, size.x - 4.0, size.y - 4.0)

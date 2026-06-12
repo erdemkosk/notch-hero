@@ -54,7 +54,8 @@ func _ready() -> void:
 
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	resized.connect(_on_resized)
-	GameState.state_changed.connect(_on_state_changed)
+	if GameState != null:
+		GameState.state_changed.connect(_on_state_changed)
 
 	# 1. Initialize main Altar Panel drawing canvas
 	_altar_panel = Control.new()
@@ -286,7 +287,7 @@ func _on_scroll_popup_selected(index: int) -> void:
 
 
 func _refresh_lists() -> void:
-	if not GameState.has_hero():
+	if GameState == null or not GameState.has_hero():
 		return
 	var hero: HeroScript = GameState.hero
 
@@ -376,7 +377,7 @@ func _update_forge_button_state() -> void:
 
 
 func _get_selected_item() -> Variant:
-	if not GameState.has_hero():
+	if GameState == null or not GameState.has_hero():
 		return null
 	var hero := GameState.hero
 	if _selected_item_source == "inventory":

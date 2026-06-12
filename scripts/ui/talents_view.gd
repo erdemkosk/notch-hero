@@ -21,7 +21,8 @@ var canvas: Control
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	resized.connect(_on_resized)
-	GameState.state_changed.connect(_on_state_changed)
+	if GameState != null:
+		GameState.state_changed.connect(_on_state_changed)
 
 	canvas = Control.new()
 	canvas.clip_contents = true
@@ -51,7 +52,7 @@ func fit_to(panel_size: Vector2) -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
-	if not GameState.has_hero():
+	if GameState == null or not GameState.has_hero():
 		return
 
 	var hero: HeroScript = GameState.hero
@@ -142,7 +143,7 @@ func _compute_layout() -> Dictionary:
 
 
 func _talent_rect_canvas(layout: Dictionary, id: String) -> Rect2:
-	if not GameState.has_hero():
+	if GameState == null or not GameState.has_hero():
 		return Rect2()
 	var def: Dictionary = GameState.hero.TALENT_DEFS[id]
 	var col: float = float(def.get("col", 0.0))
@@ -161,7 +162,7 @@ func _talent_rect_canvas(layout: Dictionary, id: String) -> Rect2:
 
 
 func _draw() -> void:
-	if not GameState.has_hero() or size.x < 10.0 or size.y < 10.0:
+	if GameState == null or not GameState.has_hero() or size.x < 10.0 or size.y < 10.0:
 		return
 
 	var hero: HeroScript = GameState.hero
@@ -203,7 +204,7 @@ func _draw() -> void:
 
 
 func _draw_canvas() -> void:
-	if not GameState.has_hero():
+	if GameState == null or not GameState.has_hero():
 		return
 	var hero: HeroScript = GameState.hero
 	var layout := _compute_layout()

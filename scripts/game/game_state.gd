@@ -11,6 +11,7 @@ const MagicSchoolScript = preload("res://scripts/game/magic_school.gd")
 const StageRunnerScript = preload("res://scripts/game/stage_runner.gd")
 const ItemDataScript = preload("res://scripts/game/item_data.gd")
 const GameBalanceScript = preload("res://scripts/game/game_balance.gd")
+const StageDataScript = preload("res://scripts/game/stage_data.gd")
 
 const SaveServiceScript = preload("res://scripts/game/save_service.gd")
 
@@ -129,6 +130,9 @@ func continue_game() -> bool:
 		int(data.get("stage_index", 0)),
 		int(data.get("wave_index", 0))
 	)
+	var saved_time := float(data.get("save_timestamp", 0.0))
+	if saved_time > 0.0:
+		_process_offline_progress(saved_time)
 	session_active = true
 	session_paused = false
 	refresh_combat_pacing()
@@ -654,3 +658,99 @@ func _log(text: String) -> void:
 	if recent_log.size() > 6:
 		recent_log.resize(6)
 	combat_event.emit(text)
+
+
+func _process_offline_progress(saved_time: float) -> void:
+	var now := Time.get_unix_time_from_system()
+	var elapsed := now - saved_time
+	if elapsed < 30.0:
+		return
+
+	# Max 12 hours cap
+	var offline_sec := minf(elapsed, 43200.0)
+	var stage := stage_runner.current_stage()
+	if stage.is_empty():
+		return
+
+	var total_hp := 0.0
+	var total_gold := 0.0
+	var total_xp := 0.0
+	var enemy_count := 0
+
+	var waves: Array = stage.get("waves", [])
+	for wave_idx in waves.size():
+		var wave: Dictionary = waves[wave_idx]
+		var enemies_list: Array = wave.get("enemies", [])
+		for enemy_type in enemies_list:
+			var def := StageDataScript.get_enemy_def(enemy_type)
+			var is_boss := bool(def.get("boss", false))
+			var difficulty := stage_runner.enemy_difficulty_for(enemy_type)
+
+			var hp_base := float(def.get("hp", 28.0))
+			if is_boss:
+				var stage_cfg := GameBalanceScript.stage_cfg()
+				var layer := stage_runner.progression_layer()
+				var boss_hp_base := float(stage_cfg.get("boss_hp_base", 32.0))
+				var per_layer := float(stage_cfg.get("boss_scale_per_layer", 0.28))
+				var weight := float(def.get("boss_weight", 1.0))
+				var tier := 1.0 + float(layer) * per_layer
+				hp_base = boss_hp_base * tier * weight
+
+			var stage_cfg := GameBalanceScript.stage_cfg()
+			var hp_level_mul := float(stage_cfg.get("enemy_boss_level_hp_mul" if is_boss else "enemy_level_hp_mul", 0.12 if is_boss else 0.08))
+			var enemy_level := maxi(1, hero.level)
+			var hp_mul := 1.0 + float(enemy_level - 1) * hp_level_mul
+			var role := str(def.get("role", "melee"))
+			var role_hp_mods: Dictionary = stage_cfg.get("enemy_role_hp_mod", {"melee": 1.0, "ranged": 0.85, "charger": 1.28})
+			var role_hp := float(role_hp_mods.get(role, 1.0))
+
+			var enemy_max_hp := hp_base * hp_mul * difficulty * role_hp * GameBalanceScript.enemy_hp_mul()
+
+			total_hp += enemy_max_hp
+			total_gold += float(def.get("gold", 5.0)) * (1.4 if is_boss else 1.0)
+			total_xp += float(def.get("xp", 8.0)) * (1.5 if is_boss else 1.0)
+			enemy_count += 1
+
+	if enemy_count == 0 or total_hp == 0.0:
+		return
+
+	var attack_speed := hero.attack_speed_multiplier()
+	var tick_duration := TICK_SEC / clampf(attack_speed, 0.55, 2.5)
+	var attacks := hero.attacks_per_round()
+	var damage_per_attack := hero.weapon_damage()
+	var hero_dps := (damage_per_attack * attacks) / tick_duration
+
+	var time_to_kill := total_hp / hero_dps
+	var transitions_time := float(waves.size()) * 1.8
+	var stage_clear_time := maxf(1.0, time_to_kill + transitions_time)
+
+	var clears := offline_sec / stage_clear_time
+
+	var gold_per_clear := total_gold * (1.0 + hero.get_talent_gold_modifier())
+	var xp_per_clear := total_xp * (1.0 + hero.get_talent_xp_modifier())
+
+	var raw_gold := gold_per_clear * clears
+	var raw_xp := xp_per_clear * clears
+
+	# Base efficiency of 50%, augmented by the offline talents
+	var offline_efficiency := 0.50 + hero.get_talent_offline_gold_modifier()
+	var offline_xp_efficiency := 0.50 + hero.get_talent_offline_xp_modifier()
+
+	var final_gold := int(round(raw_gold * offline_efficiency))
+	var final_xp := int(round(raw_xp * offline_xp_efficiency))
+
+	hero.gold += final_gold
+	var leveled := hero.add_xp(final_xp)
+
+	var time_str := ""
+	var hours := int(offline_sec / 3600)
+	var mins := int((int(offline_sec) % 3600) / 60)
+	if hours > 0:
+		time_str = "%dh %dm" % [hours, mins]
+	else:
+		time_str = "%dm" % mins
+
+	var msg := "Offline for %s: Earned +%d Gold, +%d XP" % [time_str, final_gold, final_xp]
+	if leveled:
+		msg += " | LEVEL UP!"
+	_log(msg)

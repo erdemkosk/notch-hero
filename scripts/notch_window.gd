@@ -358,7 +358,7 @@ func _setup_top_glow() -> void:
 
 func _draw_top_glow() -> void:
 	var active := _anim_progress > 0.01
-	if not active and not _approaching:
+	if not active:
 		return
 	if not is_instance_valid(_top_glow):
 		return
@@ -369,12 +369,7 @@ func _draw_top_glow() -> void:
 	if width < 1.0:
 		return
 
-	var peak := 0.0
-	if active:
-		peak = eased * 0.62
-	else:
-		var pulse := 0.62 + sin(_pulse_time * 6.5) * 0.22
-		peak = _approach_proximity * pulse * 0.55
+	var peak := eased * 0.62
 
 	var glow_h := UIScaleScript.px(30.0)
 	var bands := 7
