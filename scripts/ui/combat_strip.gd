@@ -1286,13 +1286,13 @@ func _update_potion_flash(delta: float) -> void:
 
 
 func _move_speed_mul() -> float:
-	if GameState.hero == null:
+	if GameState == null or GameState.hero == null:
 		return 1.0
 	return GameState.hero.move_speed_multiplier()
 
 
 func _track_equip_changes() -> void:
-	if not GameState.has_hero():
+	if GameState == null or not GameState.has_hero():
 		return
 	var stats := GameState.hero.equipment_stats()
 	if not _equip_stats_ready:
@@ -1321,13 +1321,13 @@ func _track_equip_changes() -> void:
 
 
 func _equip_glow_rank() -> int:
-	if not GameState.has_hero():
+	if GameState == null or not GameState.has_hero():
 		return 0
 	return int(EQUIP_RARITY_RANK.get(_highest_equip_rarity(), 0))
 
 
 func _highest_equip_rarity() -> String:
-	if not GameState.has_hero():
+	if GameState == null or not GameState.has_hero():
 		return "basic"
 	var best := "basic"
 	var best_rank := -1
@@ -1341,7 +1341,7 @@ func _highest_equip_rarity() -> String:
 
 
 func _equip_glow_color() -> Color:
-	if not GameState.has_hero():
+	if GameState == null or not GameState.has_hero():
 		return Color(0.82, 0.72, 0.55)
 	var rarity_col: Color = ItemDataScript.RARITY_COLORS.get(_highest_equip_rarity(), Color(0.75, 0.75, 0.8)) as Color
 	return Color(0.82, 0.72, 0.55).lerp(rarity_col, 0.48)
@@ -1385,9 +1385,7 @@ func _draw_combat_bars() -> void:
 
 
 func _draw() -> void:
-	if GameState == null:
-		return
-	if size.x < 10.0 or size.y < 10.0:
+	if GameState == null or not GameState.has_hero() or size.x < 10.0 or size.y < 10.0:
 		return
 
 	var shake_off := _shake_offset()
@@ -1884,6 +1882,8 @@ func _draw_actor_hp_bars(canvas: CanvasItem, ground_y: float) -> void:
 
 
 func _draw_hero_hp(canvas: CanvasItem, ground_y: float) -> void:
+	if GameState == null or not GameState.has_hero():
+		return
 	if not is_instance_valid(_hero_sprite) or not _hero_sprite.visible:
 		return
 	var hero := GameState.hero
@@ -1895,7 +1895,7 @@ func _draw_hero_hp(canvas: CanvasItem, ground_y: float) -> void:
 
 
 func _draw_combat_potion_bar(canvas: CanvasItem) -> void:
-	if not GameState.has_hero():
+	if GameState == null or not GameState.has_hero():
 		return
 	var metrics := CombatPotionBarScript.combat_layout(canvas.size, STAGE_HUD_HEIGHT)
 	CombatPotionBarScript.draw(

@@ -39,7 +39,7 @@ func _process(delta: float) -> void:
 
 
 func _drop_feedback() -> int:
-	if GameState == null or not InventoryDragScript.active or not GameState.has_hero():
+	if GameState == null or not GameState.has_hero() or not InventoryDragScript.active:
 		return 0
 
 	var global_mouse := get_global_mouse_position()

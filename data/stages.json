@@ -104,15 +104,15 @@
       "scale": 1.38
     },
     "cacodaemon": { "role": "melee", "hp": 38, "attack": 3.4, "gold": 6, "xp": 9, "scale": 1.0 },
-    "goblin_mech": { "role": "melee", "hp": 54, "attack": 3.6, "gold": 8, "xp": 12, "scale": 1.06 },
+    "fly": { "role": "melee", "hp": 54, "attack": 3.6, "gold": 8, "xp": 12, "scale": 1.06 },
     "brain_mole": { "role": "charger", "hp": 42, "attack": 4.0, "gold": 7, "xp": 10, "scale": 1.0 },
     "intellect_devourer": { "role": "melee", "hp": 40, "attack": 3.8, "gold": 7, "xp": 11, "scale": 1.0 },
     "akaname": { "role": "melee", "hp": 24, "attack": 3.5, "gold": 5, "xp": 8, "scale": 1.0 },
     "space_soldier": { "role": "ranged", "hp": 22, "attack": 4.8, "gold": 7, "xp": 10, "scale": 1.0 },
-    "cyclops": {
+    "phoenix": {
       "boss": true,
       "role": "ranged",
-      "name": "Cyclops",
+      "name": "Phoenix",
       "boss_weight": 1.25,
       "hp": 140,
       "attack": 9.0,
@@ -176,7 +176,7 @@
         { "enemies": ["intellect_devourer"] },
         { "enemies": ["ratfolk_mage", "akaname"] },
         { "enemies": ["intellect_devourer", "cacodaemon"] },
-        { "enemies": ["cyclops"] }
+        { "enemies": ["phoenix"] }
       ]
     },
     {
@@ -186,8 +186,8 @@
       "biome": "industrial",
       "waves": [
         { "enemies": ["brain_mole"] },
-        { "enemies": ["goblin_mech", "bandit_necromancer"] },
-        { "enemies": ["brain_mole", "goblin_mech", "bandit_necromancer"] }
+        { "enemies": ["fly", "bandit_necromancer"] },
+        { "enemies": ["brain_mole", "fly", "bandit_necromancer"] }
       ]
     },
     {
@@ -198,7 +198,7 @@
       "waves": [
         { "enemies": ["kobold_priest", "bandit_necromancer"] },
         { "enemies": ["cacodaemon", "brain_mole"] },
-        { "enemies": ["cyclops"] }
+        { "enemies": ["phoenix"] }
       ]
     },
     {
@@ -229,9 +229,9 @@
       "name": "Last Stand",
       "biome": "void",
       "waves": [
-        { "enemies": ["goblin_mech", "space_soldier"] },
+        { "enemies": ["fly", "space_soldier"] },
         { "enemies": ["bandit_necromancer", "ratfolk_mage", "brain_mole"] },
-        { "enemies": ["cyclops"] }
+        { "enemies": ["phoenix"] }
       ]
     }
   ]

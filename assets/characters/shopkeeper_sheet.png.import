@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bhofatt43ngcc"
-path="res://.godot/imported/enemy_cyclops_sheet.png-a226aba447f0870f06283453f9b689fa.ctex"
+uid="uid://cejfm8n6vq5rp"
+path="res://.godot/imported/shopkeeper_sheet.png-f40a445b7d99f092b8cf10c40350f31f.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/characters/enemy_cyclops_sheet.png"
-dest_files=["res://.godot/imported/enemy_cyclops_sheet.png-a226aba447f0870f06283453f9b689fa.ctex"]
+source_file="res://assets/characters/shopkeeper_sheet.png"
+dest_files=["res://.godot/imported/shopkeeper_sheet.png-f40a445b7d99f092b8cf10c40350f31f.ctex"]
 
 [params]
 

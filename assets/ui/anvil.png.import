@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b5pe0patp8ojy"
-path="res://.godot/imported/enemy_goblin_mech_sheet.png-942f9af96bfc93604bdee1196d075ce0.ctex"
+uid="uid://c20hsgknu5p0y"
+path="res://.godot/imported/anvil.png-f9ec9ab32a8357ef6a62e207ffcdfbee.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/characters/enemy_goblin_mech_sheet.png"
-dest_files=["res://.godot/imported/enemy_goblin_mech_sheet.png-942f9af96bfc93604bdee1196d075ce0.ctex"]
+source_file="res://assets/ui/anvil.png"
+dest_files=["res://.godot/imported/anvil.png-f9ec9ab32a8357ef6a62e207ffcdfbee.ctex"]
 
 [params]
 

@@ -297,6 +297,10 @@ static func is_consumable(item: Dictionary) -> bool:
 	return is_consumable_def(get_def(str(item.get("id", ""))))
 
 
+static func is_stackable(item: Dictionary) -> bool:
+	return bool(get_def(str(item.get("id", ""))).get("stackable", false))
+
+
 static func is_potion(item: Dictionary) -> bool:
 	return str(get_def(str(item.get("id", ""))).get("category", "")) == "potion"
 
@@ -656,10 +660,14 @@ static func tooltip_lines(item: Dictionary, footer_hint: String = "") -> PackedS
 		lines.append("Place in potion bar to use")
 
 	var base_stats := compute_stats(def)
+	var upgrade := int(item.get("upgrade", 0))
+	var multiplier := 1.0 + upgrade * 0.12
+
 	if not is_consumable(item):
 		for key in ["attack", "armor", "max_hp", "max_mana", "spell_power"]:
 			var amount := float(base_stats.get(key, 0.0))
 			if amount > 0.0:
+				amount = amount * multiplier
 				var line := format_stat_line(key, amount)
 				if not line.is_empty():
 					lines.append(line)
@@ -669,7 +677,7 @@ static func tooltip_lines(item: Dictionary, footer_hint: String = "") -> PackedS
 		for entry in mods:
 			if typeof(entry) != TYPE_DICTIONARY:
 				continue
-			var mod_line := mod_tooltip_line(entry)
+			var mod_line := mod_tooltip_line(entry, multiplier)
 			if not mod_line.is_empty():
 				lines.append(mod_line)
 
@@ -969,13 +977,13 @@ static func format_stat_line(stat_key: String, value: float) -> String:
 	return "+%.0f %s" % [value, label]
 
 
-static func mod_tooltip_line(entry: Dictionary) -> String:
+static func mod_tooltip_line(entry: Dictionary, multiplier: float = 1.0) -> String:
 	var mod_id := str(entry.get("mod", ""))
 	var mod_def := get_modifier_def(mod_id)
 	if mod_def.is_empty():
 		return ""
 	var stat_key := str(mod_def.get("stat", ""))
-	var value := float(entry.get("value", 0.0))
+	var value := float(entry.get("value", 0.0)) * multiplier
 	return format_stat_line(stat_key, value)
 
 

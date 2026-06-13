@@ -23,13 +23,13 @@ const ItemDataScript = preload("res://scripts/game/item_data.gd")
 @onready var equipment_panel: Control = $VBox/ContentHost/InventoryView/EquipmentPanel
 @onready var forge_label: Label = $VBox/ContentHost/ForgeView/ForgeLabel
 @onready var forge_button: Button = $VBox/ContentHost/ForgeView/ForgeButton
-@onready var market_list: ItemList = $VBox/ContentHost/MarketView/MarketList
 
 var _tab := Tab.COMBAT
 var _phase := GamePhase.MENU
 var _menu_view: Control
 var _name_intro: Control
 var talents_view: Control
+var _offline_popup: PanelContainer = null
 
 
 func _ready() -> void:
@@ -46,8 +46,16 @@ func _ready() -> void:
 	forge_view.visible = false
 	content_host.add_child(forge_view)
 	old_forge.queue_free()
-	
-	market_list.item_activated.connect(_on_market_buy)
+
+	# Replace old MarketView container with the correct script attached at runtime
+	var old_market := market_view
+	market_view = Control.new()
+	market_view.name = "MarketView"
+	market_view.set_script(load("res://scripts/ui/market_view.gd"))
+	market_view.visible = false
+	content_host.add_child(market_view)
+	old_market.queue_free()
+
 	if GameState != null:
 		GameState.state_changed.connect(_refresh_tabs)
 
@@ -105,6 +113,12 @@ func fit_to(panel_size: Vector2) -> void:
 		if forge_view.has_method("fit_to"):
 			forge_view.fit_to(panel_size)
 
+	if is_instance_valid(market_view):
+		market_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+	if is_instance_valid(_offline_popup):
+		_offline_popup.position = (panel_size - _offline_popup.size) * 0.5
+
 
 func _set_phase(phase: GamePhase) -> void:
 	_phase = phase
@@ -133,6 +147,16 @@ func _on_continue_pressed() -> void:
 		return
 	if GameState.continue_game():
 		_set_phase(GamePhase.PLAYING)
+		# Trigger offline progress popup if there was any calculation
+		if not GameState.last_offline_progress.is_empty():
+			var progress: Dictionary = GameState.last_offline_progress
+			show_offline_report(
+				float(progress.get("elapsed_seconds", 0.0)),
+				int(progress.get("gold", 0)),
+				int(progress.get("xp", 0)),
+				progress.get("items", [])
+			)
+			GameState.last_offline_progress = {}
 
 
 func _on_new_game_pressed() -> void:
@@ -177,7 +201,7 @@ func _select_tab(tab: Tab) -> void:
 		talents_view.visible = tab == Tab.TALENTS
 	if nav_bar.has_method("set_active_tab"):
 		nav_bar.set_active_tab(tab)
-	if tab == Tab.INVENTORY:
+	if tab == Tab.INVENTORY and GameState != null:
 		GameState.mark_inventory_seen()
 	_refresh_tabs()
 	if tab == Tab.INVENTORY and inventory_view != null:
@@ -203,24 +227,149 @@ func _refresh_tabs() -> void:
 	if is_instance_valid(forge_view) and forge_view.has_method("queue_redraw"):
 		forge_view.queue_redraw()
 
-	var hero := GameState.hero
-
-	market_list.clear()
-	for key in GameState.market_prices.keys():
-		var discount := 0.0
-		if hero != null and hero.has_method("get_talent_shop_discount_modifier"):
-			discount = hero.get_talent_shop_discount_modifier()
-		var price: int = int(round(GameState.market_prices[key] * (1.0 - discount)))
-		var label := str(key)
-		var item_id: String = str(GameState.MARKET_ITEM_IDS.get(key, ""))
-		if not item_id.is_empty():
-			label = str(ItemDataScript.get_def(item_id).get("name", key))
-		market_list.add_item("%s  %d gold" % [label, price])
-
-	market_list.add_theme_font_size_override("font_size", UIScaleScript.font_ui())
+	if is_instance_valid(market_view) and market_view.has_method("queue_redraw"):
+		market_view.queue_redraw()
 
 
-func _on_market_buy(index: int) -> void:
-	var keys := GameState.market_prices.keys()
-	if index >= 0 and index < keys.size():
-		GameState.buy_crystal(keys[index])
+# Market purchase is handled directly by MarketView
+
+
+func show_offline_report(elapsed_time: float, gold_gained: int, xp_gained: int, items: Array) -> void:
+	if is_instance_valid(_offline_popup):
+		_offline_popup.queue_free()
+
+	_offline_popup = PanelContainer.new()
+	_offline_popup.name = "OfflineReportPopup"
+	_offline_popup.z_index = 100
+	_offline_popup.z_as_relative = false
+
+	# Premium flat stylebox with gold border and dark violet/obsidian background
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.06, 0.05, 0.08, 0.98)
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
+	style.border_color = Color(0.92, 0.74, 0.38) # Gold
+	style.corner_radius_top_left = 8
+	style.corner_radius_top_right = 8
+	style.corner_radius_bottom_right = 8
+	style.corner_radius_bottom_left = 8
+	_offline_popup.add_theme_stylebox_override("panel", style)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", int(UIScaleScript.px(16.0)))
+	margin.add_theme_constant_override("margin_top", int(UIScaleScript.px(12.0)))
+	margin.add_theme_constant_override("margin_right", int(UIScaleScript.px(16.0)))
+	margin.add_theme_constant_override("margin_bottom", int(UIScaleScript.px(12.0)))
+	_offline_popup.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(UIScaleScript.px(6.0)))
+	margin.add_child(vbox)
+
+	# Title
+	var title_lbl := Label.new()
+	title_lbl.text = "OFFLINE PROGRESS REPORT"
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.add_theme_font_override("font", UiFont.get_font())
+	title_lbl.add_theme_font_size_override("font_size", UIScaleScript.font_emphasis())
+	title_lbl.add_theme_color_override("font_color", Color(0.92, 0.74, 0.38))
+	vbox.add_child(title_lbl)
+
+	# Elapsed Time
+	var hours := int(elapsed_time / 3600.0)
+	var minutes := int(fmod(elapsed_time, 3600.0) / 60.0)
+	var time_text := ""
+	if hours > 0:
+		time_text = "Time elapsed offline: %d hours %d minutes" % [hours, minutes]
+	else:
+		time_text = "Time elapsed offline: %d minutes" % minutes
+
+	var time_lbl := Label.new()
+	time_lbl.text = time_text
+	time_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	time_lbl.add_theme_font_override("font", UiFont.get_font())
+	time_lbl.add_theme_font_size_override("font_size", UIScaleScript.font_ui())
+	time_lbl.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+	vbox.add_child(time_lbl)
+
+	# Divider line
+	var div := Label.new()
+	div.text = "────────────────────────"
+	div.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	div.add_theme_color_override("font_color", Color(0.24, 0.22, 0.20))
+	vbox.add_child(div)
+
+	# Rewards summary
+	var rewards_lbl := Label.new()
+	rewards_lbl.text = "Gold Earned: +%d Gold\nXP Earned: +%d XP" % [gold_gained, xp_gained]
+	rewards_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rewards_lbl.add_theme_font_override("font", UiFont.get_font())
+	rewards_lbl.add_theme_font_size_override("font_size", UIScaleScript.font_ui())
+	rewards_lbl.add_theme_color_override("font_color", Color(0.94, 0.88, 0.78))
+	vbox.add_child(rewards_lbl)
+
+	# Found Items
+	if not items.is_empty():
+		# Limit showing to max 3 items to avoid popup overflow
+		var items_desc := "Loot Obtained:\n"
+		var show_count := mini(items.size(), 3)
+		for idx in range(show_count):
+			var item: Dictionary = items[idx]
+			var count := ItemDataScript.stack_count(item)
+			var count_txt := " (x%d)" % count if count > 1 else ""
+			items_desc += "• " + ItemDataScript.display_name(item) + count_txt + "\n"
+		if items.size() > show_count:
+			items_desc += "• and %d other items..." % (items.size() - show_count)
+
+		var items_lbl := Label.new()
+		items_lbl.text = items_desc.strip_edges()
+		items_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		items_lbl.add_theme_font_override("font", UiFont.get_font())
+		items_lbl.add_theme_font_size_override("font_size", UIScaleScript.font_caption())
+		items_lbl.add_theme_color_override("font_color", Color(0.55, 0.75, 0.35)) # Green tint
+		vbox.add_child(items_lbl)
+
+	# Close Button
+	var close_btn := Button.new()
+	close_btn.text = "CLOSE"
+	close_btn.add_theme_font_override("font", UiFont.get_font())
+	close_btn.add_theme_font_size_override("font_size", UIScaleScript.font_ui())
+	close_btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	
+	# Nice standard button style overrides
+	var btn_normal := StyleBoxFlat.new()
+	btn_normal.bg_color = Color(0.18, 0.15, 0.12)
+	btn_normal.border_width_left = 1
+	btn_normal.border_width_top = 1
+	btn_normal.border_width_right = 1
+	btn_normal.border_width_bottom = 1
+	btn_normal.border_color = Color(0.85, 0.72, 0.45)
+	btn_normal.corner_radius_top_left = 4
+	btn_normal.corner_radius_top_right = 4
+	btn_normal.corner_radius_bottom_right = 4
+	btn_normal.corner_radius_bottom_left = 4
+	close_btn.add_theme_stylebox_override("normal", btn_normal)
+	
+	var btn_hover := btn_normal.duplicate()
+	btn_hover.bg_color = Color(0.24, 0.2, 0.16)
+	close_btn.add_theme_stylebox_override("hover", btn_hover)
+
+	close_btn.custom_minimum_size = Vector2(UIScaleScript.px(100.0), UIScaleScript.px(24.0))
+	close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	close_btn.pressed.connect(func() -> void:
+		_offline_popup.queue_free()
+	)
+	vbox.add_child(close_btn)
+
+	add_child(_offline_popup)
+
+	# Calculate popup size and position
+	var pop_w := UIScaleScript.px(300.0)
+	var pop_h := UIScaleScript.px(160.0)
+	if not items.is_empty():
+		pop_h += UIScaleScript.px(45.0)
+	
+	_offline_popup.size = Vector2(pop_w, pop_h)
+	_offline_popup.position = (size - _offline_popup.size) * 0.5

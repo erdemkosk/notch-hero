@@ -32,11 +32,15 @@ var combat: CombatEngineScript
 var stage_runner: StageRunnerScript
 var session_active := false
 var session_paused := false
+var last_offline_progress: Dictionary = {}
 var market_prices := {
 	"fire_crystal": 12.0,
 	"ice_shard": 10.0,
 	"arcane_dust": 15.0,
 }
+var market_offers: Array = []
+var market_next_refresh_time: float = 0.0
+const MARKET_REFRESH_INTERVAL := 7200.0 # 2 hours
 var recent_log: Array[String] = []
 var total_kills: int = 0
 var melee_engaged := false
@@ -82,6 +86,7 @@ func start_new_game(player_name: String) -> void:
 	kills_without_loot = 0
 	melee_engaged = false
 	_reset_market_prices()
+	generate_market_offers()
 	combat.clear_wave()
 	stage_runner.start_run(hero)
 	session_active = true
@@ -123,6 +128,13 @@ func continue_game() -> bool:
 	if typeof(prices) == TYPE_DICTIONARY:
 		market_prices = prices.duplicate()
 
+	var offers: Variant = data.get("market_offers", null)
+	if typeof(offers) == TYPE_ARRAY:
+		market_offers = offers.duplicate(true)
+	else:
+		market_offers = []
+	market_next_refresh_time = float(data.get("market_next_refresh_time", 0.0))
+
 	melee_engaged = false
 	combat.clear_wave()
 	stage_runner.restore_from_save(
@@ -130,14 +142,174 @@ func continue_game() -> bool:
 		int(data.get("stage_index", 0)),
 		int(data.get("wave_index", 0))
 	)
-	var saved_time := float(data.get("save_timestamp", 0.0))
-	if saved_time > 0.0:
-		_process_offline_progress(saved_time)
+	
+	# Calculate offline progress if save_time exists
+	var last_save_time := float(data.get("save_time", 0.0))
+	if last_save_time > 0.0:
+		var current_time := Time.get_unix_time_from_system()
+		var elapsed_seconds := current_time - last_save_time
+		if elapsed_seconds >= 60.0: # Trigger only if gone for more than 60 seconds
+			_calculate_offline_progress(elapsed_seconds)
+
 	session_active = true
 	session_paused = false
+	_check_market_refresh()
 	refresh_combat_pacing()
 	state_changed.emit()
 	return true
+
+
+func _calculate_offline_progress(elapsed_seconds: float) -> void:
+	last_offline_progress.clear()
+	# Cap offline progress to 12 hours (43200 seconds)
+	var time_to_simulate := minf(elapsed_seconds, 43200.0)
+	
+	# Determine average stats of the current stage
+	var stage := stage_runner.current_stage()
+	if stage.is_empty():
+		return
+
+	var total_hp := 0.0
+	var total_gold := 0.0
+	var total_xp := 0.0
+	var enemy_count := 0
+
+	var waves: Array = stage.get("waves", [])
+	for wave in waves:
+		for enemy_type in wave.get("enemies", []):
+			var def := StageDataScript.get_enemy_def(enemy_type)
+			var is_boss := bool(def.get("boss", false))
+
+			# Calculate base rewards
+			var base_gold := int(round(float(def.get("gold", 5)) * (1.4 if is_boss else 1.0)))
+			var base_xp := int(round(float(def.get("xp", 8)) * (1.5 if is_boss else 1.0)))
+
+			# Calculate base hp
+			var hp_base := float(def.get("hp", 28.0))
+			if is_boss:
+				# Use boss scaling logic
+				var hp_base_cfg := float(GameBalanceScript.stage_cfg().get("boss_hp_base", 32.0))
+				var per_layer := float(GameBalanceScript.stage_cfg().get("boss_scale_per_layer", 0.28))
+				var weight := float(def.get("boss_weight", 1.0))
+				var layer := stage_runner.progression_layer()
+				var tier := 1.0 + float(layer) * per_layer
+				hp_base = hp_base_cfg * tier * weight
+
+			var difficulty_mul := stage_runner.enemy_difficulty_for(enemy_type)
+			var stage_cfg := GameBalanceScript.stage_cfg()
+			var hp_level_mul := float(stage_cfg.get("enemy_boss_level_hp_mul" if is_boss else "enemy_level_hp_mul", 0.12 if is_boss else 0.08))
+			var level_mul := 1.0 + float(hero.level - 1) * hp_level_mul
+			var role := str(def.get("role", "melee"))
+			var role_hp_mods: Dictionary = stage_cfg.get("enemy_role_hp_mod", {"melee": 1.0, "ranged": 0.85, "charger": 1.28})
+			var role_hp := float(role_hp_mods.get(role, 1.0))
+
+			var enemy_hp := hp_base * level_mul * difficulty_mul * role_hp * GameBalanceScript.enemy_hp_mul()
+
+			total_hp += enemy_hp
+			total_gold += base_gold
+			total_xp += base_xp
+			enemy_count += 1
+
+	if enemy_count == 0:
+		return
+
+	var avg_hp := total_hp / enemy_count
+	var avg_gold := total_gold / enemy_count
+	var avg_xp := total_xp / enemy_count
+
+	# Calculate player DPS
+	var attacks_per_second := 1.0 / (TICK_SEC / clampf(hero.attack_speed_multiplier(), 0.55, 2.5))
+	var player_dps := hero.attack_power() * attacks_per_second
+	
+	# Average time to kill (add 3.5 seconds transition/spawn delay per kill to model movement/wave spawn)
+	var avg_kill_time := maxf(1.5, avg_hp / maxf(1.0, player_dps)) + 3.5
+	
+	# Offline Efficiency (Base efficiency set to 5%)
+	var efficiency := clampf(0.05 + hero.get_talent_offline_modifier(), 0.01, 1.0)
+	
+	# Compute total kills offline
+	var total_kills_gained := int(floor((time_to_simulate / avg_kill_time) * efficiency))
+	if total_kills_gained <= 0:
+		return
+
+	# Calculate Gold and XP gained
+	var gold_earned := int(round(total_kills_gained * avg_gold * (1.0 + hero.get_talent_gold_modifier())))
+	var xp_earned := int(round(total_kills_gained * avg_xp * (1.0 + hero.get_talent_xp_modifier())))
+
+	# Apply rewards
+	hero.gold += gold_earned
+	var leveled := hero.add_xp(xp_earned)
+	total_kills += total_kills_gained
+
+	# Roll item loot
+	var items_added: Array[Dictionary] = []
+	var item_drop_chance := GameBalanceScript.drop_chance(false) * efficiency
+	var items_dropped_count := int(round(total_kills_gained * item_drop_chance))
+	
+	var standard_scrolls := 0
+	var blessed_scrolls := 0
+	var gear_items := 0
+	
+	var rolls := mini(items_dropped_count, 100)
+	for r in range(rolls):
+		var scroll_rng := randf()
+		var std_chance := 0.04
+		var bls_chance := 0.008
+		if scroll_rng < bls_chance:
+			blessed_scrolls += 1
+		elif scroll_rng < bls_chance + std_chance:
+			standard_scrolls += 1
+		else:
+			gear_items += 1
+			
+	if items_dropped_count > rolls:
+		var multiplier := float(items_dropped_count) / float(rolls)
+		standard_scrolls = int(round(standard_scrolls * multiplier))
+		blessed_scrolls = int(round(blessed_scrolls * multiplier))
+		gear_items = int(round(gear_items * multiplier))
+
+	# Add scrolls to inventory
+	if standard_scrolls > 0:
+		var stack := ItemDataScript.make_consumable_stack("scrolls/upgrade-standard", standard_scrolls)
+		var res := hero.add_stackable_to_inventory(stack)
+		var added := int(res.get("added", 0))
+		if added > 0:
+			var added_stack := stack.duplicate(true)
+			added_stack["count"] = added
+			items_added.append(added_stack)
+			inventory_unseen += 1
+			
+	if blessed_scrolls > 0:
+		var stack := ItemDataScript.make_consumable_stack("scrolls/upgrade-blessed", blessed_scrolls)
+		var res := hero.add_stackable_to_inventory(stack)
+		var added := int(res.get("added", 0))
+		if added > 0:
+			var added_stack := stack.duplicate(true)
+			added_stack["count"] = added
+			items_added.append(added_stack)
+			inventory_unseen += 1
+
+	# Add gear items to inventory
+	var gear_added := 0
+	for g in range(gear_items):
+		if hero.has_inventory_room():
+			var gear := ItemDataScript.roll_loot_instance(ItemDataScript.current_ilvl())
+			if hero.add_loot(gear):
+				items_added.append(gear)
+				gear_added += 1
+		else:
+			break
+
+	# Save details for the UI Report
+	last_offline_progress = {
+		"elapsed_seconds": elapsed_seconds,
+		"gold": gold_earned,
+		"xp": xp_earned,
+		"items": items_added,
+		"leveled": leveled
+	}
+	_log("Offline Progress: killed %d enemies." % total_kills_gained)
+	request_save()
 
 
 func request_save() -> void:
@@ -214,6 +386,7 @@ func refresh_combat_pacing() -> void:
 func combat_tick() -> void:
 	if not session_active or session_paused:
 		return
+	_check_market_refresh()
 	if not melee_engaged:
 		combat.tick_passive()
 	var life_regen := hero.life_regen_per_tick()
@@ -560,6 +733,121 @@ func swap_equipment(from_slot: String, to_slot: String) -> bool:
 	return true
 
 
+func generate_market_offers() -> void:
+	market_offers.clear()
+	
+	# Slot 0: Potion
+	var pot_id := "potions/minor-health" if randf() < 0.5 else "potions/minor-mana"
+	if randf() < 0.35:
+		pot_id = "potions/health" if randf() < 0.5 else "potions/mana"
+	var pot_count := randi_range(2, 5)
+	var pot_item := ItemDataScript.make_consumable_stack(pot_id, pot_count)
+	var pot_price := randi_range(25, 45) * pot_count
+	market_offers.append({"item": pot_item, "price": pot_price, "bought": false})
+
+	# Slot 1: Potion
+	var pot_id2 := "potions/minor-mana" if pot_id == "potions/minor-health" else "potions/minor-health"
+	var pot_count2 := randi_range(2, 5)
+	var pot_item2 := ItemDataScript.make_consumable_stack(pot_id2, pot_count2)
+	var pot_price2 := randi_range(25, 45) * pot_count2
+	market_offers.append({"item": pot_item2, "price": pot_price2, "bought": false})
+
+	# Slot 2: Material
+	var mats: Array[String] = ["materials/fire-crystal", "materials/ice-shard", "materials/arcane-dust"]
+	var mat_id := mats[randi() % mats.size()]
+	var mat_count := randi_range(1, 3)
+	var mat_item := ItemDataScript.make_consumable_stack(mat_id, mat_count)
+	var mat_price := randi_range(45, 75) * mat_count
+	market_offers.append({"item": mat_item, "price": mat_price, "bought": false})
+
+	# Slot 3: Standard Scroll
+	var scr_count := randi_range(1, 3)
+	var scr_item := ItemDataScript.make_consumable_stack("scrolls/upgrade-standard", scr_count)
+	var scr_price := randi_range(130, 190) * scr_count
+	market_offers.append({"item": scr_item, "price": scr_price, "bought": false})
+
+	# Slot 4: Blessed Scroll
+	var slot4_item: Dictionary
+	var slot4_price: int
+	if randf() < 0.6:
+		var b_count := randi_range(1, 2)
+		slot4_item = ItemDataScript.make_consumable_stack("scrolls/upgrade-blessed", b_count)
+		slot4_price = randi_range(380, 580) * b_count
+	else:
+		var b_count := randi_range(2, 4)
+		slot4_item = ItemDataScript.make_consumable_stack("scrolls/upgrade-standard", b_count)
+		slot4_price = randi_range(120, 175) * b_count
+	market_offers.append({"item": slot4_item, "price": slot4_price, "bought": false})
+
+	# Slot 5: Gear (High gold cost)
+	var ilvl := ItemDataScript.current_ilvl()
+	var gear := ItemDataScript.roll_loot_instance(ilvl)
+	var rarity := ItemDataScript.item_rarity(gear)
+	var gear_price := randi_range(120, 220)
+	if rarity == "rare":
+		gear_price = randi_range(450, 750)
+	elif rarity == "unique":
+		gear_price = randi_range(1200, 2300)
+	market_offers.append({"item": gear, "price": gear_price, "bought": false})
+
+	market_next_refresh_time = Time.get_unix_time_from_system() + MARKET_REFRESH_INTERVAL
+	request_save()
+	state_changed.emit()
+
+
+func buy_market_offer(index: int) -> bool:
+	if index < 0 or index >= market_offers.size():
+		return false
+	var offer: Dictionary = market_offers[index]
+	if offer.get("bought", false):
+		_log("Market: already bought")
+		return false
+	
+	var price: int = offer.get("price", 0)
+	var discount := 0.0
+	if hero != null and hero.has_method("get_talent_shop_discount_modifier"):
+		discount = hero.get_talent_shop_discount_modifier()
+	var cost := int(round(price * (1.0 - discount)))
+	
+	if hero.gold < cost:
+		_log("Market: not enough gold")
+		return false
+	
+	var item: Dictionary = offer.get("item", {})
+	if item.is_empty():
+		return false
+	
+	# Try to add to inventory
+	var added := false
+	if ItemDataScript.is_stackable(item):
+		var res := hero.add_stackable_to_inventory(item)
+		if int(res.get("added", 0)) > 0:
+			added = true
+	else:
+		if hero.has_inventory_room():
+			if hero.add_loot(item):
+				added = true
+	
+	if not added:
+		_log("Bag full.")
+		return false
+	
+	hero.gold -= cost
+	offer["bought"] = true
+	_log("Bought: %s (-%d gold)" % [ItemDataScript.display_name(item), cost])
+	request_save()
+	state_changed.emit()
+	return true
+
+
+func _check_market_refresh() -> void:
+	if market_next_refresh_time == 0.0:
+		generate_market_offers()
+		return
+	if Time.get_unix_time_from_system() >= market_next_refresh_time:
+		generate_market_offers()
+
+
 func buy_crystal(key: String) -> bool:
 	if not market_prices.has(key):
 		return false
@@ -658,99 +946,3 @@ func _log(text: String) -> void:
 	if recent_log.size() > 6:
 		recent_log.resize(6)
 	combat_event.emit(text)
-
-
-func _process_offline_progress(saved_time: float) -> void:
-	var now := Time.get_unix_time_from_system()
-	var elapsed := now - saved_time
-	if elapsed < 30.0:
-		return
-
-	# Max 12 hours cap
-	var offline_sec := minf(elapsed, 43200.0)
-	var stage := stage_runner.current_stage()
-	if stage.is_empty():
-		return
-
-	var total_hp := 0.0
-	var total_gold := 0.0
-	var total_xp := 0.0
-	var enemy_count := 0
-
-	var waves: Array = stage.get("waves", [])
-	for wave_idx in waves.size():
-		var wave: Dictionary = waves[wave_idx]
-		var enemies_list: Array = wave.get("enemies", [])
-		for enemy_type in enemies_list:
-			var def := StageDataScript.get_enemy_def(enemy_type)
-			var is_boss := bool(def.get("boss", false))
-			var difficulty := stage_runner.enemy_difficulty_for(enemy_type)
-
-			var hp_base := float(def.get("hp", 28.0))
-			if is_boss:
-				var stage_cfg := GameBalanceScript.stage_cfg()
-				var layer := stage_runner.progression_layer()
-				var boss_hp_base := float(stage_cfg.get("boss_hp_base", 32.0))
-				var per_layer := float(stage_cfg.get("boss_scale_per_layer", 0.28))
-				var weight := float(def.get("boss_weight", 1.0))
-				var tier := 1.0 + float(layer) * per_layer
-				hp_base = boss_hp_base * tier * weight
-
-			var stage_cfg := GameBalanceScript.stage_cfg()
-			var hp_level_mul := float(stage_cfg.get("enemy_boss_level_hp_mul" if is_boss else "enemy_level_hp_mul", 0.12 if is_boss else 0.08))
-			var enemy_level := maxi(1, hero.level)
-			var hp_mul := 1.0 + float(enemy_level - 1) * hp_level_mul
-			var role := str(def.get("role", "melee"))
-			var role_hp_mods: Dictionary = stage_cfg.get("enemy_role_hp_mod", {"melee": 1.0, "ranged": 0.85, "charger": 1.28})
-			var role_hp := float(role_hp_mods.get(role, 1.0))
-
-			var enemy_max_hp := hp_base * hp_mul * difficulty * role_hp * GameBalanceScript.enemy_hp_mul()
-
-			total_hp += enemy_max_hp
-			total_gold += float(def.get("gold", 5.0)) * (1.4 if is_boss else 1.0)
-			total_xp += float(def.get("xp", 8.0)) * (1.5 if is_boss else 1.0)
-			enemy_count += 1
-
-	if enemy_count == 0 or total_hp == 0.0:
-		return
-
-	var attack_speed := hero.attack_speed_multiplier()
-	var tick_duration := TICK_SEC / clampf(attack_speed, 0.55, 2.5)
-	var attacks := hero.attacks_per_round()
-	var damage_per_attack := hero.weapon_damage()
-	var hero_dps := (damage_per_attack * attacks) / tick_duration
-
-	var time_to_kill := total_hp / hero_dps
-	var transitions_time := float(waves.size()) * 1.8
-	var stage_clear_time := maxf(1.0, time_to_kill + transitions_time)
-
-	var clears := offline_sec / stage_clear_time
-
-	var gold_per_clear := total_gold * (1.0 + hero.get_talent_gold_modifier())
-	var xp_per_clear := total_xp * (1.0 + hero.get_talent_xp_modifier())
-
-	var raw_gold := gold_per_clear * clears
-	var raw_xp := xp_per_clear * clears
-
-	# Base efficiency of 50%, augmented by the offline talents
-	var offline_efficiency := 0.50 + hero.get_talent_offline_gold_modifier()
-	var offline_xp_efficiency := 0.50 + hero.get_talent_offline_xp_modifier()
-
-	var final_gold := int(round(raw_gold * offline_efficiency))
-	var final_xp := int(round(raw_xp * offline_xp_efficiency))
-
-	hero.gold += final_gold
-	var leveled := hero.add_xp(final_xp)
-
-	var time_str := ""
-	var hours := int(offline_sec / 3600)
-	var mins := int((int(offline_sec) % 3600) / 60)
-	if hours > 0:
-		time_str = "%dh %dm" % [hours, mins]
-	else:
-		time_str = "%dm" % mins
-
-	var msg := "Offline for %s: Earned +%d Gold, +%d XP" % [time_str, final_gold, final_xp]
-	if leveled:
-		msg += " | LEVEL UP!"
-	_log(msg)

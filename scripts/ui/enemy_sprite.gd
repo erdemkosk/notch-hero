@@ -16,7 +16,7 @@ const ENEMY_POOL: PackedStringArray = [
 	"bandit_necromancer",
 	"cacodaemon",
 	"kobold_priest",
-	"goblin_mech",
+	"fly",
 	"ratfolk_mage",
 	"akaname",
 	"brain_mole",
@@ -26,7 +26,7 @@ const ENEMY_POOL: PackedStringArray = [
 	"ghoul",
 	"space_soldier",
 	"cobra",
-	"cyclops",
+	"phoenix",
 ]
 
 const TYPE_DEFS := {
@@ -101,14 +101,14 @@ const TYPE_DEFS := {
 			"death": {"row": 4, "frames": 7, "speed": 12.0, "loop": false},
 		},
 	},
-	"goblin_mech": {
-		"sheet": "res://assets/characters/enemy_goblin_mech_sheet.png",
-		"frame_size": Vector2i(128, 64),
+	"fly": {
+		"sheet": "res://assets/characters/enemy_fly_sheet.png",
+		"frame_size": Vector2i(32, 32),
 		"rows": {
-			"walk": {"row": 1, "frames": 8, "speed": 14.0, "loop": true},
-			"attack": {"row": 2, "frames": 8, "speed": 16.0, "loop": false},
-			"hurt": {"row": 3, "frames": 4, "speed": 14.0, "loop": false},
-			"death": {"row": 4, "frames": 7, "speed": 12.0, "loop": false},
+			"walk": {"row": 0, "frames": 4, "speed": 14.0, "loop": true},
+			"attack": {"row": 2, "frames": 4, "speed": 16.0, "loop": false},
+			"hurt": {"row": 1, "frames": 4, "speed": 14.0, "loop": false},
+			"death": {"row": 3, "frames": 6, "speed": 12.0, "loop": false},
 		},
 	},
 	"ratfolk_mage": {
@@ -203,17 +203,17 @@ const TYPE_DEFS := {
 			"death": {"row": 4, "frames": 6, "speed": 12.0, "loop": false},
 		},
 	},
-	"cyclops": {
-		"sheet": "res://assets/characters/enemy_cyclops_sheet.png",
+	"phoenix": {
+		"sheet": "res://assets/characters/enemy_phoenix_sheet.png",
 		"frame_size": Vector2i(64, 64),
-		"scale_mul": 1.08,
+		"scale_mul": 1.0,
 		"combat_role": "ranged",
 		"ranged_standoff": 32.0,
 		"rows": {
-			"walk": {"row": 1, "frames": 12, "speed": 12.0, "loop": true},
-			"attack": {"row": 3, "frames": 11, "speed": 13.0, "loop": false},
-			"hurt": {"row": 4, "frames": 4, "speed": 14.0, "loop": false},
-			"death": {"row": 7, "frames": 7, "speed": 11.0, "loop": false},
+			"walk": {"row": 0, "frames": 4, "speed": 12.0, "loop": true},
+			"attack": {"row": 2, "frames": 8, "speed": 13.0, "loop": false},
+			"hurt": {"row": 1, "frames": 4, "speed": 14.0, "loop": false},
+			"death": {"row": 5, "frames": 9, "speed": 11.0, "loop": false},
 		},
 	},
 }

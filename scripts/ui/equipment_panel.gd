@@ -322,6 +322,8 @@ func _draw_hover_tooltip() -> void:
 
 
 func _is_valid_drop_target(equip_slot: String) -> bool:
+	if GameState == null or not GameState.has_hero():
+		return false
 	return InventoryDragScript.can_drop_on_equip_slot(equip_slot, GameState.hero.equipment)
 
 
@@ -383,6 +385,8 @@ func _draw_slots() -> void:
 
 
 func _slot_has_item(equip_slot: String) -> bool:
+	if GameState == null or not GameState.has_hero():
+		return false
 	var equipped: Variant = GameState.hero.equipment.get(equip_slot)
 	return equipped != null and typeof(equipped) == TYPE_DICTIONARY
 

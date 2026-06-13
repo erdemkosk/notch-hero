@@ -361,7 +361,7 @@ func _restore_selection() -> void:
 
 	var found_scroll := false
 	if not _selected_scroll_id.is_empty():
-		if GameState.has_hero():
+		if GameState != null and GameState.has_hero():
 			for inv_item in GameState.hero.inventory:
 				if inv_item != null and typeof(inv_item) == TYPE_DICTIONARY:
 					if inv_item.get("id") == _selected_scroll_id:

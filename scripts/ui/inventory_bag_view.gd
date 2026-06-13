@@ -494,6 +494,8 @@ func _draw_grid_panel(layout: Dictionary) -> void:
 
 
 func _usable_slots(layout: Dictionary) -> int:
+	if GameState == null or not GameState.has_hero():
+		return 0
 	var cap := GameState.hero.bag_slot_capacity()
 	return mini(cap, int(layout.get("slot_count", 0)))
 
@@ -778,12 +780,14 @@ func _item_visible_in_view(item: Dictionary) -> bool:
 
 
 func _slot_has_visible_item(slot_index: int) -> bool:
-	if slot_index < 0 or slot_index >= GameState.hero.inventory.size():
+	if GameState == null or not GameState.has_hero() or slot_index < 0 or slot_index >= GameState.hero.inventory.size():
 		return false
 	return _item_visible_in_view(GameState.hero.inventory[slot_index])
 
 
 func _items_for_category(category: Category) -> Array:
+	if GameState == null or not GameState.has_hero():
+		return []
 	var result: Array = []
 	for item in GameState.hero.inventory:
 		if category != Category.ALL and _item_category(item) != category:

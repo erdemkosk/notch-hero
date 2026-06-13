@@ -56,5 +56,7 @@ static func build_payload() -> Dictionary:
 		"total_kills": GameState.total_kills,
 		"kills_without_loot": GameState.kills_without_loot,
 		"market_prices": GameState.market_prices.duplicate(),
-		"save_timestamp": Time.get_unix_time_from_system(),
+		"market_offers": GameState.market_offers.duplicate(true),
+		"market_next_refresh_time": GameState.market_next_refresh_time,
+		"save_time": Time.get_unix_time_from_system(),
 	}

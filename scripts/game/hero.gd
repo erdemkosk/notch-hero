@@ -149,6 +149,15 @@ const TALENT_DEFS := {
 		"row": -1.5, "col": -4.5,
 		"mod_gold": 0.30
 	},
+	"wealth_offline": {
+		"name": "Off-Duty Trade",
+		"desc": "+20% Offline Progress Efficiency",
+		"cost": 2,
+		"cost_gold": 300,
+		"requires": "wealth_collector",
+		"row": -2.5, "col": -4.0,
+		"mod_offline_efficiency": 0.20
+	},
 	"wealth_keystone": {
 		"name": "Golden Touch",
 		"desc": "+40% Gold & 25% Market Discount",
@@ -187,6 +196,15 @@ const TALENT_DEFS := {
 		"requires": "wisdom_1",
 		"row": -3.0, "col": 1.0,
 		"mod_xp": 0.20
+	},
+	"wisdom_offline": {
+		"name": "Astral Contemplation",
+		"desc": "+20% Offline Progress Efficiency",
+		"cost": 2,
+		"cost_gold": 300,
+		"requires": "wisdom_xp_2",
+		"row": -4.0, "col": 3.0,
+		"mod_offline_efficiency": 0.20
 	},
 	"wisdom_regen": {
 		"name": "Sage",
@@ -276,24 +294,6 @@ const TALENT_DEFS := {
 		"mod_life_regen": 5.0,
 		"mod_hp_pct": 0.30,
 		"mod_potion_potency": 0.50
-	},
-	"wealth_offline": {
-		"name": "Astral Commerce",
-		"desc": "+30% Offline Gold efficiency",
-		"cost": 2,
-		"cost_gold": 250,
-		"requires": "wealth_gold_2",
-		"row": -2.2, "col": -4.0,
-		"mod_offline_gold": 0.30
-	},
-	"wisdom_offline": {
-		"name": "Dream Meditation",
-		"desc": "+30% Offline XP efficiency",
-		"cost": 2,
-		"cost_gold": 250,
-		"requires": "wisdom_xp_2",
-		"row": -4.0, "col": 2.2,
-		"mod_offline_xp": 0.30
 	}
 }
 
@@ -346,6 +346,14 @@ func recalculate_talent_points() -> void:
 			spent += int(def.get("cost", 0))
 	var expected := level - 1
 	talent_points = expected - spent
+
+
+func get_talent_offline_modifier() -> float:
+	var total := 0.0
+	for key in unlocked_talents.keys():
+		if unlocked_talents[key] == true:
+			total += float(TALENT_DEFS.get(key, {}).get("mod_offline_efficiency", 0.0))
+	return total
 
 
 func get_talent_gold_modifier() -> float:
@@ -434,22 +442,6 @@ func get_talent_potion_potency_modifier() -> float:
 	for key in unlocked_talents.keys():
 		if unlocked_talents[key] == true:
 			total += float(TALENT_DEFS.get(key, {}).get("mod_potion_potency", 0.0))
-	return total
-
-
-func get_talent_offline_gold_modifier() -> float:
-	var total := 0.0
-	for key in unlocked_talents.keys():
-		if unlocked_talents[key] == true:
-			total += float(TALENT_DEFS.get(key, {}).get("mod_offline_gold", 0.0))
-	return total
-
-
-func get_talent_offline_xp_modifier() -> float:
-	var total := 0.0
-	for key in unlocked_talents.keys():
-		if unlocked_talents[key] == true:
-			total += float(TALENT_DEFS.get(key, {}).get("mod_offline_xp", 0.0))
 	return total
 
 
