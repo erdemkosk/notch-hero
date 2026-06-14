@@ -161,8 +161,8 @@ func continue_game() -> bool:
 
 func _calculate_offline_progress(elapsed_seconds: float) -> void:
 	last_offline_progress.clear()
-	# Cap offline progress to 12 hours (43200 seconds)
-	var time_to_simulate := minf(elapsed_seconds, 43200.0)
+	# Cap offline progress to 2 hours (7200 seconds)
+	var time_to_simulate := minf(elapsed_seconds, 7200.0)
 	
 	# Determine average stats of the current stage
 	var stage := stage_runner.current_stage()
@@ -224,8 +224,8 @@ func _calculate_offline_progress(elapsed_seconds: float) -> void:
 	# Average time to kill (add 3.5 seconds transition/spawn delay per kill to model movement/wave spawn)
 	var avg_kill_time := maxf(1.5, avg_hp / maxf(1.0, player_dps)) + 3.5
 	
-	# Offline Efficiency (Base efficiency set to 5%)
-	var efficiency := clampf(0.05 + hero.get_talent_offline_modifier(), 0.01, 1.0)
+	# Offline Efficiency (Base efficiency set to 1%)
+	var efficiency := clampf(0.01 + hero.get_talent_offline_modifier(), 0.002, 1.0)
 	
 	# Compute total kills offline
 	var total_kills_gained := int(floor((time_to_simulate / avg_kill_time) * efficiency))

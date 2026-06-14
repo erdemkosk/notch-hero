@@ -151,12 +151,12 @@ const TALENT_DEFS := {
 	},
 	"wealth_offline": {
 		"name": "Off-Duty Trade",
-		"desc": "+20% Offline Progress Efficiency",
+		"desc": "+5% Offline Progress Efficiency",
 		"cost": 2,
 		"cost_gold": 300,
 		"requires": "wealth_collector",
 		"row": -2.5, "col": -4.0,
-		"mod_offline_efficiency": 0.20
+		"mod_offline_efficiency": 0.05
 	},
 	"wealth_keystone": {
 		"name": "Golden Touch",
@@ -199,12 +199,12 @@ const TALENT_DEFS := {
 	},
 	"wisdom_offline": {
 		"name": "Astral Contemplation",
-		"desc": "+20% Offline Progress Efficiency",
+		"desc": "+5% Offline Progress Efficiency",
 		"cost": 2,
 		"cost_gold": 300,
 		"requires": "wisdom_xp_2",
 		"row": -4.0, "col": 3.0,
-		"mod_offline_efficiency": 0.20
+		"mod_offline_efficiency": 0.05
 	},
 	"wisdom_regen": {
 		"name": "Sage",
