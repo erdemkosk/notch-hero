@@ -145,7 +145,6 @@ func _emit_wave(hero: Hero, transition: String) -> void:
 
 func _snapshot_hero(hero: Hero) -> Dictionary:
 	return {
-		"school": hero.school,
 		"level": hero.level,
 		"xp": hero.xp,
 		"xp_to_next": hero.xp_to_next,
@@ -173,7 +172,6 @@ func _restore_hero(hero: Hero) -> void:
 	if _checkpoint.is_empty():
 		return
 
-	hero.school = _checkpoint.get("school", hero.school)
 	hero.level = _checkpoint.get("level", hero.level)
 	hero.xp = _checkpoint.get("xp", hero.xp)
 	hero.xp_to_next = _checkpoint.get("xp_to_next", hero.xp_to_next)

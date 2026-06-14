@@ -48,6 +48,12 @@ SINGLE_SPRITES = {
         "rare": "rare-warhammer-removebg-preview.png",
         "unique": "unique-warhammer-removebg-preview.png",
     },
+    "spears": {
+        "basic": "basic-spear.png",
+        "common": "common-spear.png",
+        "rare": "rare-spear.png",
+        "unique": "unique-spear.png",
+    },
 }
 
 SWORD_SPRITES = {
@@ -274,6 +280,46 @@ WEAPON_NAMES = {
             "Starbreaker",
         ],
     },
+    "spears": {
+        "basic": [
+            "Rusty Spear",
+            "Sharpened Spear",
+            "Training Pike",
+            "Wooden Spear",
+            "Fish Spear",
+            "Hunter's Spear",
+        ],
+        "common": [
+            "Iron Spear",
+            "Boar Spear",
+            "Military Pike",
+            "Steel Lance",
+            "Spetum",
+            "Partisan",
+            "Trident",
+            "Halberd",
+            "Voulge",
+        ],
+        "rare": [
+            "Storm Pike",
+            "Glinting Trident",
+            "Phoenix Lance",
+            "Obsidian Spear",
+            "Frost Glaive",
+            "Wyrmtooth Lance",
+            "Shadow Glaive",
+            "Highland Pike",
+            "Sentry Halberd",
+        ],
+        "unique": [
+            "Gungnir Echo",
+            "Longinus Shard",
+            "Poseidon Trident",
+            "Void Glaive",
+            "Dragon's Tooth",
+            "Starcaller Lance",
+        ],
+    },
 }
 
 
@@ -314,10 +360,9 @@ def build_type(folder: str) -> list:
             )
     return items
 
-
 def main() -> None:
     items = []
-    for folder in ["axes", "swords", "sticks", "maces", "warhammers"]:
+    for folder in ["axes", "swords", "sticks", "maces", "warhammers", "spears"]:
         items.extend(build_type(folder))
 
     OUT.write_text(json.dumps({"weapons": items}, indent=2) + "\n")

@@ -18,12 +18,8 @@ const Hero = preload("res://scripts/game/hero.gd")
 @onready var forge_label: Label = $Root/Tabs/Örs/ForgeLabel
 @onready var forge_button: Button = $Root/Tabs/Örs/ForgeButton
 @onready var market_list: ItemList = $Root/Tabs/Pazar/MarketList
-@onready var school_row: Control = $Root/Tabs/Savaş/SchoolRow
-
 
 func _ready() -> void:
-	if is_instance_valid(school_row):
-		school_row.visible = false
 	forge_button.pressed.connect(_on_forge_pressed)
 	market_list.item_activated.connect(_on_market_buy)
 	inventory_list.item_activated.connect(_on_inventory_sell)

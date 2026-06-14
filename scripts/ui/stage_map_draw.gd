@@ -31,11 +31,12 @@ static func draw(canvas: CanvasItem, bounds: Rect2, params: Dictionary) -> void:
 	var accent: Color = biome.get("accent", Color(0.55, 0.72, 0.42)) as Color
 	var accent_dark: Color = biome.get("accent_dark", accent.darkened(0.35)) as Color
 
-	_draw_panel(canvas, bounds, accent, accent_dark)
+	var hovered: bool = bool(params.get("hovered", false))
+	_draw_panel(canvas, bounds, accent, accent_dark, hovered)
 	_draw_content(canvas, bounds, stage_label, stage_name, world, wave_index, wave_count, accent)
 
 
-static func _draw_panel(canvas: CanvasItem, bounds: Rect2, accent: Color, accent_dark: Color) -> void:
+static func _draw_panel(canvas: CanvasItem, bounds: Rect2, accent: Color, accent_dark: Color, hovered: bool) -> void:
 	var r := UIScaleScript.px(6.0)
 	var inset := bounds.grow(-UIScaleScript.px(1.0))
 	
@@ -45,7 +46,9 @@ static func _draw_panel(canvas: CanvasItem, bounds: Rect2, accent: Color, accent
 	
 	InventorySlotDrawScript._draw_rounded_fill(canvas, inset, r, bg_dark)
 	InventorySlotDrawScript._draw_rounded_fill(canvas, inset.grow(-UIScaleScript.px(2.0)), r - 1.0, bg_mid)
-	InventorySlotDrawScript._draw_rounded_stroke(canvas, inset, r, GOLD_DIM, UIScaleScript.px(1.0))
+	
+	var stroke_color := GOLD if hovered else GOLD_DIM
+	InventorySlotDrawScript._draw_rounded_stroke(canvas, inset, r, stroke_color, UIScaleScript.px(1.0))
 
 	# Sweeping reflection shimmer shine
 	var time_ms := Time.get_ticks_msec()
@@ -134,6 +137,7 @@ static func _draw_content(
 	var wave_text := "Wave %d / %d" % [wave_index + 1, wave_count]
 	var wave_w := font.get_string_size(wave_text, HORIZONTAL_ALIGNMENT_LEFT, -1, wave_sz).x
 	var right := bounds.position.x + bounds.size.x - pad_r
+
 	canvas.draw_string(
 		font,
 		Vector2(right - wave_w, text_cy - UIScaleScript.px(1.0)),

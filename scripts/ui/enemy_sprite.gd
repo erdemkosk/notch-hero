@@ -27,9 +27,34 @@ const ENEMY_POOL: PackedStringArray = [
 	"space_soldier",
 	"cobra",
 	"phoenix",
+	"drake",
+	"viking",
 ]
 
 const TYPE_DEFS := {
+	"drake": {
+		"sheet": "res://assets/characters/enemy_drake_sheet.png",
+		"combat_role": "ranged",
+		"ranged_standoff": 24.0,
+		"rows": {
+			"walk": {"row": 1, "frames": 8, "speed": 14.0, "loop": true},
+			"attack": {"row": 2, "frames": 6, "speed": 16.0, "loop": false},
+			"hurt": {"row": 3, "frames": 4, "speed": 14.0, "loop": false},
+			"death": {"row": 4, "frames": 6, "speed": 12.0, "loop": false},
+		},
+	},
+	"viking": {
+		"sheet": "res://assets/characters/enemy_viking_sheet.png",
+		"frame_size": Vector2i(64, 32),
+		"contact_anchor_x": 24,
+		"combat_role": "melee",
+		"rows": {
+			"walk": {"row": 1, "frames": 8, "speed": 14.0, "loop": true},
+			"attack": {"row": 3, "frames": 6, "speed": 16.0, "loop": false},
+			"hurt": {"row": 4, "frames": 2, "speed": 12.0, "loop": false},
+			"death": {"row": 7, "frames": 8, "speed": 12.0, "loop": false},
+		},
+	},
 	"gladiator": {
 		"sheet": "res://assets/characters/enemy_gladiator_sheet.png",
 		"rows": {

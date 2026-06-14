@@ -53,6 +53,7 @@ static func build_payload() -> Dictionary:
 		"hero": hero.to_dict(),
 		"stage_index": GameState.stage_runner.stage_index,
 		"wave_index": GameState.stage_runner.wave_index,
+		"max_unlocked_stage": GameState.max_unlocked_stage,
 		"total_kills": GameState.total_kills,
 		"kills_without_loot": GameState.kills_without_loot,
 		"market_prices": GameState.market_prices.duplicate(),

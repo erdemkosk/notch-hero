@@ -2,7 +2,6 @@ extends Control
 
 const Hero = preload("res://scripts/game/hero.gd")
 const StatBarControl = preload("res://scripts/ui/stat_bar.gd")
-const MagicSchoolScript = preload("res://scripts/game/magic_school.gd")
 const Enemy = preload("res://scripts/game/enemy.gd")
 
 @onready var wizard_sprite: ColorRect = $HBox/WizardSprite
@@ -31,9 +30,7 @@ func _process(delta: float) -> void:
 func refresh() -> void:
 	var hero: Hero = GameState.hero
 	var enemy: Enemy = GameState.combat.enemy
-	var school_color: Color = MagicSchoolScript.COLORS[hero.school]
-
-	wizard_sprite.color = school_color
+	wizard_sprite.color = Color(0.82, 0.72, 0.55)
 	hp_bar.bar_color = Color(0.95, 0.28, 0.35)
 	mp_bar.bar_color = Color(0.35, 0.55, 1.0)
 	hp_bar.set_value(hero.hp, hero.max_hp)

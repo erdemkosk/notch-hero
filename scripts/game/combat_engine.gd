@@ -18,6 +18,7 @@ signal hero_died
 # Kept for older UI hooks; combat is melee-only for now.
 signal spell_cast(info: Dictionary)
 signal combo_triggered(name: String, damage: float)
+signal combat_event(text: String)
 
 enum MeleePhase { IDLE, HERO_SWING, HERO_RESOLVING, ENEMY_SWING }
 
@@ -147,6 +148,17 @@ func commit_hero_strike() -> String:
 
 	if front != null and front.hp > 0.0 and dmg > 0.0:
 		_damage_enemy_at(front, dmg, source)
+		var weapon = hero.equipment.get("weapon")
+		if weapon != null and typeof(weapon) == TYPE_DICTIONARY:
+			var family = ItemDataScript.weapon_family(weapon)
+			if family == "spears" and living_count() > 1:
+				var splash_dmg := dmg * 0.5
+				for foe in enemies:
+					if foe != front and foe.hp > 0.0:
+						_damage_enemy_at(foe, splash_dmg, "Splash")
+			elif (family == "maces" or family == "warhammers") and randf() < 0.20:
+				front.set_meta("stunned", true)
+				combat_event.emit("Stunned!")
 
 	_cleanup_dead()
 
@@ -218,6 +230,11 @@ func _queue_enemy_turn() -> String:
 
 	var foe: Enemy = enemies[slot]
 	if foe.hp <= 0.0:
+		_melee_phase = MeleePhase.IDLE
+		return "idle"
+
+	if foe.has_meta("stunned") and foe.get_meta("stunned") == true:
+		foe.set_meta("stunned", false)
 		_melee_phase = MeleePhase.IDLE
 		return "idle"
 

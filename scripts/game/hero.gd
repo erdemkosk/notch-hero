@@ -1,10 +1,7 @@
 extends RefCounted
 
-const MagicSchoolScript = preload("res://scripts/game/magic_school.gd")
 const ItemDataScript = preload("res://scripts/game/item_data.gd")
 const GameBalanceScript = preload("res://scripts/game/game_balance.gd")
-
-var school: MagicSchoolScript.School = MagicSchoolScript.School.PYROMANCY
 var level: int = 1
 var xp: int = 0
 var xp_to_next: int = 40
@@ -521,7 +518,15 @@ func refresh_combat_stats() -> void:
 
 
 func attack_speed_multiplier() -> float:
-	return 1.0 + float(equipment_stats().get("attack_speed_pct", 0.0)) / 100.0
+	var mult := 1.0 + float(equipment_stats().get("attack_speed_pct", 0.0)) / 100.0
+	var w = equipment.get("weapon")
+	if w != null and typeof(w) == TYPE_DICTIONARY:
+		var fam = ItemDataScript.weapon_family(w)
+		if fam == "sticks":
+			mult += 0.30
+		elif fam == "axes":
+			mult -= 0.15
+	return mult
 
 
 func attacks_per_round() -> int:
@@ -552,6 +557,13 @@ func attack_power() -> float:
 	var staff_bonus := float(staff_enchant) * float(cfg.get("staff_enchant_attack", 1.0))
 	var level_atk := float(maxi(0, level - 1)) * float(cfg.get("level_attack_gain", 1.0))
 	var base := float(cfg.get("base_attack", 1.0)) + float(eq.get("attack", 0.0)) + staff_bonus + level_atk
+	var w = equipment.get("weapon")
+	if w != null and typeof(w) == TYPE_DICTIONARY:
+		var fam = ItemDataScript.weapon_family(w)
+		if fam == "axes":
+			base *= 1.25
+		elif fam == "sticks":
+			base *= 0.85
 	return base * (1.0 + get_talent_attack_modifier())
 
 
@@ -564,16 +576,6 @@ func take_damage(raw_amount: float) -> float:
 func heal_to_full() -> void:
 	hp = max_hp
 
-
-func school_bonus_for(element: String) -> float:
-	match school:
-		MagicSchoolScript.School.PYROMANCY:
-			return 1.25 if element == "fire" else 1.0
-		MagicSchoolScript.School.CRYOMANCY:
-			return 1.25 if element == "ice" else 1.0
-		MagicSchoolScript.School.ARCANE:
-			return 1.25 if element == "arcane" else 1.0
-	return 1.0
 
 
 func _reset_potion_bar() -> void:
@@ -790,7 +792,6 @@ func reset_for_new_game(name: String) -> void:
 	player_name = name.strip_edges()
 	if player_name.is_empty():
 		player_name = "Hero"
-	school = MagicSchoolScript.School.PYROMANCY
 	level = 1
 	xp = 0
 	xp_to_next = 40
@@ -834,7 +835,6 @@ func to_dict() -> Dictionary:
 
 	return {
 		"player_name": player_name,
-		"school": int(school),
 		"level": level,
 		"xp": xp,
 		"xp_to_next": xp_to_next,
@@ -859,7 +859,6 @@ func to_dict() -> Dictionary:
 
 func apply_dict(data: Dictionary) -> void:
 	player_name = str(data.get("player_name", player_name))
-	school = int(data.get("school", school)) as MagicSchoolScript.School
 	level = int(data.get("level", level))
 	xp = int(data.get("xp", xp))
 	xp_to_next = int(data.get("xp_to_next", xp_to_next))

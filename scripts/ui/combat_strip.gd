@@ -132,6 +132,7 @@ var _hud_stage_label := ""
 var _hud_stage_name := ""
 var _hud_wave_text := ""
 var _hud_world := 1
+var _stage_hud_hovered := false
 var _biome: Dictionary = CombatBiomeScript.resolve("desert")
 var _biome_id := "desert"
 var _biome_particles: Array[Dictionary] = []
@@ -630,6 +631,20 @@ func _process(delta: float) -> void:
 		_tick_screen_shake(delta)
 		_sync_actor_positions()
 		_apply_shake_visuals()
+
+	# stage hud hover check
+	var hud_rect := Rect2(0.0, size.y - STAGE_HUD_HEIGHT, size.x, STAGE_HUD_HEIGHT)
+	var local_mouse := get_local_mouse_position()
+	var is_hovered := Rect2(Vector2.ZERO, size).has_point(local_mouse) and hud_rect.has_point(local_mouse)
+	if is_instance_valid(_stage_popup) and _stage_popup.visible:
+		is_hovered = false
+	if is_hovered != _stage_hud_hovered:
+		_stage_hud_hovered = is_hovered
+		if _stage_hud_hovered:
+			mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		else:
+			mouse_default_cursor_shape = Control.CURSOR_ARROW
+		queue_redraw()
 
 	queue_redraw()
 	_queue_bars_redraw()
@@ -1988,6 +2003,7 @@ func _draw_stage_hud() -> void:
 		"stage_name": _hud_stage_name,
 		"world": _hud_world,
 		"biome": _biome,
+		"hovered": _stage_hud_hovered,
 	})
 
 
@@ -2205,3 +2221,190 @@ func _draw_biome_particles() -> void:
 			draw_circle(pos, size_px * 1.5, Color(draw_color.r, draw_color.g, draw_color.b, draw_color.a * 0.35))
 		
 		draw_circle(pos, size_px, draw_color)
+
+
+var _stage_popup: PanelContainer = null
+var _stage_popup_backdrop: ColorRect = null
+
+func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		var hud_rect := Rect2(0.0, size.y - STAGE_HUD_HEIGHT, size.x, STAGE_HUD_HEIGHT)
+		if hud_rect.has_point(event.position):
+			if is_instance_valid(_stage_popup) and _stage_popup.visible:
+				_close_stage_selector()
+			else:
+				_show_stage_selector()
+			accept_event()
+
+
+func _close_stage_selector() -> void:
+	if is_instance_valid(_stage_popup):
+		_stage_popup.queue_free()
+		_stage_popup = null
+	if is_instance_valid(_stage_popup_backdrop):
+		_stage_popup_backdrop.queue_free()
+		_stage_popup_backdrop = null
+	mouse_default_cursor_shape = Control.CURSOR_ARROW
+	_stage_hud_hovered = false
+	queue_redraw()
+
+
+func _show_stage_selector() -> void:
+	_close_stage_selector()
+
+	_stage_popup_backdrop = ColorRect.new()
+	_stage_popup_backdrop.name = "StageSelectorBackdrop"
+	_stage_popup_backdrop.color = Color(0.0, 0.0, 0.0, 0.45)
+	_stage_popup_backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	_stage_popup_backdrop.z_index = 119
+	_stage_popup_backdrop.z_as_relative = false
+	_stage_popup_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_stage_popup_backdrop.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			_close_stage_selector()
+			get_viewport().set_input_as_handled()
+	)
+	add_child(_stage_popup_backdrop)
+
+	_stage_popup = PanelContainer.new()
+	_stage_popup.name = "StageSelectorPopup"
+	_stage_popup.z_index = 120
+	_stage_popup.z_as_relative = false
+	
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.06, 0.05, 0.08, 0.98)
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
+	style.border_color = Color(0.92, 0.74, 0.38) # Gold
+	style.corner_radius_top_left = 8
+	style.corner_radius_top_right = 8
+	style.corner_radius_bottom_right = 8
+	style.corner_radius_bottom_left = 8
+	_stage_popup.add_theme_stylebox_override("panel", style)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", int(UIScaleScript.px(12.0)))
+	margin.add_theme_constant_override("margin_top", int(UIScaleScript.px(10.0)))
+	margin.add_theme_constant_override("margin_right", int(UIScaleScript.px(12.0)))
+	margin.add_theme_constant_override("margin_bottom", int(UIScaleScript.px(10.0)))
+	_stage_popup.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(UIScaleScript.px(6.0)))
+	margin.add_child(vbox)
+
+	var header := HBoxContainer.new()
+	vbox.add_child(header)
+
+	var title_lbl := Label.new()
+	title_lbl.text = "SELECT STAGE"
+	title_lbl.add_theme_font_override("font", UiFont.get_font())
+	title_lbl.add_theme_font_size_override("font_size", UIScaleScript.font_emphasis())
+	title_lbl.add_theme_color_override("font_color", Color(0.92, 0.74, 0.38))
+	title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(title_lbl)
+
+	var div := ColorRect.new()
+	div.custom_minimum_size = Vector2(0, 1)
+	div.color = Color(0.24, 0.22, 0.20)
+	vbox.add_child(div)
+
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.custom_minimum_size = Vector2(0, UIScaleScript.px(130.0))
+	vbox.add_child(scroll)
+
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", int(UIScaleScript.px(6.0)))
+	grid.add_theme_constant_override("v_separation", int(UIScaleScript.px(6.0)))
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(grid)
+
+	var runner := GameState.stage_runner
+	var max_stage := clampi(GameState.max_unlocked_stage, 0, runner.stages.size() - 1)
+	
+	for idx in range(max_stage + 1):
+		var stage_data: Dictionary = runner.stages[idx]
+		var btn := Button.new()
+		btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		btn.text = "%d-%d: %s" % [int(stage_data.get("world", 1)), int(stage_data.get("stage", 1)), str(stage_data.get("name", ""))]
+		btn.add_theme_font_override("font", UiFont.get_font())
+		btn.add_theme_font_size_override("font_size", UIScaleScript.font_caption())
+		
+		var btn_style := StyleBoxFlat.new()
+		btn_style.corner_radius_top_left = 4
+		btn_style.corner_radius_top_right = 4
+		btn_style.corner_radius_bottom_right = 4
+		btn_style.corner_radius_bottom_left = 4
+		
+		if idx == runner.stage_index:
+			btn_style.bg_color = Color(0.42, 0.32, 0.18)
+			btn_style.border_width_left = 1
+			btn_style.border_width_top = 1
+			btn_style.border_width_right = 1
+			btn_style.border_width_bottom = 1
+			btn_style.border_color = Color(0.92, 0.74, 0.38)
+		else:
+			btn_style.bg_color = Color(0.12, 0.10, 0.15)
+			btn_style.border_width_left = 1
+			btn_style.border_width_top = 1
+			btn_style.border_width_right = 1
+			btn_style.border_width_bottom = 1
+			btn_style.border_color = Color(0.25, 0.22, 0.28)
+			
+		btn.add_theme_stylebox_override("normal", btn_style)
+		btn.custom_minimum_size = Vector2(UIScaleScript.px(140.0), UIScaleScript.px(24.0))
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+		btn.pressed.connect(func() -> void:
+			runner.stage_index = idx
+			runner._begin_current_stage(GameState.hero)
+			GameState.request_save()
+			queue_redraw()
+			GameState.state_changed.emit()
+			_close_stage_selector()
+		)
+		grid.add_child(btn)
+
+	var footer := HBoxContainer.new()
+	vbox.add_child(footer)
+	
+	var filler := Control.new()
+	filler.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer.add_child(filler)
+
+	var close_btn := Button.new()
+	close_btn.text = "CLOSE"
+	close_btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	close_btn.add_theme_font_override("font", UiFont.get_font())
+	close_btn.add_theme_font_size_override("font_size", UIScaleScript.font_caption())
+	
+	var btn_normal := StyleBoxFlat.new()
+	btn_normal.bg_color = Color(0.18, 0.15, 0.12)
+	btn_normal.border_width_left = 1
+	btn_normal.border_width_top = 1
+	btn_normal.border_width_right = 1
+	btn_normal.border_width_bottom = 1
+	btn_normal.border_color = Color(0.85, 0.72, 0.45)
+	btn_normal.corner_radius_top_left = 4
+	btn_normal.corner_radius_top_right = 4
+	btn_normal.corner_radius_bottom_right = 4
+	btn_normal.corner_radius_bottom_left = 4
+	close_btn.add_theme_stylebox_override("normal", btn_normal)
+	close_btn.custom_minimum_size = Vector2(UIScaleScript.px(80.0), UIScaleScript.px(24.0))
+
+	close_btn.pressed.connect(func() -> void:
+		_close_stage_selector()
+	)
+	footer.add_child(close_btn)
+
+	add_child(_stage_popup)
+	
+	var popup_w := UIScaleScript.px(340.0)
+	var popup_h := UIScaleScript.px(220.0)
+	_stage_popup.size = Vector2(popup_w, popup_h)
+	_stage_popup.position = (size - _stage_popup.size) * 0.5
+

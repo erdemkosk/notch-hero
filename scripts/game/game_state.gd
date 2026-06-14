@@ -7,7 +7,6 @@ signal potion_bar_used(kind: String, applied: Dictionary)
 
 const Hero = preload("res://scripts/game/hero.gd")
 const CombatEngineScript = preload("res://scripts/game/combat_engine.gd")
-const MagicSchoolScript = preload("res://scripts/game/magic_school.gd")
 const StageRunnerScript = preload("res://scripts/game/stage_runner.gd")
 const ItemDataScript = preload("res://scripts/game/item_data.gd")
 const GameBalanceScript = preload("res://scripts/game/game_balance.gd")
@@ -47,6 +46,7 @@ var melee_engaged := false
 var inventory_unseen: int = 0
 var kills_without_loot: int = 0
 var _potion_cooldown: int = 0
+var max_unlocked_stage := 0
 
 var _tick_timer: Timer
 
@@ -66,6 +66,7 @@ func _ready() -> void:
 	combat.enemy_defeated.connect(_on_enemy_defeated)
 	combat.combo_triggered.connect(_on_combo)
 	combat.hero_died.connect(_on_hero_died)
+	combat.combat_event.connect(func(text): combat_event.emit(text))
 
 	stage_runner = StageRunnerScript.new()
 	stage_runner.load()
@@ -85,6 +86,7 @@ func start_new_game(player_name: String) -> void:
 	total_kills = 0
 	kills_without_loot = 0
 	melee_engaged = false
+	max_unlocked_stage = 0
 	_reset_market_prices()
 	generate_market_offers()
 	combat.clear_wave()
@@ -136,6 +138,7 @@ func continue_game() -> bool:
 	market_next_refresh_time = float(data.get("market_next_refresh_time", 0.0))
 
 	melee_engaged = false
+	max_unlocked_stage = int(data.get("max_unlocked_stage", data.get("stage_index", 0)))
 	combat.clear_wave()
 	stage_runner.restore_from_save(
 		hero,
@@ -332,6 +335,7 @@ func _reset_market_prices() -> void:
 
 func on_wave_cleared() -> void:
 	stage_runner.on_wave_cleared(hero)
+	max_unlocked_stage = max(max_unlocked_stage, stage_runner.stage_index)
 	request_save()
 	state_changed.emit()
 
@@ -351,16 +355,26 @@ func _on_hero_died() -> void:
 func _restart_stage_after_death() -> void:
 	combat.clear_wave()
 	combat.cancel_exchange()
-	stage_runner.on_hero_died(hero)
-	_log("You died! Restarting stage from wave 1.")
+	
+	var current_stage := stage_runner.current_stage()
+	var world := int(current_stage.get("world", 1))
+	var target_idx := 0
+	if world == 2:
+		target_idx = 4
+	elif world == 3:
+		target_idx = 7
+		
+	if stage_runner.stage_index != target_idx:
+		stage_runner.stage_index = target_idx
+		stage_runner._begin_current_stage(hero)
+		_log("You died! Reset back to Stage %d-1." % world)
+	else:
+		stage_runner.on_hero_died(hero)
+		_log("You died! Restarting stage %d-1." % world)
+		
 	request_save()
 	state_changed.emit()
 
-
-func set_school(school: int) -> void:
-	hero.school = school as MagicSchoolScript.School
-	_log("School: %s" % MagicSchoolScript.NAMES[hero.school])
-	state_changed.emit()
 
 
 func set_melee_engaged(active: bool) -> void:
