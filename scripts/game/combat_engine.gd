@@ -13,6 +13,7 @@ signal enemy_slain(slot: int)
 signal enemy_damaged(slot: int, amount: float, source: String)
 signal wave_spawned(count: int, types: PackedStringArray)
 signal hero_damaged(amount: float)
+signal hero_healed(amount: float)
 signal hero_died
 
 # Kept for older UI hooks; combat is melee-only for now.
@@ -144,21 +145,56 @@ func commit_hero_strike() -> String:
 	var front := _front_enemy()
 	var dmg: float = float(_pending_strike.get("damage", 0.0))
 	var source: String = str(_pending_strike.get("name", last_attack_name))
+	var is_skill: bool = bool(_pending_strike.get("is_skill", false))
+	var skill_name: String = str(_pending_strike.get("name", last_attack_name))
 	_pending_strike.clear()
 
 	if front != null and front.hp > 0.0 and dmg > 0.0:
-		_damage_enemy_at(front, dmg, source)
-		var weapon = hero.equipment.get("weapon")
-		if weapon != null and typeof(weapon) == TYPE_DICTIONARY:
-			var family = ItemDataScript.weapon_family(weapon)
-			if family == "spears" and living_count() > 1:
-				var splash_dmg := dmg * 0.5
-				for foe in enemies:
-					if foe != front and foe.hp > 0.0:
-						_damage_enemy_at(foe, splash_dmg, "Splash")
-			elif (family == "maces" or family == "warhammers") and randf() < 0.20:
-				front.set_meta("stunned", true)
-				combat_event.emit("Stunned!")
+		if is_skill:
+			match skill_name:
+				"Double Strike":
+					_damage_enemy_at(front, dmg * 0.8, source)
+					if front != null and front.hp > 0.0:
+						_damage_enemy_at(front, dmg * 0.8, source)
+				"Cleave":
+					_damage_enemy_at(front, dmg * 1.5, source)
+					if randf() < 0.35:
+						var bleed_dmg := float(round(dmg * 0.4))
+						_damage_enemy_at(front, bleed_dmg, "Bleed")
+						combat_event.emit("Bleeding!")
+				"Heavy Strike":
+					_damage_enemy_at(front, dmg * 1.4, source)
+					front.set_meta("stunned", true)
+					combat_event.emit("Stunned!")
+				"Impaler":
+					_damage_enemy_at(front, dmg * 1.2, source)
+					if living_count() > 1:
+						var splash_dmg := dmg * 0.6
+						for foe in enemies:
+							if foe != front and foe.hp > 0.0:
+								_damage_enemy_at(foe, splash_dmg, "Splash")
+				"Elemental Bolt":
+					var spell_dmg := float(round(1.5 * float(hero.spell_power) + 0.5 * dmg))
+					_damage_enemy_at(front, spell_dmg, source)
+				"Fists of Fury":
+					_damage_enemy_at(front, dmg * 1.1, source)
+					var heal_amt := float(round(hero.max_hp * 0.05))
+					hero.hp = minf(hero.max_hp, hero.hp + heal_amt)
+		else:
+			_damage_enemy_at(front, dmg, source)
+			var weapon = hero.equipment.get("weapon")
+			if weapon != null and typeof(weapon) == TYPE_DICTIONARY:
+				var family = ItemDataScript.weapon_family(weapon)
+				if family == "spears" and living_count() > 1:
+					var splash_dmg := dmg * 0.5
+					for foe in enemies:
+						if foe != front and foe.hp > 0.0:
+							_damage_enemy_at(foe, splash_dmg, "Splash")
+				elif (family == "maces" or family == "warhammers") and randf() < 0.20:
+					front.set_meta("stunned", true)
+					combat_event.emit("Stunned!")
+
+		_process_hero_on_hit_magical_effects(front, dmg)
 
 	_cleanup_dead()
 
@@ -185,6 +221,10 @@ func commit_enemy_strike() -> bool:
 		if hero.hp <= 0.0 and not _hero_dead:
 			_hero_dead = true
 			hero_died.emit()
+		else:
+			if taken > 0.0:
+				_process_hero_on_defend_magical_effects()
+				_cleanup_dead()
 
 	_melee_phase = MeleePhase.IDLE
 	return true
@@ -251,10 +291,60 @@ func _queue_enemy_turn() -> String:
 
 
 func _build_hero_attack() -> Dictionary:
-	var dmg := hero.weapon_damage()
-	if dmg <= 0.0:
-		dmg = 1.0
-	return {"name": "Attack", "damage": dmg, "element": "physical"}
+	var base_dmg := hero.weapon_damage()
+	if base_dmg <= 0.0:
+		base_dmg = 1.0
+
+	var weapon = hero.equipment.get("weapon")
+	var family := ""
+	if weapon != null and typeof(weapon) == TYPE_DICTIONARY:
+		family = ItemDataScript.weapon_family(weapon)
+
+	var cost := 0
+	var skill_name := ""
+	match family:
+		"knives", "swords":
+			skill_name = "Double Strike"
+			cost = 15
+		"axes":
+			skill_name = "Cleave"
+			cost = 20
+		"maces", "warhammers":
+			skill_name = "Heavy Strike"
+			cost = 18
+		"spears":
+			skill_name = "Impaler"
+			cost = 25
+		"sticks":
+			skill_name = "Elemental Bolt"
+			cost = 12
+		_:
+			skill_name = "Fists of Fury"
+			cost = 10
+
+	var cast_successful := false
+	var use_blood_magic := hero.has_keystone("blood_magic")
+
+	if use_blood_magic:
+		if hero.hp > cost:
+			hero.hp -= cost
+			cast_successful = true
+	else:
+		if hero.mana >= cost:
+			hero.mana -= cost
+			cast_successful = true
+
+	if cast_successful:
+		return {
+			"name": skill_name,
+			"damage": base_dmg,
+			"cost": cost,
+			"is_skill": true,
+			"family": family,
+			"element": "elemental" if family == "sticks" else "physical"
+		}
+	else:
+		return {"name": "Attack", "damage": base_dmg, "is_skill": false, "element": "physical"}
 
 
 func clear_wave() -> void:
@@ -388,3 +478,139 @@ func _damage_enemy_at(foe: Enemy, amount: float, source: String) -> void:
 
 func _roll_loot() -> Dictionary:
 	return ItemDataScript.roll_loot_instance(ItemDataScript.current_ilvl())
+
+
+func _process_hero_on_hit_magical_effects(primary_target: Enemy, raw_strike_damage: float) -> void:
+	if hero == null:
+		return
+	for slot in hero.equipment.keys():
+		var item: Variant = hero.equipment[slot]
+		if item == null or typeof(item) != TYPE_DICTIONARY:
+			continue
+		
+		var def := ItemDataScript.get_def(item.get("id", ""))
+		if def.is_empty():
+			continue
+			
+		# Check for fixed magical effect
+		if def.has("magical_effect"):
+			var effect: Dictionary = def.get("magical_effect")
+			_trigger_magical_effect(effect, primary_target, raw_strike_damage, item)
+			
+		# Check for rolled modifiers
+		var mods: Array = item.get("mods", [])
+		if typeof(mods) == TYPE_ARRAY:
+			for entry in mods:
+				if typeof(entry) != TYPE_DICTIONARY:
+					continue
+				var mod_id := str(entry.get("mod", ""))
+				var mod_def := ItemDataScript.get_modifier_def(mod_id)
+				if mod_def.is_empty() or mod_def.get("stat", "") != "special_effect":
+					continue
+				
+				# Build a temporary effect dictionary from the modifier details
+				var value := float(entry.get("value", 0.0))
+				var effect := {
+					"id": "",
+					"chance": 0.0,
+					"value": value
+				}
+				if mod_id == "of_thunderbolts":
+					effect["id"] = "lightning_strike"
+					effect["chance"] = value / 100.0
+					effect["base_damage"] = 5.0 + float(entry.get("tier", 1)) * 3.0
+					effect["scaling_multiplier"] = 1.0 + float(entry.get("tier", 1)) * 0.2
+					effect["description"] = "Lightning Strike"
+				elif mod_id == "of_vampirism":
+					effect["id"] = "lifesteal"
+					effect["chance"] = 1.0 # Passive always triggers
+					effect["value"] = value
+					effect["description"] = "Lifesteal"
+				
+				if not effect["id"].is_empty():
+					_trigger_magical_effect(effect, primary_target, raw_strike_damage, item)
+
+
+func _trigger_magical_effect(effect: Dictionary, primary_target: Enemy, raw_strike_damage: float, item: Dictionary) -> void:
+	var id := str(effect.get("id", ""))
+	var chance := float(effect.get("chance", 1.0))
+	if randf() > chance:
+		return
+		
+	var upgrade := int(item.get("upgrade", 0))
+	var multiplier := 1.0 + upgrade * 0.12
+		
+	match id:
+		"lightning_strike":
+			var base_dmg := float(effect.get("base_damage", 6.0)) * multiplier
+			var mult := float(effect.get("scaling_multiplier", 1.0))
+			var lightning_dmg := base_dmg + float(hero.spell_power) * mult
+			
+			var actual_target := primary_target
+			if actual_target == null or actual_target.hp <= 0.0:
+				actual_target = _front_enemy()
+				
+			if actual_target != null:
+				_damage_enemy_at(actual_target, lightning_dmg, "Lightning Strike")
+				combat_event.emit("Lightning Strike!")
+				
+				if living_count() > 1:
+					var splash_dmg := lightning_dmg * 0.5
+					for foe in enemies:
+						if foe != actual_target and foe.hp > 0.0:
+							_damage_enemy_at(foe, splash_dmg, "Chain Lightning")
+							
+		"lifesteal":
+			var pct := float(effect.get("value", 0.0)) / 100.0
+			if pct > 0.0:
+				var heal_amt := float(round(raw_strike_damage * pct))
+				if heal_amt > 0.0 and hero.hp > 0.0:
+					var before := hero.hp
+					hero.hp = minf(hero.max_hp, hero.hp + heal_amt)
+					var actual_heal := hero.hp - before
+					if actual_heal > 0.0:
+						hero_healed.emit(actual_heal)
+						combat_event.emit("Lifesteal! +%.0f HP" % actual_heal)
+
+
+func _process_hero_on_defend_magical_effects() -> void:
+	if hero == null:
+		return
+	var total_retaliation_damage := 0.0
+	
+	for slot in hero.equipment.keys():
+		var item: Variant = hero.equipment[slot]
+		if item == null or typeof(item) != TYPE_DICTIONARY:
+			continue
+		
+		var def := ItemDataScript.get_def(item.get("id", ""))
+		if def.is_empty():
+			continue
+			
+		var upgrade := int(item.get("upgrade", 0))
+		var multiplier := 1.0 + upgrade * 0.12
+			
+		if def.has("magical_effect"):
+			var effect: Dictionary = def.get("magical_effect")
+			if effect.get("id", "") == "thorns":
+				total_retaliation_damage += float(effect.get("value", 0.0)) * multiplier
+				
+		var mods: Array = item.get("mods", [])
+		if typeof(mods) == TYPE_ARRAY:
+			for entry in mods:
+				if typeof(entry) != TYPE_DICTIONARY:
+					continue
+				var mod_id := str(entry.get("mod", ""))
+				var mod_def := ItemDataScript.get_modifier_def(mod_id)
+				if mod_def.is_empty() or mod_def.get("stat", "") != "special_effect":
+					continue
+				
+				if mod_id == "of_retaliation":
+					var value := float(entry.get("value", 0.0))
+					total_retaliation_damage += value * multiplier
+					
+	if total_retaliation_damage > 0.0:
+		var front := _front_enemy()
+		if front != null and front.hp > 0.0:
+			_damage_enemy_at(front, total_retaliation_damage, "Retaliation")
+			combat_event.emit("Retaliated!")

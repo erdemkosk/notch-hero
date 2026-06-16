@@ -273,6 +273,14 @@
       "folder": "axes",
       "stats": {
         "attack": 32
+      },
+      "magical_effect": {
+        "id": "lightning_strike",
+        "name": "Judgment of Thor",
+        "chance": 0.25,
+        "base_damage": 15.0,
+        "scaling_multiplier": 1.5,
+        "description": "On-Hit: 25% chance to strike with Thor's Lightning dealing 15 (+150% Spell Power) damage, chaining to all enemies."
       }
     },
     {
@@ -614,6 +622,13 @@
       "folder": "swords",
       "stats": {
         "attack": 36
+      },
+      "magical_effect": {
+        "id": "lifesteal",
+        "name": "Soul Siphon",
+        "chance": 1.0,
+        "value": 15.0,
+        "description": "Lifesteal: Converts 15% of deals damage to Health."
       }
     },
     {
@@ -834,6 +849,14 @@
       "folder": "sticks",
       "stats": {
         "attack": 14
+      },
+      "magical_effect": {
+        "id": "lightning_strike",
+        "name": "Static Discharge",
+        "chance": 0.15,
+        "base_damage": 6.0,
+        "scaling_multiplier": 1.0,
+        "description": "On-Hit: 15% chance to trigger a Lightning Strike dealing 6 (+100% Spell Power) damage."
       }
     },
     {
@@ -878,6 +901,14 @@
       "folder": "sticks",
       "stats": {
         "attack": 18
+      },
+      "magical_effect": {
+        "id": "lightning_strike",
+        "name": "Thunderous Fury",
+        "chance": 0.20,
+        "base_damage": 10.0,
+        "scaling_multiplier": 1.2,
+        "description": "On-Hit: 20% chance to trigger a Lightning Strike dealing 10 (+120% Spell Power) damage, chaining to all enemies."
       }
     },
     {

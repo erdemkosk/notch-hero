@@ -68,7 +68,7 @@ func _ready() -> void:
 	_search_field.text_changed.connect(_on_search_changed)
 	add_child(_search_field)
 	resized.connect(_on_resized)
-	if GameState != null:
+	if is_instance_valid(GameState):
 		GameState.state_changed.connect(_on_state_changed)
 
 
@@ -95,7 +95,7 @@ func _layout_search_field() -> void:
 
 
 func _process(delta: float) -> void:
-	if GameState == null or not GameState.has_hero():
+	if not is_instance_valid(GameState) or not GameState.has_hero():
 		return
 	if _needs_pulse_redraw():
 		_pulse_phase += delta * 5.0
@@ -103,7 +103,7 @@ func _process(delta: float) -> void:
 
 
 func _needs_pulse_redraw() -> bool:
-	if GameState == null or not GameState.has_hero():
+	if not is_instance_valid(GameState) or not GameState.has_hero():
 		return false
 	if InventoryDragScript.active:
 		return true
@@ -263,7 +263,7 @@ func get_slot_side() -> float:
 
 
 func _draw() -> void:
-	if GameState == null or not GameState.has_hero() or size.x < 40.0 or size.y < 40.0:
+	if not is_instance_valid(GameState) or not GameState.has_hero() or size.x < 40.0 or size.y < 40.0:
 		return
 
 	_layout_search_field()
@@ -494,7 +494,7 @@ func _draw_grid_panel(layout: Dictionary) -> void:
 
 
 func _usable_slots(layout: Dictionary) -> int:
-	if GameState == null or not GameState.has_hero():
+	if not is_instance_valid(GameState) or not GameState.has_hero():
 		return 0
 	var cap := GameState.hero.bag_slot_capacity()
 	return mini(cap, int(layout.get("slot_count", 0)))
@@ -780,13 +780,13 @@ func _item_visible_in_view(item: Dictionary) -> bool:
 
 
 func _slot_has_visible_item(slot_index: int) -> bool:
-	if GameState == null or not GameState.has_hero() or slot_index < 0 or slot_index >= GameState.hero.inventory.size():
+	if not is_instance_valid(GameState) or not GameState.has_hero() or slot_index < 0 or slot_index >= GameState.hero.inventory.size():
 		return false
 	return _item_visible_in_view(GameState.hero.inventory[slot_index])
 
 
 func _items_for_category(category: Category) -> Array:
-	if GameState == null or not GameState.has_hero():
+	if not is_instance_valid(GameState) or not GameState.has_hero():
 		return []
 	var result: Array = []
 	for item in GameState.hero.inventory:

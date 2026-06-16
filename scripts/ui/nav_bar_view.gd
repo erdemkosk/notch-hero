@@ -33,7 +33,7 @@ var _alert_pulse := 0.0
 func _ready() -> void:
 	UiFont.setup()
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	if GameState != null:
+	if is_instance_valid(GameState):
 		GameState.state_changed.connect(_on_state_changed)
 	resized.connect(queue_redraw)
 	set_process(true)
@@ -49,7 +49,7 @@ func _on_state_changed() -> void:
 
 
 func _inventory_has_alert() -> bool:
-	if GameState == null:
+	if not is_instance_valid(GameState):
 		return false
 	return GameState.inventory_unseen > 0 and _active != Tab.INVENTORY
 
@@ -103,7 +103,7 @@ func _tab_at(pos: Vector2) -> int:
 
 
 func _inventory_badge() -> String:
-	if GameState == null or not GameState.has_hero():
+	if not is_instance_valid(GameState) or not GameState.has_hero():
 		return ""
 	if GameState.inventory_unseen > 0:
 		return str(mini(GameState.inventory_unseen, 9))

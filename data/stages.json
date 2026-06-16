@@ -120,8 +120,24 @@
       "xp": 48,
       "scale": 1.42
     },
-    "drake": { "role": "ranged", "hp": 48, "attack": 4.5, "gold": 8, "xp": 12, "scale": 1.1 },
-    "viking": { "role": "melee", "hp": 52, "attack": 4.8, "gold": 9, "xp": 14, "scale": 1.1 }
+    "drake": {
+      "role": "ranged",
+      "name": "Drake",
+      "hp": 48,
+      "attack": 4.5,
+      "gold": 8,
+      "xp": 12,
+      "scale": 1.1
+    },
+    "viking": {
+      "role": "melee",
+      "name": "Viking",
+      "hp": 52,
+      "attack": 4.8,
+      "gold": 9,
+      "xp": 14,
+      "scale": 1.1
+    }
   },
   "stages": [
     {
@@ -165,8 +181,8 @@
       "biome": "ruins",
       "waves": [
         { "enemies": ["ratfolk_mage"] },
-        { "enemies": ["ghoul", "ratfolk_mage"] },
-        { "enemies": ["cacodaemon", "ratfolk_mage", "kobold_priest"] }
+        { "enemies": ["ghoul", "viking"] },
+        { "enemies": ["cacodaemon", "viking", "kobold_priest"] }
       ]
     },
     {
@@ -188,8 +204,8 @@
       "biome": "industrial",
       "waves": [
         { "enemies": ["brain_mole"] },
-        { "enemies": ["fly", "bandit_necromancer"] },
-        { "enemies": ["brain_mole", "fly", "bandit_necromancer"] }
+        { "enemies": ["fly", "viking"] },
+        { "enemies": ["brain_mole", "fly", "viking"] }
       ]
     },
     {
@@ -198,8 +214,8 @@
       "name": "Final Keep",
       "biome": "snow",
       "waves": [
-        { "enemies": ["kobold_priest", "bandit_necromancer"] },
-        { "enemies": ["cacodaemon", "brain_mole"] },
+        { "enemies": ["kobold_priest", "drake"] },
+        { "enemies": ["cacodaemon", "viking"] },
         { "enemies": ["phoenix"] }
       ]
     },
@@ -220,9 +236,9 @@
       "name": "Void Line",
       "biome": "void",
       "waves": [
-        { "enemies": ["space_soldier", "leshy_ranger"] },
-        { "enemies": ["brain_mole", "space_soldier"] },
-        { "enemies": ["ratfolk_mage", "space_soldier", "leshy_ranger"] }
+        { "enemies": ["space_soldier", "drake"] },
+        { "enemies": ["brain_mole", "drake"] },
+        { "enemies": ["ratfolk_mage", "drake", "leshy_ranger"] }
       ]
     },
     {
@@ -231,8 +247,8 @@
       "name": "Last Stand",
       "biome": "void",
       "waves": [
-        { "enemies": ["fly", "space_soldier"] },
-        { "enemies": ["bandit_necromancer", "ratfolk_mage", "brain_mole"] },
+        { "enemies": ["fly", "drake"] },
+        { "enemies": ["bandit_necromancer", "viking", "brain_mole"] },
         { "enemies": ["phoenix"] }
       ]
     }

@@ -64,7 +64,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_hero_sheet = load(HERO_SHEET)
 	resized.connect(queue_redraw)
-	if GameState != null:
+	if is_instance_valid(GameState):
 		GameState.state_changed.connect(queue_redraw)
 
 
@@ -83,7 +83,7 @@ func _process(delta: float) -> void:
 
 
 func _needs_pulse_redraw() -> bool:
-	if GameState == null or not GameState.has_hero():
+	if not is_instance_valid(GameState) or not GameState.has_hero():
 		return false
 	for slot in ItemDataScript.EQUIP_SLOTS:
 		var equipped: Variant = GameState.hero.equipment.get(slot)
@@ -141,7 +141,7 @@ func potion_kind_at_global(global_pos: Vector2) -> String:
 
 
 func _draw() -> void:
-	if GameState == null or not GameState.has_hero() or size.x < 40.0 or size.y < 40.0:
+	if not is_instance_valid(GameState) or not GameState.has_hero() or size.x < 40.0 or size.y < 40.0:
 		return
 
 	var panel_rect := Rect2(2.0, 2.0, size.x - 4.0, size.y - 4.0)
@@ -322,7 +322,7 @@ func _draw_hover_tooltip() -> void:
 
 
 func _is_valid_drop_target(equip_slot: String) -> bool:
-	if GameState == null or not GameState.has_hero():
+	if not is_instance_valid(GameState) or not GameState.has_hero():
 		return false
 	return InventoryDragScript.can_drop_on_equip_slot(equip_slot, GameState.hero.equipment)
 
@@ -385,7 +385,7 @@ func _draw_slots() -> void:
 
 
 func _slot_has_item(equip_slot: String) -> bool:
-	if GameState == null or not GameState.has_hero():
+	if not is_instance_valid(GameState) or not GameState.has_hero():
 		return false
 	var equipped: Variant = GameState.hero.equipment.get(equip_slot)
 	return equipped != null and typeof(equipped) == TYPE_DICTIONARY

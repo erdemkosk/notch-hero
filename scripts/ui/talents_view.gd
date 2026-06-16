@@ -16,6 +16,8 @@ var _drag_start_offset := Vector2.ZERO
 var _did_drag := false
 
 var canvas: Control
+var _reset_btn: Button
+var _confirm_popup: PanelContainer = null
 
 
 func _ready() -> void:
@@ -30,6 +32,40 @@ func _ready() -> void:
 	canvas.draw.connect(_draw_canvas)
 	add_child(canvas)
 
+	_reset_btn = Button.new()
+	_reset_btn.name = "ResetPerksButton"
+	_reset_btn.text = "RESET PERKS"
+	_reset_btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_reset_btn.pressed.connect(_on_reset_pressed)
+	
+	_reset_btn.add_theme_font_override("font", UiFont.get_font())
+	_reset_btn.add_theme_font_size_override("font_size", UIScaleScript.font_caption())
+	
+	var style_normal := StyleBoxFlat.new()
+	style_normal.bg_color = Color(0.18, 0.15, 0.12)
+	style_normal.border_width_left = 1
+	style_normal.border_width_top = 1
+	style_normal.border_width_right = 1
+	style_normal.border_width_bottom = 1
+	style_normal.border_color = Color(0.85, 0.72, 0.45)
+	style_normal.corner_radius_top_left = 4
+	style_normal.corner_radius_top_right = 4
+	style_normal.corner_radius_bottom_right = 4
+	style_normal.corner_radius_bottom_left = 4
+	
+	var style_hover := style_normal.duplicate() as StyleBoxFlat
+	style_hover.bg_color = Color(0.26, 0.22, 0.18)
+	style_hover.border_color = Color(1.0, 0.9, 0.6)
+	
+	var style_pressed := style_normal.duplicate() as StyleBoxFlat
+	style_pressed.bg_color = Color(0.12, 0.10, 0.08)
+	
+	_reset_btn.add_theme_stylebox_override("normal", style_normal)
+	_reset_btn.add_theme_stylebox_override("hover", style_hover)
+	_reset_btn.add_theme_stylebox_override("pressed", style_pressed)
+	_reset_btn.add_theme_color_override("font_color", Color(0.92, 0.74, 0.38))
+	add_child(_reset_btn)
+
 	draw.connect(func(): if is_instance_valid(canvas): canvas.queue_redraw())
 
 
@@ -37,6 +73,15 @@ func _on_resized() -> void:
 	var layout := _compute_layout()
 	canvas.position = Vector2(layout["bag"].position.x, layout["top_y"])
 	canvas.size = Vector2(layout["bag"].size.x, layout["bottom_y"] - layout["top_y"])
+
+	var btn_w := UIScaleScript.px(90.0)
+	var btn_h := UIScaleScript.px(22.0)
+	_reset_btn.size = Vector2(btn_w, btn_h)
+	_reset_btn.position = Vector2(
+		layout["bag"].end.x - btn_w - UIScaleScript.px(100.0),
+		layout["bag"].position.y + UIScaleScript.px(4.0)
+	)
+
 	canvas.queue_redraw()
 	queue_redraw()
 
@@ -157,6 +202,8 @@ func _talent_rect_canvas(layout: Dictionary, id: String) -> Rect2:
 	var cx := center.x + _pan_offset.x + col * step
 	var cy := center.y + _pan_offset.y + row * step
 	var side: float = layout["box_side"]
+	if def.get("is_keystone", false) == true:
+		side *= 1.25
 
 	return Rect2(cx - side * 0.5, cy - side * 0.5, side, side)
 
@@ -410,7 +457,6 @@ func _draw_talent_node(layout: Dictionary, hero: HeroScript, id: String, font: F
 			text_color = Color(1.0, 0.96, 0.82)
 			border_w = 2.0
 	elif is_unlocked:
-		# Custom color depending on the branch
 		if id.begins_with("might"):
 			bg_color = Color(0.48, 0.18, 0.18)
 		elif id.begins_with("wealth"):
@@ -428,6 +474,13 @@ func _draw_talent_node(layout: Dictionary, hero: HeroScript, id: String, font: F
 		border_color = Color(0.85, 0.85, 0.9)
 		text_color = Color(0.94, 0.88, 0.78)
 	
+	if def.get("is_keystone", false) == true:
+		border_w = 2.5
+		if is_unlocked:
+			border_color = Color(1.0, 0.9, 0.5)
+		else:
+			border_color = Color(0.7, 0.5, 0.25)
+
 	if is_hovered:
 		bg_color = bg_color.lightened(0.08)
 		if not is_unlocked and is_buyable:
@@ -591,3 +644,127 @@ func _draw_info_area(layout: Dictionary, hero: HeroScript, font: Font) -> void:
 		caption_sz,
 		Color(0.94, 0.88, 0.78)
 	)
+
+
+func _on_reset_pressed() -> void:
+	if GameState == null or not GameState.has_hero():
+		return
+	_show_confirm_popup()
+
+
+func _show_confirm_popup() -> void:
+	if is_instance_valid(_confirm_popup):
+		_confirm_popup.queue_free()
+		
+	var hero := GameState.hero
+	var cost := hero.level * 50
+
+	_confirm_popup = PanelContainer.new()
+	_confirm_popup.z_index = 100
+	_confirm_popup.z_as_relative = false
+	
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.08, 0.07, 0.1, 0.98)
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
+	style.border_color = Color(0.92, 0.74, 0.38) # Gold
+	style.corner_radius_top_left = 6
+	style.corner_radius_top_right = 6
+	style.corner_radius_bottom_right = 6
+	style.corner_radius_bottom_left = 6
+	_confirm_popup.add_theme_stylebox_override("panel", style)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", int(UIScaleScript.px(10.0)))
+	margin.add_theme_constant_override("margin_top", int(UIScaleScript.px(8.0)))
+	margin.add_theme_constant_override("margin_right", int(UIScaleScript.px(10.0)))
+	margin.add_theme_constant_override("margin_bottom", int(UIScaleScript.px(8.0)))
+	_confirm_popup.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(UIScaleScript.px(8.0)))
+	margin.add_child(vbox)
+
+	var label := Label.new()
+	label.text = "RESET ALL TALENTS?\nCost: %d Gold" % cost
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_override("font", UiFont.get_font())
+	label.add_theme_font_size_override("font_size", UIScaleScript.font_ui())
+	label.add_theme_color_override("font_color", Color(0.94, 0.88, 0.78))
+	vbox.add_child(label)
+
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", int(UIScaleScript.px(10.0)))
+	hbox.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	vbox.add_child(hbox)
+
+	var yes_btn := Button.new()
+	yes_btn.text = "YES"
+	yes_btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	yes_btn.add_theme_font_override("font", UiFont.get_font())
+	yes_btn.add_theme_font_size_override("font_size", UIScaleScript.font_caption())
+	
+	var style_yes := StyleBoxFlat.new()
+	style_yes.bg_color = Color(0.28, 0.15, 0.15)
+	style_yes.border_width_left = 1
+	style_yes.border_width_top = 1
+	style_yes.border_width_right = 1
+	style_yes.border_width_bottom = 1
+	style_yes.border_color = Color(0.85, 0.35, 0.35)
+	style_yes.corner_radius_top_left = 4
+	style_yes.corner_radius_top_right = 4
+	style_yes.corner_radius_bottom_right = 4
+	style_yes.corner_radius_bottom_left = 4
+	yes_btn.add_theme_stylebox_override("normal", style_yes)
+	yes_btn.custom_minimum_size = Vector2(UIScaleScript.px(60.0), UIScaleScript.px(22.0))
+	
+	if hero.gold < cost:
+		yes_btn.disabled = true
+		yes_btn.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+		label.text = "RESET ALL TALENTS?\nNeed %d Gold (You have %d)" % [cost, hero.gold]
+	
+	yes_btn.pressed.connect(func():
+		if hero.gold >= cost:
+			hero.gold -= cost
+			hero.respec_talents()
+			GameState.request_save()
+			GameState.state_changed.emit()
+		_confirm_popup.queue_free()
+		_confirm_popup = null
+	)
+	hbox.add_child(yes_btn)
+
+	var no_btn := Button.new()
+	no_btn.text = "NO"
+	no_btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	no_btn.add_theme_font_override("font", UiFont.get_font())
+	no_btn.add_theme_font_size_override("font_size", UIScaleScript.font_caption())
+	
+	var style_no := StyleBoxFlat.new()
+	style_no.bg_color = Color(0.15, 0.15, 0.18)
+	style_no.border_width_left = 1
+	style_no.border_width_top = 1
+	style_no.border_width_right = 1
+	style_no.border_width_bottom = 1
+	style_no.border_color = Color(0.6, 0.6, 0.65)
+	style_no.corner_radius_top_left = 4
+	style_no.corner_radius_top_right = 4
+	style_no.corner_radius_bottom_right = 4
+	style_no.corner_radius_bottom_left = 4
+	no_btn.add_theme_stylebox_override("normal", style_no)
+	no_btn.custom_minimum_size = Vector2(UIScaleScript.px(60.0), UIScaleScript.px(22.0))
+	
+	no_btn.pressed.connect(func():
+		_confirm_popup.queue_free()
+		_confirm_popup = null
+	)
+	hbox.add_child(no_btn)
+
+	add_child(_confirm_popup)
+	
+	var pop_w := UIScaleScript.px(180.0)
+	var pop_h := UIScaleScript.px(80.0)
+	_confirm_popup.size = Vector2(pop_w, pop_h)
+	_confirm_popup.position = (size - _confirm_popup.size) * 0.5

@@ -672,6 +672,12 @@ static func tooltip_lines(item: Dictionary, footer_hint: String = "") -> PackedS
 				if not line.is_empty():
 					lines.append(line)
 
+	if def.has("magical_effect"):
+		var effect: Dictionary = def.get("magical_effect")
+		var desc: String = str(effect.get("description", ""))
+		if not desc.is_empty():
+			lines.append(desc)
+
 	var mods: Array = item.get("mods", [])
 	if typeof(mods) == TYPE_ARRAY:
 		for entry in mods:
@@ -984,6 +990,13 @@ static func mod_tooltip_line(entry: Dictionary, multiplier: float = 1.0) -> Stri
 		return ""
 	var stat_key := str(mod_def.get("stat", ""))
 	var value := float(entry.get("value", 0.0)) * multiplier
+	if stat_key == "special_effect":
+		if mod_id == "of_thunderbolts":
+			return "On-Hit: +%.0f%% chance to strike with Lightning" % value
+		elif mod_id == "of_vampirism":
+			return "Lifesteal: +%.0f%% of damage returned as HP" % value
+		elif mod_id == "of_retaliation":
+			return "Retaliation: reflects %.0f physical damage to attackers" % value
 	return format_stat_line(stat_key, value)
 
 

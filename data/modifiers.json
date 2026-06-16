@@ -227,6 +227,42 @@
         {"tier": 2, "min": 1, "max": 2, "ilvl": 10},
         {"tier": 3, "min": 2, "max": 2, "ilvl": 18}
       ]
+    },
+    {
+      "id": "of_thunderbolts",
+      "label": "of Thunderbolts",
+      "kind": "suffix",
+      "stat": "special_effect",
+      "tags": ["weapon", "ring"],
+      "tiers": [
+        {"tier": 1, "min": 12, "max": 15, "ilvl": 1},
+        {"tier": 2, "min": 15, "max": 20, "ilvl": 8},
+        {"tier": 3, "min": 20, "max": 25, "ilvl": 16}
+      ]
+    },
+    {
+      "id": "of_vampirism",
+      "label": "of Vampirism",
+      "kind": "suffix",
+      "stat": "special_effect",
+      "tags": ["weapon", "amulet"],
+      "tiers": [
+        {"tier": 1, "min": 4, "max": 6, "ilvl": 1},
+        {"tier": 2, "min": 6, "max": 10, "ilvl": 8},
+        {"tier": 3, "min": 10, "max": 15, "ilvl": 16}
+      ]
+    },
+    {
+      "id": "of_retaliation",
+      "label": "of Retaliation",
+      "kind": "suffix",
+      "stat": "special_effect",
+      "tags": ["chest", "legs", "helmet"],
+      "tiers": [
+        {"tier": 1, "min": 2, "max": 4, "ilvl": 1},
+        {"tier": 2, "min": 4, "max": 8, "ilvl": 8},
+        {"tier": 3, "min": 8, "max": 15, "ilvl": 16}
+      ]
     }
   ]
 }

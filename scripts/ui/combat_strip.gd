@@ -205,10 +205,11 @@ func _ready() -> void:
 
 
 func _connect_game_state() -> void:
-	if GameState == null or GameState.combat == null:
+	if not is_instance_valid(GameState) or GameState.combat == null:
 		return
 	GameState.combat.spell_cast.connect(_on_spell_cast)
 	GameState.combat.hero_damaged.connect(_on_hero_damaged)
+	GameState.combat.hero_healed.connect(_on_hero_healed)
 	GameState.combat.enemy_slain.connect(_on_enemy_slain)
 	GameState.combat.enemy_damaged.connect(_on_enemy_damaged)
 	GameState.combat.enemy_defeated.connect(_on_enemy_defeated)
@@ -573,7 +574,7 @@ func _living_actor_count() -> int:
 
 
 func _process(delta: float) -> void:
-	if GameState == null or not GameState.has_hero() or GameState.session_paused:
+	if not is_instance_valid(GameState) or not GameState.has_hero() or GameState.session_paused:
 		return
 
 	_update_damage_numbers(delta)
@@ -907,6 +908,12 @@ func _on_hero_damaged(amount: float) -> void:
 		_hero_sprite.play_action("death")
 
 
+func _on_hero_healed(amount: float) -> void:
+	if amount <= 0.0:
+		return
+	_spawn_damage_number(_popup_pos_for_hero(), amount, "potion_heal")
+
+
 func _on_hero_died() -> void:
 	_cancel_pending_wave_advance()
 	_stop_melee()
@@ -964,7 +971,8 @@ func _advance_melee_turn(phase: String) -> void:
 		"enemy_turn":
 			_play_front_enemy_attack()
 		"idle", "none":
-			pass
+			if GameState.combat != null and GameState.combat.is_melee_idle() and GameState.combat.living_count() > 0 and GameState.hero.hp > 0.0:
+				_schedule_next_combat_round()
 
 
 func _on_enemy_damaged(slot: int, amount: float, source: String) -> void:
@@ -1400,7 +1408,7 @@ func _draw_combat_bars() -> void:
 
 
 func _draw() -> void:
-	if GameState == null or not GameState.has_hero() or size.x < 10.0 or size.y < 10.0:
+	if not is_instance_valid(GameState) or not GameState.has_hero() or size.x < 10.0 or size.y < 10.0:
 		return
 
 	var shake_off := _shake_offset()
@@ -1449,6 +1457,9 @@ func _draw() -> void:
 	])
 	var sky_colors := PackedColorArray([sky_top, sky_top, sky_bottom, sky_bottom])
 	draw_polygon(sky_poly, sky_colors)
+
+	# Parallax distant background
+	_draw_distant_parallax_backdrop(horizon)
 
 	# 2. Perspective Depth Ground Gradient
 	var ground_top := ground
@@ -1840,9 +1851,313 @@ func _draw_void_grid(horizon: float) -> void:
 	for i in range(line_count + 1):
 		var ratio := float(i) / float(line_count)
 		var x_bottom := cx + (ratio - 0.5) * max_spread * 2.5
-		
 		var line_col := Color(neon_col.r, neon_col.g, neon_col.b, neon_col.a * 0.14)
 		draw_line(Vector2(cx, horizon + 2.0), Vector2(x_bottom, size.y), line_col, 1.0)
+
+
+func _draw_distant_parallax_backdrop(horizon: float) -> void:
+	match _biome_id:
+		"desert":
+			_draw_desert_backdrop(horizon)
+		"forest":
+			_draw_forest_backdrop(horizon)
+		"water":
+			_draw_water_backdrop(horizon)
+		"lava":
+			_draw_lava_backdrop(horizon)
+		"snow":
+			_draw_snow_backdrop(horizon)
+		"ruins":
+			_draw_ruins_backdrop(horizon)
+		"industrial":
+			_draw_industrial_backdrop(horizon)
+		"void":
+			_draw_void_backdrop(horizon)
+		_:
+			_draw_desert_backdrop(horizon)
+
+
+func _draw_desert_backdrop(horizon: float) -> void:
+	# Far mountain ridge (dusty red silhouette)
+	_draw_mountain_ridge(horizon, 0.05, Color(0.55, 0.22, 0.18), 35.0, 150.0, 1.2)
+	# Near mountain ridge (darker red/brown silhouette)
+	_draw_mountain_ridge(horizon, 0.10, Color(0.42, 0.16, 0.14), 22.0, 90.0, 0.8)
+
+
+func _draw_mountain_ridge(horizon: float, speed: float, color: Color, height: float, period: float, jitter: float) -> void:
+	var pts := PackedVector2Array()
+	pts.append(Vector2(0.0, horizon + 50.0))
+	
+	var offset := _scroll_x * speed
+	var step := 10.0
+	var steps := int(size.x / step) + 2
+	for i in range(steps):
+		var x := float(i) * step
+		var world_x := x + offset
+		var val := sin(world_x / period) * cos(world_x / (period * 0.45))
+		var peak_y : float = horizon - height * 0.4 - abs(val) * height * 0.9
+		# Sawtooth jaggedness detail
+		peak_y += (fmod(world_x, 12.0) / 12.0) * jitter
+		pts.append(Vector2(x, peak_y))
+		
+	pts.append(Vector2(size.x, horizon + 50.0))
+	draw_polygon(pts, [color])
+
+
+func _draw_forest_backdrop(horizon: float) -> void:
+	# Far pine trees
+	_draw_pine_backdrop_layer(horizon, 0.06, Color(0.18, 0.28, 0.25), 55.0, 32.0)
+	# Near pine trees
+	_draw_pine_backdrop_layer(horizon, 0.12, Color(0.12, 0.2, 0.18), 35.0, 22.0)
+
+
+func _draw_pine_backdrop_layer(horizon: float, speed: float, color: Color, spacing: float, height: float) -> void:
+	var x := _parallax_x(speed, spacing)
+	while x < size.x + spacing:
+		var base_x := x
+		var base_y := horizon + 10.0
+		
+		# Bottom tier triangle
+		var p1 := PackedVector2Array([
+			Vector2(base_x - height * 0.5, base_y),
+			Vector2(base_x + height * 0.5, base_y),
+			Vector2(base_x, base_y - height * 0.6)
+		])
+		draw_polygon(p1, [color])
+		
+		# Top tier triangle
+		var p2 := PackedVector2Array([
+			Vector2(base_x - height * 0.35, base_y - height * 0.4),
+			Vector2(base_x + height * 0.35, base_y - height * 0.4),
+			Vector2(base_x, base_y - height)
+		])
+		draw_polygon(p2, [color])
+		
+		x += spacing
+
+
+func _draw_water_backdrop(horizon: float) -> void:
+	# Far soft tropical rolling hills/islands
+	_draw_rolling_hills(horizon, 0.04, Color(0.35, 0.65, 0.78), 24.0, 220.0)
+	# Near hills/islands
+	_draw_rolling_hills(horizon, 0.09, Color(0.25, 0.55, 0.68), 14.0, 140.0)
+
+
+func _draw_rolling_hills(horizon: float, speed: float, color: Color, height: float, period: float) -> void:
+	var pts := PackedVector2Array()
+	pts.append(Vector2(0.0, horizon + 50.0))
+	
+	var offset := _scroll_x * speed
+	var step := 15.0
+	var steps := int(size.x / step) + 2
+	for i in range(steps):
+		var x := float(i) * step
+		var world_x := x + offset
+		var hill_y := horizon - height * 0.2 + sin(world_x / period) * height * 0.8
+		pts.append(Vector2(x, hill_y))
+		
+	pts.append(Vector2(size.x, horizon + 50.0))
+	draw_polygon(pts, [color])
+
+
+func _draw_lava_backdrop(horizon: float) -> void:
+	# Far cavern pillars
+	_draw_cavern_pillars(horizon, 0.05, Color(0.18, 0.08, 0.08), Color(0.48, 0.16, 0.06), 160.0, 16.0)
+	# Near cavern pillars
+	_draw_cavern_pillars(horizon, 0.10, Color(0.12, 0.05, 0.05), Color(0.65, 0.2, 0.05), 110.0, 22.0)
+	# Stalactites from ceiling
+	_draw_stalactites(0.08, Color(0.15, 0.06, 0.06), 45.0, 22.0)
+
+
+func _draw_cavern_pillars(horizon: float, speed: float, color: Color, highlight: Color, spacing: float, width: float) -> void:
+	var x := _parallax_x(speed, spacing)
+	while x < size.x + spacing:
+		var p_left := x - width * 0.5
+		var p_right := x + width * 0.5
+		
+		# Pillar body
+		var rect := Rect2(p_left, 0.0, width, horizon + 50.0)
+		draw_rect(rect, color)
+		
+		# Orange lava-glow highlight on side
+		var hl_rect := Rect2(p_right - 3.0, 0.0, 3.0, horizon + 50.0)
+		draw_rect(hl_rect, highlight)
+		
+		x += spacing
+
+
+func _draw_stalactites(speed: float, color: Color, spacing: float, max_len: float) -> void:
+	var x := _parallax_x(speed, spacing)
+	while x < size.x + spacing:
+		var h := max_len * (0.6 + 0.4 * sin(x * 0.05))
+		var w := spacing * 0.4
+		var pts := PackedVector2Array([
+			Vector2(x - w * 0.5, 0.0),
+			Vector2(x + w * 0.5, 0.0),
+			Vector2(x, h)
+		])
+		draw_polygon(pts, [color])
+		x += spacing
+
+
+func _draw_snow_backdrop(horizon: float) -> void:
+	# Far ice peaks
+	_draw_ice_peaks(horizon, 0.05, Color(0.48, 0.58, 0.72), 36.0, 110.0)
+	# Near ice peaks
+	_draw_ice_peaks(horizon, 0.10, Color(0.38, 0.48, 0.62), 24.0, 70.0)
+
+
+func _draw_ice_peaks(horizon: float, speed: float, color: Color, height: float, spacing: float) -> void:
+	var x := _parallax_x(speed, spacing)
+	while x < size.x + spacing:
+		var base_x := x
+		var base_y := horizon + 10.0
+		var pts := PackedVector2Array([
+			Vector2(base_x - spacing * 0.6, base_y),
+			Vector2(base_x + spacing * 0.6, base_y),
+			Vector2(base_x, base_y - height),
+			Vector2(base_x - spacing * 0.15, base_y - height * 0.9)
+		])
+		draw_polygon(pts, [color])
+		
+		# Slanted light highlight
+		var hl_pts := PackedVector2Array([
+			Vector2(base_x - spacing * 0.6, base_y),
+			Vector2(base_x, base_y - height),
+			Vector2(base_x - spacing * 0.15, base_y - height * 0.9)
+		])
+		draw_polygon(hl_pts, [color.lightened(0.18)])
+		
+		x += spacing
+
+
+func _draw_ruins_backdrop(horizon: float) -> void:
+	# Far crumbling stone castle
+	_draw_castle_silhouette(horizon, 0.05, Color(0.32, 0.28, 0.28), 160.0, 32.0)
+	# Near stone castle
+	_draw_castle_silhouette(horizon, 0.10, Color(0.24, 0.22, 0.22), 100.0, 20.0)
+
+
+func _draw_castle_silhouette(horizon: float, speed: float, color: Color, spacing: float, height: float) -> void:
+	var x := _parallax_x(speed, spacing)
+	while x < size.x + spacing:
+		var base_y := horizon + 10.0
+		
+		# Tower
+		var tower_w := spacing * 0.25
+		var tower_h := height
+		var tower_rect := Rect2(x - tower_w * 0.5, base_y - tower_h, tower_w, tower_h)
+		draw_rect(tower_rect, color)
+		
+		# Tower teeth
+		var teeth_y := base_y - tower_h - 3.0
+		draw_rect(Rect2(x - tower_w * 0.5, teeth_y, 3.0, 3.0), color)
+		draw_rect(Rect2(x + tower_w * 0.5 - 3.0, teeth_y, 3.0, 3.0), color)
+		
+		# Wall
+		var wall_w := spacing * 0.75
+		var wall_h := height * 0.6
+		var wall_rect := Rect2(x + tower_w * 0.5, base_y - wall_h, wall_w, wall_h)
+		draw_rect(wall_rect, color)
+		
+		# Wall teeth
+		var wall_teeth_y := base_y - wall_h - 2.0
+		var wall_start_x := x + tower_w * 0.5
+		for j in range(3):
+			draw_rect(Rect2(wall_start_x + 5.0 + float(j) * (wall_w / 3.0), wall_teeth_y, 3.0, 2.0), color)
+			
+		# Window
+		var window_w := tower_w * 0.4
+		var window_h := tower_h * 0.3
+		var window_rect := Rect2(x - window_w * 0.5, base_y - tower_h * 0.7, window_w, window_h)
+		draw_rect(window_rect, color.darkened(0.25))
+		
+		x += spacing
+
+
+func _draw_industrial_backdrop(horizon: float) -> void:
+	# Far factory
+	_draw_factory_silhouette(horizon, 0.05, Color(0.18, 0.15, 0.18), 180.0, 35.0)
+	# Near factory
+	_draw_factory_silhouette(horizon, 0.10, Color(0.12, 0.10, 0.12), 110.0, 22.0)
+
+
+func _draw_factory_silhouette(horizon: float, speed: float, color: Color, spacing: float, height: float) -> void:
+	var x := _parallax_x(speed, spacing)
+	while x < size.x + spacing:
+		var base_y := horizon + 10.0
+		
+		# Building block
+		var build_w := spacing * 0.45
+		var build_h := height * 0.7
+		draw_rect(Rect2(x - build_w * 0.5, base_y - build_h, build_w, build_h), color)
+		
+		# Sawtooth roof
+		var roof_pts := PackedVector2Array([
+			Vector2(x - build_w * 0.5, base_y - build_h),
+			Vector2(x - build_w * 0.2, base_y - build_h - height * 0.25),
+			Vector2(x - build_w * 0.2, base_y - build_h),
+			Vector2(x + build_w * 0.1, base_y - build_h - height * 0.25),
+			Vector2(x + build_w * 0.1, base_y - build_h),
+			Vector2(x + build_w * 0.5, base_y - build_h)
+		])
+		draw_polygon(roof_pts, [color])
+		
+		# Chimney
+		var chimney_w := spacing * 0.08
+		var chimney_h := height * 1.2
+		var chimney_x := x + build_w * 0.6
+		draw_rect(Rect2(chimney_x, base_y - chimney_h, chimney_w, chimney_h), color)
+		
+		# Pipe line behind
+		draw_rect(Rect2(x - spacing * 0.5, base_y - height * 0.45, spacing, 2.0), color.darkened(0.15))
+		
+		x += spacing
+
+
+func _draw_void_backdrop(horizon: float) -> void:
+	# 1. Nebula clouds
+	var neb_col1 := Color(0.42, 0.08, 0.55, 0.07)
+	var neb_col2 := Color(0.08, 0.32, 0.62, 0.05)
+	
+	var time := Time.get_ticks_msec() * 0.001
+	var neb_spacing := size.x * 0.6
+	var x_neb := _parallax_x(0.04, neb_spacing)
+	while x_neb < size.x + neb_spacing:
+		var pulse := sin(time + x_neb * 0.02) * 5.0
+		draw_circle(Vector2(x_neb, horizon * 0.35 + pulse), 45.0 + pulse * 0.5, neb_col1)
+		draw_circle(Vector2(x_neb + neb_spacing * 0.5, horizon * 0.5 - pulse), 35.0, neb_col2)
+		x_neb += neb_spacing
+		
+	# 2. Constellations and stars
+	var star_spacing := size.x * 0.45
+	var x_star := _parallax_x(0.02, star_spacing)
+	var star_color := Color(0.85, 0.78, 1.0, 0.68)
+	var line_color := Color(0.52, 0.28, 0.72, 0.15)
+	
+	while x_star < size.x + star_spacing:
+		var s1 := Vector2(x_star, horizon * 0.22)
+		var s2 := Vector2(x_star + 35, horizon * 0.15)
+		var s3 := Vector2(x_star + 60, horizon * 0.38)
+		var s4 := Vector2(x_star - 25, horizon * 0.52)
+		var s5 := Vector2(x_star + 15, horizon * 0.65)
+		
+		draw_line(s1, s2, line_color, 1.0)
+		draw_line(s2, s3, line_color, 1.0)
+		draw_line(s1, s4, line_color, 1.0)
+		draw_line(s4, s5, line_color, 1.0)
+		draw_line(s3, s5, line_color, 1.0)
+		
+		draw_circle(s1, 1.5, star_color)
+		draw_circle(s2, 1.0, star_color)
+		draw_circle(s3, 2.0, star_color)
+		draw_circle(s4, 1.2, star_color)
+		draw_circle(s5, 1.5, star_color)
+		
+		draw_circle(Vector2(x_star - 60, horizon * 0.3), 1.0, star_color * 0.6)
+		draw_circle(Vector2(x_star + 90, horizon * 0.45), 1.0, star_color * 0.6)
+		
+		x_star += star_spacing
 
 
 func _draw_actor_hp_bars(canvas: CanvasItem, ground_y: float) -> void:

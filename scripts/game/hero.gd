@@ -89,15 +89,14 @@ const TALENT_DEFS := {
 		"mod_atk_pct": 25.0
 	},
 	"might_keystone": {
-		"name": "Colossus",
-		"desc": "+20% Attack, +20% HP, +8 Armor",
+		"name": "Blood Magic",
+		"desc": "Skills cost HP instead of Mana. Max Mana is 0. +25% Max HP.",
 		"cost": 3,
 		"cost_gold": 800,
 		"requires": ["might_arm_2", "might_fury"],
 		"row": 0.0, "col": 6.0,
-		"mod_atk_pct": 20.0,
-		"mod_hp_pct": 20.0,
-		"mod_arm": 8.0
+		"is_keystone": true,
+		"keystone_id": "blood_magic"
 	},
 	# Wealth Branch (Left: col < 0)
 	"wealth_1": {
@@ -224,15 +223,14 @@ const TALENT_DEFS := {
 		"mod_xp": 0.10
 	},
 	"wisdom_keystone": {
-		"name": "Ascended Mind",
-		"desc": "+30% XP, +10 Intel, +25 SP",
+		"name": "Chaos Inoculation",
+		"desc": "Max HP is 1. Damage (AP & SP) is boosted by +50%. Mana Regen is doubled.",
 		"cost": 3,
 		"cost_gold": 800,
 		"requires": ["wisdom_regen", "wisdom_power"],
 		"row": -6.0, "col": 0.0,
-		"mod_xp": 0.30,
-		"mod_intel": 10,
-		"mod_sp": 25
+		"is_keystone": true,
+		"keystone_id": "chaos_inoculation"
 	},
 	# Vitality Branch (Bottom: row > 0)
 	"vitality_1": {
@@ -282,15 +280,15 @@ const TALENT_DEFS := {
 		"mod_arm": 4.0
 	},
 	"vitality_keystone": {
-		"name": "Eternal Life",
-		"desc": "+5.0 Life Regen, +30% HP, +50% Potion Efficacy",
+		"name": "Mind Over Matter",
+		"desc": "30% of damage is taken from Mana before Health. +5.0 Life Regen.",
 		"cost": 3,
 		"cost_gold": 850,
 		"requires": ["vitality_potency", "vitality_tank"],
 		"row": 6.0, "col": 0.0,
-		"mod_life_regen": 5.0,
-		"mod_hp_pct": 0.30,
-		"mod_potion_potency": 0.50
+		"is_keystone": true,
+		"keystone_id": "mind_over_matter",
+		"mod_life_regen": 5.0
 	}
 }
 
@@ -504,6 +502,16 @@ func refresh_combat_stats() -> void:
 	max_mana = float(cfg.get("base_max_mana", 40.0)) + float(eq.get("max_mana", 0.0))
 	spell_power = int(cfg.get("base_spell_power", 0)) + int(eq.get("spell_power", 0.0)) + level_spell_power_bonus + get_talent_spell_power_modifier()
 	mana_regen = float(cfg.get("base_mana_regen", 3.0)) * (1.0 + float(eq.get("mana_regen_pct", 0.0)) / 100.0) * (1.0 + get_talent_mana_regen_modifier())
+
+	if has_keystone("blood_magic"):
+		max_hp = float(round(max_hp * 1.25))
+		max_mana = 0.0
+		mana = 0.0
+	elif has_keystone("chaos_inoculation"):
+		max_hp = 1.0
+		spell_power = int(float(spell_power) * 1.5)
+		mana_regen *= 2.0
+
 	intelligence = (level - 1) + get_talent_intelligence_modifier()
 
 	if max_hp > prev_max_hp:
@@ -564,13 +572,42 @@ func attack_power() -> float:
 			base *= 1.25
 		elif fam == "sticks":
 			base *= 0.85
-	return base * (1.0 + get_talent_attack_modifier())
+	var final_atk := base * (1.0 + get_talent_attack_modifier())
+	if has_keystone("chaos_inoculation"):
+		final_atk *= 1.5
+	return final_atk
 
 
 func take_damage(raw_amount: float) -> float:
 	var actual := GameBalanceScript.apply_armor(raw_amount, armor())
+	if has_keystone("mind_over_matter"):
+		var mana_dmg := actual * 0.3
+		var mana_used := minf(mana, mana_dmg)
+		mana -= mana_used
+		actual -= mana_used
 	hp = maxf(0.0, hp - actual)
 	return actual
+
+
+func has_keystone(keystone_id: String) -> bool:
+	for key in unlocked_talents.keys():
+		if unlocked_talents[key] == true:
+			var def = TALENT_DEFS.get(key, {})
+			if def.get("is_keystone", false) == true and def.get("keystone_id", "") == keystone_id:
+				return true
+	return false
+
+
+func respec_talents() -> void:
+	for key in unlocked_talents.keys():
+		if unlocked_talents[key] == true:
+			var def = TALENT_DEFS.get(key, {})
+			talent_points += int(def.get("cost", 1))
+	unlocked_talents.clear()
+	unlocked_talents["nexus"] = true
+	refresh_combat_stats()
+	hp = max_hp
+	mana = max_mana
 
 
 func heal_to_full() -> void:
